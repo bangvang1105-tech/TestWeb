@@ -2,48 +2,68 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { auth } from '@/firebase'; // Import cấu hình Firebase Auth từ file src/firebase.js
+import { auth } from '@/firebase';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [firebaseStatus, setFirebaseStatus] = useState('Đang kiểm tra kết nối Firebase...');
   const router = useRouter();
 
-// Kiểm tra kết nối tới Firebase khi trang web vừa tải xong
+  // Kiểm tra kết nối tới Firebase khi trang web vừa tải xong
   useEffect(() => {
-    // Chỉ cần đối tượng auth tồn tại và app được khởi tạo thành công là đạt yêu cầu
     if (auth && auth.app) {
       setFirebaseStatus(`✅ Kết nối Firebase thành công! (Project: ${auth.app.options.projectId})`);
-      console.log("Firebase App Object:", auth.app);
     } else {
       setFirebaseStatus('❌ Kết nối Firebase thất bại. Vui lòng kiểm tra lại file .env.local');
     }
   }, []);
 
   // Xử lý khi người dùng nhấn nút Đăng nhập
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(''); // Reset lại thông báo lỗi trước đó
+    setError('');
+    setLoading(true);
 
-    // Kiểm tra tài khoản tạm thời (Tài khoản: try / Mật khẩu: try)
-    if (email === 'try' && password === 'try') {
-      // Nếu đúng, điều hướng qua trang chủ (/home)
-      router.push('/home');
-    } else {
-      // Nếu sai, hiển thị thông báo lỗi lên màn hình
-      setError('Tài khoản hoặc mật khẩu không chính xác!');
+    try {
+      const db = getFirestore(auth.app);
+
+      // Truy vấn document có ID trùng với username người dùng nhập
+      const userDocRef = doc(db, 'users', username);
+      const userDocSnap = await getDoc(userDocRef);
+
+      if (userDocSnap.exists()) {
+        const userData = userDocSnap.data();
+
+        // Kiểm tra password có khớp không
+        if (userData.password === password) {
+          // Đăng nhập thành công → điều hướng sang trang chủ
+          router.push('/home');
+        } else {
+          setError('Tài khoản hoặc mật khẩu không chính xác!');
+        }
+      } else {
+        // Không tìm thấy document với username đó
+        setError('Tài khoản hoặc mật khẩu không chính xác!');
+      }
+    } catch (err) {
+      console.error('Lỗi khi đăng nhập:', err);
+      setError('Đã xảy ra lỗi kết nối. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100 px-4 py-12">
-      
+
       {/* 1. Thanh hiển thị trạng thái kết nối Firebase */}
       <div className={`mb-4 w-full max-w-md p-3 text-center text-sm font-medium rounded-xl border shadow-sm transition-all ${
-        firebaseStatus.includes('✅') 
-          ? 'bg-green-50 text-green-700 border-green-200' 
+        firebaseStatus.includes('✅')
+          ? 'bg-green-50 text-green-700 border-green-200'
           : 'bg-yellow-50 text-yellow-700 border-yellow-200'
       }`}>
         {firebaseStatus}
@@ -56,15 +76,8 @@ export default function LoginPage() {
           Đăng Nhập
         </h2>
         <p className="mb-6 text-center text-sm text-gray-500">
-          Sử dụng tài khoản <span className="font-semibold text-gray-700">try</span> và mật khẩu <span className="font-semibold text-gray-700">try</span> để thử nghiệm
+          Nhập tài khoản và mật khẩu của bạn để tiếp tục
         </p>
-
-        {/* Thông báo lỗi (Chỉ hiển thị khi người dùng nhập sai tài khoản/mật khẩu) */}
-        {error && (
-          <div className="mb-5 rounded-lg bg-red-50 p-3 text-center text-sm font-medium text-red-600 border border-red-200">
-            {error}
-          </div>
-        )}
 
         {/* Form nhập liệu */}
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -76,8 +89,8 @@ export default function LoginPage() {
             <input
               type="text"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               placeholder="Nhập tên tài khoản"
               className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
             />
@@ -112,10 +125,18 @@ export default function LoginPage() {
           {/* Nút submit Đăng nhập */}
           <button
             type="submit"
-            className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition duration-200 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            disabled={loading}
+            className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition duration-200 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Đăng nhập
+            {loading ? 'Đang kiểm tra...' : 'Đăng nhập'}
           </button>
+
+          {/* Thông báo lỗi — hiển thị ngay dưới nút đăng nhập */}
+          {error && (
+            <div className="rounded-lg bg-red-50 p-3 text-center text-sm font-medium text-red-600 border border-red-200">
+              {error}
+            </div>
+          )}
         </form>
 
         {/* Chuyển hướng nhanh sang Đăng ký */}
