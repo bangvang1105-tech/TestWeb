@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { doc, getDoc, getFirestore } from 'firebase/firestore'; // Import các hàm xử lý Firestore
+// Import collection, query, where, getDocs để tìm kiếm tài khoản dựa trên Field dữ liệu
+import { collection, query, where, getDocs, getFirestore } from 'firebase/firestore'; 
 import { auth } from '@/firebase'; // File cấu hình Firebase hiện tại của bạn
 import Cookies from 'js-cookie';
 
@@ -23,21 +24,24 @@ export default function LoginPage() {
     setLoading(true); // Bật trạng thái loading khi bắt đầu gửi request lên database
 
     try {
-      // 1. Trỏ thẳng tới Document có ID chính là tên tài khoản trong Collection 'users'
-      const userRef = doc(db, 'users', email.trim());
-      const docSnap = await getDoc(userRef);
+      // 1. Tạo câu lệnh truy vấn: Tìm trong collection 'users' bản ghi có trường 'Taikhoan' khớp với dữ liệu nhập vào
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('Taikhoan', '==', email.trim()));
+      const querySnapshot = await getDocs(q);
 
-      // 2. Kiểm tra xem Document (tài khoản) này có tồn tại không
-      if (!docSnap.exists()) {
+      // 2. Kiểm tra xem có tìm thấy tài khoản nào khớp không
+      if (querySnapshot.empty) {
         setError('Tài khoản không tồn tại trên hệ thống!');
         setLoading(false);
         return;
       }
 
-      const userData = docSnap.data();
+      // Lấy dữ liệu của tài khoản tìm thấy đầu tiên
+      const userDoc = querySnapshot.docs[0];
+      const userData = userDoc.data();
 
-      // 3. Kiểm tra mật khẩu (So sánh chuỗi văn bản thuần)
-      if (userData.matKhau !== password) {
+      // 3. Kiểm tra mật khẩu (Khớp đúng với trường 'Matkhau' viết hoa chữ M trên Firebase của bạn)
+      if (userData.Matkhau !== password) {
         setError('Mật khẩu không chính xác!');
         setLoading(false);
         return;
@@ -47,15 +51,15 @@ export default function LoginPage() {
       Cookies.set('isLoggedIn', 'true', { expires: 7 }); // Hết hạn sau 7 ngày
       
       const infoToSave = {
-        ten: `${userData.ho} ${userData.ten}`,
-        vaiTro: userData.vaiTro, // 'giaoVien' hoặc 'hocsinh'
-        taiKhoan: userData.taiKhoan
+        ten: `${userData.Ho || ''} ${userData.Ten || ''}`.trim(),
+        vaiTro: userData.Vaitro, // Nhận giá trị "Giao vien" từ Firestore
+        taiKhoan: userData.Taikhoan
       };
       Cookies.set('userInfo', JSON.stringify(infoToSave), { expires: 7 });
 
-      // 5. Điều hướng trang dựa trên vai trò (Role-based Routing)
-      if (userData.vaiTro === 'giaoVien') {
-        router.push('/admin/dashboard'); // Nếu là giáo viên, dẫn thẳng tới trang quản trị bài tập
+      // 5. Điều hướng trang dựa trên vai trò (Khớp đúng chuỗi "Giao vien" có dấu cách)
+      if (infoToSave.vaiTro === 'Giao vien') {
+        router.push('/admin/dashboard'); // Nếu là giáo viên, dẫn tới trang quản trị
       } else {
         router.push('/trang-chu'); // Nếu là học sinh, dẫn về trang làm bài tập
       }
@@ -122,7 +126,7 @@ export default function LoginPage() {
           {/* Ghi nhớ & Quên mật khẩu */}
           <div className="flex items-center justify-between text-sm">
             <label className="flex items-center text-gray-600">
-              <input type="checkbox" className="mr-2 rounded border-gray-300 text-green-600" />
+              <input type="checkbox" className="mr-2 rounded border-gray-300 text-blue-600" />
               Ghi nhớ đăng nhập
             </label>
             <a href="#" className="font-medium text-green-600 hover:underline">
