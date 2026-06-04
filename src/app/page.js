@@ -1,31 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { doc, getDoc, getFirestore } from 'firebase/firestore'; // Import các hàm xử lý Firestore
 import { auth } from '@/firebase'; // File cấu hình Firebase hiện tại của bạn
 import Cookies from 'js-cookie';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState(''); // State này đóng vai trò là "Tài khoản"
+  const [email, setEmail] = useState(''); // State đóng vai trò là "Tài khoản"
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false); // Thêm trạng thái chờ khi đang check database
-  const [firebaseStatus, setFirebaseStatus] = useState('Đang kiểm tra kết nối Firebase...');
+  const [loading, setLoading] = useState(false); // Trạng thái chờ khi đang check database
   const router = useRouter();
   
   // Khởi tạo instance của Firestore dựa trên cấu hình Firebase của bạn
   const db = getFirestore(auth.app);
-
-  // Kiểm tra kết nối tới Firebase khi trang web vừa tải xong
-  useEffect(() => {
-    if (auth && auth.app) {
-      setFirebaseStatus(`✅ Kết nối Firebase thành công! (Project: ${auth.app.options.projectId})`);
-      console.log("Firebase App Object:", auth.app);
-    } else {
-      setFirebaseStatus('❌ Kết nối Firebase thất bại. Vui lòng kiểm tra lại file .env.local');
-    }
-  }, []);
 
   // Xử lý khi người dùng nhấn nút Đăng nhập kết nối Firestore
   const handleSubmit = async (e) => {
@@ -82,26 +71,14 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100 px-4 py-12">
       
-      {/* 1. Thanh hiển thị trạng thái kết nối Firebase */}
-      <div className={`mb-4 w-full max-w-md p-3 text-center text-sm font-medium rounded-xl border shadow-sm transition-all ${
-        firebaseStatus.includes('✅') 
-          ? 'bg-green-50 text-green-700 border-green-200' 
-          : 'bg-yellow-50 text-yellow-700 border-yellow-200'
-      }`}>
-        {firebaseStatus}
-      </div>
-
-      {/* 2. Khung Form Đăng nhập chính */}
+      {/* Khung Form Đăng nhập chính */}
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
         {/* Tiêu đề */}
-        <h2 className="mb-2 text-center text-3xl font-bold tracking-tight text-gray-800">
+        <h2 className="mb-6 text-center text-3xl font-bold tracking-tight text-gray-800">
           Đăng Nhập
         </h2>
-        <p className="mb-6 text-center text-sm text-gray-500">
-          Hệ thống quản lý ôn luyện Tiếng Anh trực tuyến
-        </p>
 
-        {/* Thông báo lỗi */}
+        {/* Thông báo lỗi (Chỉ hiện khi có lỗi nhập liệu hoặc lỗi hệ thống) */}
         {error && (
           <div className="mb-5 rounded-lg bg-red-50 p-3 text-center text-sm font-medium text-red-600 border border-red-200">
             {error}
