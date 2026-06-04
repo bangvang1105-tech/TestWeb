@@ -11,6 +11,11 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
+// ==========================================
+// DÁN ĐOẠN CODE KIỂM TRA VÀO ĐÂY:
+console.log("Kiểm tra API Key đọc được từ .env:", process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
+// ==========================================
+
 // Khởi tạo Firebase
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 

@@ -11,10 +11,11 @@ export default function LoginPage() {
   const [firebaseStatus, setFirebaseStatus] = useState('Đang kiểm tra kết nối Firebase...');
   const router = useRouter();
 
-  // Kiểm tra kết nối tới Firebase khi trang web vừa tải xong
+// Kiểm tra kết nối tới Firebase khi trang web vừa tải xong
   useEffect(() => {
-    if (auth && auth.config && auth.config.projectId) {
-      setFirebaseStatus(`✅ Kết nối Firebase thành công! (Project: ${auth.config.projectId})`);
+    // Chỉ cần đối tượng auth tồn tại và app được khởi tạo thành công là đạt yêu cầu
+    if (auth && auth.app) {
+      setFirebaseStatus(`✅ Kết nối Firebase thành công! (Project: ${auth.app.options.projectId})`);
       console.log("Firebase App Object:", auth.app);
     } else {
       setFirebaseStatus('❌ Kết nối Firebase thất bại. Vui lòng kiểm tra lại file .env.local');
