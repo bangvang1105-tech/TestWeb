@@ -2,96 +2,84 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-// Import collection, query, where, getDocs để tìm kiếm tài khoản dựa trên Field dữ liệu
-import { collection, query, where, getDocs, getFirestore } from 'firebase/firestore'; 
-import { auth } from '@/firebase'; // File cấu hình Firebase hiện tại của bạn
+import { doc, getDoc, getFirestore } from 'firebase/firestore'; 
+import { auth } from '@/firebase'; 
 import Cookies from 'js-cookie';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState(''); // State đóng vai trò là "Tài khoản"
+  const [email, setEmail] = useState(''); 
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false); // Trạng thái chờ khi đang check database
+  const [loading, setLoading] = useState(false); 
   const router = useRouter();
   
-  // Khởi tạo instance của Firestore dựa trên cấu hình Firebase của bạn
   const db = getFirestore(auth.app);
 
-  // Xử lý khi người dùng nhấn nút Đăng nhập kết nối Firestore
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(''); 
-    setLoading(true); // Bật trạng thái loading khi bắt đầu gửi request lên database
+    setLoading(true); 
 
     try {
-      // 1. Tạo câu lệnh truy vấn: Tìm trong collection 'users' bản ghi có trường 'Taikhoan' khớp với dữ liệu nhập vào
-      const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('Taikhoan', '==', email.trim()));
-      const querySnapshot = await getDocs(q);
+      // 1. ĐỔI THÀNH 'Users' (Viết hoa chữ U cho khớp chính xác với ảnh Firestore của bạn)
+      const userRef = doc(db, 'Users', email.trim());
+      const docSnap = await getDoc(userRef);
 
-      // 2. Kiểm tra xem có tìm thấy tài khoản nào khớp không
-      if (querySnapshot.empty) {
+      // 2. Kiểm tra xem tài khoản có tồn tại không
+      if (!docSnap.exists()) {
         setError('Tài khoản không tồn tại trên hệ thống!');
         setLoading(false);
         return;
       }
 
-      // Lấy dữ liệu của tài khoản tìm thấy đầu tiên
-      const userDoc = querySnapshot.docs[0];
-      const userData = userDoc.data();
+      const userData = docSnap.data();
 
-      // 3. Kiểm tra mật khẩu (Khớp đúng với trường 'Matkhau' viết hoa chữ M trên Firebase của bạn)
-      if (userData.Matkhau !== password) {
+      // 3. Khớp chính xác với trường 'matKhau' (chữ K viết hoa) trong ảnh của bạn
+      if (userData.matKhau !== password) {
         setError('Mật khẩu không chính xác!');
         setLoading(false);
         return;
       }
 
-      // 4. ĐĂNG NHẬP THÀNH CÔNG -> Lưu thông tin vào Cookie để Header đọc
-      Cookies.set('isLoggedIn', 'true', { expires: 7 }); // Hết hạn sau 7 ngày
+      // 4. Lưu thông tin đăng nhập vào Cookie
+      Cookies.set('isLoggedIn', 'true', { expires: 7 });
       
       const infoToSave = {
-        ten: `${userData.Ho || ''} ${userData.Ten || ''}`.trim(),
-        vaiTro: userData.Vaitro, // Nhận giá trị "Giao vien" từ Firestore
-        taiKhoan: userData.Taikhoan
+        ten: `${userData.ho || ''} ${userData.ten || ''}`.trim() || email,
+        vaiTro: userData.vaiTro || 'giaoVien', // Mặc định quyền giáo viên nếu database chưa có trường vaiTro
+        taiKhoan: userData.taiKhoan
       };
       Cookies.set('userInfo', JSON.stringify(infoToSave), { expires: 7 });
 
-      // 5. Điều hướng trang dựa trên vai trò (Khớp đúng chuỗi "Giao vien" có dấu cách)
-      if (infoToSave.vaiTro === 'Giao vien') {
-        router.push('/admin/dashboard'); // Nếu là giáo viên, dẫn tới trang quản trị
+      // 5. Điều hướng trang
+      if (infoToSave.vaiTro === 'giaoVien') {
+        router.push('/admin/dashboard');
       } else {
-        router.push('/trang-chu'); // Nếu là học sinh, dẫn về trang làm bài tập
+        router.push('/trang-chu');
       }
 
     } catch (err) {
       console.error("Lỗi đăng nhập hệ thống:", err);
       setError('Đã xảy ra lỗi khi kết nối dữ liệu. Vui lòng thử lại!');
     } finally {
-      setLoading(false); // Tắt loading sau khi xử lý xong xuôi
+      setLoading(false);
     }
   };
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100 px-4 py-12">
-      
-      {/* Khung Form Đăng nhập chính */}
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
-        {/* Tiêu đề */}
         <h2 className="mb-6 text-center text-3xl font-bold tracking-tight text-gray-800">
           Đăng Nhập
         </h2>
 
-        {/* Thông báo lỗi (Chỉ hiện khi có lỗi nhập liệu hoặc lỗi hệ thống) */}
         {error && (
           <div className="mb-5 rounded-lg bg-red-50 p-3 text-center text-sm font-medium text-red-600 border border-red-200">
             {error}
           </div>
         )}
 
-        {/* Form nhập liệu */}
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Ô nhập Tài khoản */}
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-700">
               Tài khoản
@@ -107,7 +95,6 @@ export default function LoginPage() {
             />
           </div>
 
-          {/* Ô nhập Mật khẩu */}
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-700">
               Mật khẩu
@@ -123,7 +110,6 @@ export default function LoginPage() {
             />
           </div>
 
-          {/* Ghi nhớ & Quên mật khẩu */}
           <div className="flex items-center justify-between text-sm">
             <label className="flex items-center text-gray-600">
               <input type="checkbox" className="mr-2 rounded border-gray-300 text-blue-600" />
@@ -134,11 +120,10 @@ export default function LoginPage() {
             </a>
           </div>
 
-          {/* Nút submit Đăng nhập màu XANH LÁ SÁNG */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-green-500 px-4 py-3 text-sm font-semibold text-white transition duration-200 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-green-400 flex justify-center items-center dynamic-btn-shadow"
+            className="w-full rounded-lg bg-green-500 px-4 py-3 text-sm font-semibold text-white transition duration-200 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-green-400 flex justify-center items-center"
           >
             {loading ? (
               <span className="flex items-center gap-2">
@@ -152,7 +137,6 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* Chuyển hướng nhanh sang Đăng ký */}
         <p className="mt-8 text-center text-sm text-gray-600">
           Chưa có tài khoản?{' '}
           <a href="#" className="font-medium text-green-600 hover:underline">
