@@ -28,7 +28,7 @@ export default function LoginPage() {
 
       const userData = userSnap.data();
 
-      if (userData.password !== password) {
+      if (userData.matKhau !== password) {
         setError('Mật khẩu không chính xác!');
         return;
       }
