@@ -14,7 +14,7 @@ export default function LoginPage() {
   // Kiểm tra kết nối tới Firebase khi trang web vừa tải xong
   useEffect(() => {
     if (auth && auth.config && auth.config.projectId) {
-      setFirebaseStatus(`✅ Kết nối Firebase thành công! (Project: ${auth.config.projectId})`);
+      setFirebaseStatus(`✅ Kết nối Firebase thành công! (Project: ${auth.app.options.projectId})`);
       console.log("Firebase App Object:", auth.app);
     } else {
       setFirebaseStatus('❌ Kết nối Firebase thất bại. Vui lòng kiểm tra lại file .env.local');
