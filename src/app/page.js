@@ -99,7 +99,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Nhập tên tài khoản"
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-200 disabled:bg-gray-100"
             />
           </div>
 
@@ -115,26 +115,26 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-200 disabled:bg-gray-100"
             />
           </div>
 
           {/* Ghi nhớ & Quên mật khẩu */}
           <div className="flex items-center justify-between text-sm">
             <label className="flex items-center text-gray-600">
-              <input type="checkbox" className="mr-2 rounded border-gray-300 text-blue-600" />
+              <input type="checkbox" className="mr-2 rounded border-gray-300 text-green-600" />
               Ghi nhớ đăng nhập
             </label>
-            <a href="#" className="font-medium text-blue-600 hover:underline">
+            <a href="#" className="font-medium text-green-600 hover:underline">
               Quên mật khẩu?
             </a>
           </div>
 
-          {/* Nút submit Đăng nhập */}
+          {/* Nút submit Đăng nhập màu XANH LÁ SÁNG */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition duration-200 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-blue-400 flex justify-center items-center"
+            className="w-full rounded-lg bg-green-500 px-4 py-3 text-sm font-semibold text-white transition duration-200 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-green-400 flex justify-center items-center dynamic-btn-shadow"
           >
             {loading ? (
               <span className="flex items-center gap-2">
@@ -151,7 +151,7 @@ export default function LoginPage() {
         {/* Chuyển hướng nhanh sang Đăng ký */}
         <p className="mt-8 text-center text-sm text-gray-600">
           Chưa có tài khoản?{' '}
-          <a href="#" className="font-medium text-blue-600 hover:underline">
+          <a href="#" className="font-medium text-green-600 hover:underline">
             Đăng ký ngay
           </a>
         </p>
