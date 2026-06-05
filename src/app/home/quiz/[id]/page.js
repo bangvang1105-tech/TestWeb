@@ -5,8 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import { Roboto } from 'next/font/google';
 
-// Import cấu hình kết nối Firebase từ dự án của bạn
-import { db } from '@/lib/firebase'; 
+// ĐƯỜNG DẪN ĐÃ SỬA: Import từ file firebase.js nằm trong thư mục src
+import { db } from '../../../firebase'; 
 import { doc, getDoc } from 'firebase/firestore'; 
 
 const roboto = Roboto({
@@ -21,18 +21,15 @@ export default function AdvancedQuizPage() {
   const { id } = useParams();
   const router = useRouter();
   
-  // State quản lý dữ liệu
   const [questions, setQuestions] = useState([]);
   const [mediaData, setMediaData] = useState({ imageUrl: '', audioUrl: '' });
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   
-  // State quản lý làm bài
   const [userAnswers, setUserAnswers] = useState({});
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [score, setScore] = useState(null);
 
-  // Ref để cuộn mượt đến câu hỏi được chọn
   const questionRefs = useRef([]);
 
   useEffect(() => {
@@ -40,238 +37,80 @@ export default function AdvancedQuizPage() {
       try {
         setLoading(true);
         
-        // 1. LẤY DỮ LIỆU TỪ FIREBASE (Link Excel + Link Ảnh + Link Audio)
+        // Kiểm tra xem db có tồn tại không
+        if (!db) throw new Error("Không thể kết nối Firebase.");
+
         const docRef = doc(db, "lessons", id);
         const docSnap = await getDoc(docRef);
         
-        if (!docSnap.exists()) {
-          throw new Error("Không tìm thấy dữ liệu bài học này trên Firestore.");
-        }
+        if (!docSnap.exists()) throw new Error(`Không tìm thấy bài học "${id}".`);
 
-        const dataFromFirestore = docSnap.data();
-        const driveLink = dataFromFirestore.drive_link;
-        
-        // Lưu trữ link ảnh và audio lấy từ Firebase vào State công cộng
-        setMediaData({
-          imageUrl: dataFromFirestore.image_url || '',
-          audioUrl: dataFromFirestore.audio_url || ''
-        });
+        const data = docSnap.data();
+        setMediaData({ imageUrl: data.image_url || '', audioUrl: data.audio_url || '' });
 
-        if (!driveLink) {
-          throw new Error("Bài học này chưa được cấu hình link file bài tập Excel.");
-        }
+        if (!data.drive_link) throw new Error("Link Excel chưa được cấu hình.");
 
-        // 2. CHUYỂN ĐỔI LINK DRIVE VÀ DOWNLOAD FILE EXCEL NGẦM
-        const sheetId = driveLink.match(/\/d\/([^/]+)/)?.[1];
-        if (!sheetId) throw new Error("Định dạng link Google Drive không hợp lệ.");
-        const downloadUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`;
-
-        const response = await fetch(downloadUrl);
-        if (!response.ok) throw new Error("Không thể tải file đề bài từ Drive. Hãy kiểm tra quyền chia sẻ.");
-        
-        const arrayBuffer = await response.arrayBuffer();
-        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        
-        if (jsonData.length === 0) throw new Error("File bài tập không có dữ liệu.");
-
-        setQuestions(jsonData);
+        const sheetId = data.drive_link.match(/\/d\/([^/]+)/)?.[1];
+        const res = await fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`);
+        const buffer = await res.arrayBuffer();
+        const wb = XLSX.read(buffer, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        setQuestions(XLSX.utils.sheet_to_json(ws));
         setLoading(false);
       } catch (err) {
-        console.error(err);
-        setErrorMsg(err.message || "Đã xảy ra lỗi hệ thống.");
+        setErrorMsg(err.message);
         setLoading(false);
       }
     }
-
     if (id) fetchFullQuizData();
   }, [id]);
 
-  // Xử lý khi bấm nút số câu ở Vùng 1 để nhảy nhanh đến câu đó
-  const scrollToQuestion = (index) => {
-    setCurrentQuestionIndex(index);
-    questionRefs.current[index]?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'center'
-    });
-  };
-
-  const handleSelectAnswer = (qIndex, option) => {
-    setUserAnswers({ ...userAnswers, [qIndex]: option });
-  };
-
-  const handleSubmitQuiz = () => {
-    let correctCount = 0;
-    questions.forEach((q, index) => {
-      if (userAnswers[index] === String(q.Correct).trim()) {
-        correctCount++;
-      }
-    });
-    setScore({ correct: correctCount, total: questions.length });
-  };
-
-  if (loading) return <div className="p-8 text-center text-gray-500 font-medium">Đang đồng bộ dữ liệu từ Firebase...</div>;
-  
-  if (errorMsg) return (
-    <div className="p-8 text-center max-w-md mx-auto mt-10 bg-red-50 border border-red-200 rounded-xl">
-      <p className="text-red-600 font-semibold mb-4">{errorMsg}</p>
-      <button onClick={() => router.push('/home')} className="bg-white border px-4 py-2 rounded-lg shadow-sm hover:bg-gray-50">Quay lại</button>
-    </div>
-  );
+  if (loading) return <div className="p-10 text-center">Đang tải dữ liệu...</div>;
+  if (errorMsg) return <div className="p-10 text-center text-red-500">{errorMsg}</div>;
 
   return (
     <div className={`h-screen flex flex-col bg-gray-100 ${roboto.className}`}>
-      
-      {/* ===== THANH TOOLBAR TRÊN CÙNG ===== */}
-      <header className="h-14 bg-white border-b border-gray-200 px-6 flex items-center justify-between z-10 shadow-sm">
-        <div className="flex items-center gap-3">
-          <span className="font-extrabold text-gray-800 tracking-wide text-sm bg-gray-100 px-3 py-1.5 rounded-lg">
-            Mã bài: {id}
-          </span>
-        </div>
-        
-        {score === null && (
-          <button
-            onClick={handleSubmitQuiz}
-            style={{ backgroundColor: BRAND }}
-            className="text-white font-bold text-sm px-6 py-2 rounded-lg hover:opacity-90 transition shadow-sm"
-          >
-            Nộp bài làm
-          </button>
-        )}
-        
-        <button onClick={() => router.push('/home')} className="text-sm font-medium text-gray-500 hover:text-gray-800 transition">
-          Thoát
-        </button>
+      <header className="h-14 bg-white border-b px-6 flex items-center justify-between">
+        <span className="font-bold text-sm">Bài: {id}</span>
+        {score === null ? (
+          <button onClick={() => {
+            let c = 0;
+            questions.forEach((q, i) => { if(userAnswers[i] === String(q.Correct).trim()) c++; });
+            setScore({ correct: c, total: questions.length });
+          }} style={{ backgroundColor: BRAND }} className="text-white px-4 py-1.5 rounded text-sm font-bold">Nộp bài</button>
+        ) : <button onClick={() => router.push('/home')} className="text-sm">Thoát</button>}
       </header>
 
-      {/* ===== KHU VỰC CHIA 3 VÙNG CHÍNH ===== */}
       <div className="flex flex-1 overflow-hidden">
-        
-        {/* --- VÙNG 1: DANH SÁCH SỐ CÂU (BÊN TRÁI - CHIẾM 20%) --- */}
-        <aside className="w-1/5 bg-white border-r border-gray-200 p-4 overflow-y-auto flex flex-col justify-between">
-          <div>
-            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Bảng tiến độ</h2>
-            <div className="grid grid-cols-4 gap-2">
-              {questions.map((_, index) => {
-                const isAnswered = userAnswers[index] !== undefined;
-                const isCurrent = currentQuestionIndex === index;
-                
-                return (
-                  <button
-                    key={index}
-                    onClick={() => scrollToQuestion(index)}
-                    style={isCurrent ? { borderColor: BRAND, color: BRAND } : isAnswered ? { backgroundColor: BRAND } : {}}
-                    className={`h-10 rounded-lg text-xs font-bold border flex items-center justify-center transition-all duration-150
-                      ${isCurrent ? 'bg-white border-2' : ''}
-                      ${isAnswered && !isCurrent ? 'text-white border-transparent' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}
-                    `}
-                  >
-                    {index + 1}
-                  </button>
-                );
-              })}
-            </div>
+        <aside className="w-1/5 bg-white border-r p-4 overflow-y-auto">
+          <div className="grid grid-cols-4 gap-2">
+            {questions.map((_, i) => (
+              <button key={i} onClick={() => { setCurrentQuestionIndex(i); questionRefs.current[i]?.scrollIntoView({ behavior: 'smooth' }); }}
+                className={`h-8 rounded ${userAnswers[i] ? 'text-white' : 'text-gray-600'}`}
+                style={{ backgroundColor: userAnswers[i] ? BRAND : '#f3f4f6' }}>{i+1}</button>
+            ))}
           </div>
-          
-          {score !== null && (
-            <div className="p-4 bg-green-50 border border-green-200 rounded-xl text-center shadow-sm">
-              <span className="text-xs font-bold text-green-700 block uppercase">Kết quả</span>
-              <span className="text-2xl font-black text-green-600 block mt-1">{score.correct} / {score.total}</span>
-              <span className="text-[10px] text-gray-400 block mt-1">Đúng {Math.round((score.correct / score.total) * 100)}%</span>
-            </div>
-          )}
         </aside>
 
-        {/* --- VÙNG 2: NỘI DUNG TÀI LIỆU MEDIA (TRUNG TÂM - CHIẾM 40%) --- */}
-        <section className="w-2/5 bg-gray-50 border-r border-gray-200 p-6 overflow-y-auto space-y-6">
-          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Tài liệu tham khảo bài học</h2>
-          
-          {/* A. Hiển thị Audio tổng từ Firestore nếu có */}
-          {mediaData.audioUrl && (
-            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-2">
-              <span className="text-xs font-bold text-gray-500 block">🔊 File âm thanh bài nghe:</span>
-              <audio src={mediaData.audioUrl} controls className="w-full mt-1" />
-            </div>
-          )}
-
-          {/* B. Hiển thị Hình ảnh tổng từ Firestore nếu có */}
-          {mediaData.imageUrl && (
-            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-2">
-              <span className="text-xs font-bold text-gray-500 block">🖼️ Hình ảnh minh họa:</span>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={mediaData.imageUrl} alt="Quiz illustration" className="w-full h-auto rounded-lg object-contain border max-h-64 bg-gray-50" />
-            </div>
-          )}
-
-          {/* C. Hiển thị Đoạn văn bản bóc tách từ câu hiện tại trong Excel nếu có */}
-          {questions[currentQuestionIndex]?.Reading_Text && (
-            <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-2">
-              <span className="text-xs font-bold text-blue-500 block">📝 Bài đọc hiểu (Đoạn văn):</span>
-              <p className="text-sm text-gray-700 leading-relaxed font-normal whitespace-pre-line bg-gray-50 p-4 rounded-lg border border-dashed border-gray-200">
-                {questions[currentQuestionIndex].Reading_Text}
-              </p>
-            </div>
-          )}
-
-          {!mediaData.audioUrl && !mediaData.imageUrl && !questions[currentQuestionIndex]?.Reading_Text && (
-            <div className="h-full flex items-center justify-center text-gray-400 text-xs italic">
-              Bài tập này không yêu cầu tài liệu đính kèm.
-            </div>
-          )}
+        <section className="w-2/5 p-6 overflow-y-auto space-y-4">
+          {mediaData.audioUrl && <audio src={mediaData.audioUrl} controls className="w-full" />}
+          {mediaData.imageUrl && <img src={mediaData.imageUrl} className="w-full rounded" />}
+          {questions[currentQuestionIndex]?.Reading_Text && <p className="whitespace-pre-line text-sm bg-white p-4 rounded">{questions[currentQuestionIndex].Reading_Text}</p>}
         </section>
 
-        {/* --- VÙNG 3: CÂU HỎI & CÁC ĐÁP ÁN TRẮC NGHIỆM (BÊN PHẢI - CHIẾM 40%) --- */}
-        <main className="w-2/5 bg-white p-6 overflow-y-auto space-y-8">
-          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Nội dung câu hỏi luyện tập</h2>
-          
-          {questions.map((q, index) => (
-            <div
-              key={index}
-              ref={(el) => (questionRefs.current[index] = el)}
-              onFocus={() => setCurrentQuestionIndex(index)}
-              onClick={() => setCurrentQuestionIndex(index)}
-              className={`p-5 rounded-xl border transition-all duration-200 scroll-mt-6
-                ${currentQuestionIndex === index ? 'border-green-400 shadow-md bg-green-50/10' : 'border-gray-100 bg-white shadow-sm'}
-              `}
-            >
-              <div className="flex items-start gap-2 mb-4">
-                <span className="text-xs font-extrabold bg-gray-800 text-white px-2 py-0.5 rounded mt-0.5">
-                  Câu {index + 1}
-                </span>
-                <p className="font-bold text-gray-800 text-base flex-1">{q.Question}</p>
-              </div>
-
-              {/* Các nút lựa chọn đáp án */}
-              <div className="space-y-2">
-                {['A', 'B', 'C', 'D'].map((option) => {
-                  const isSelected = userAnswers[index] === option;
-                  return (
-                    <button
-                      key={option}
-                      disabled={score !== null} // Khóa nút khi đã nộp bài
-                      onClick={() => handleSelectAnswer(index, option)}
-                      className={`w-full text-left p-3.5 rounded-xl text-sm transition border flex items-center gap-3
-                        ${isSelected 
-                          ? 'bg-green-100 border-green-400 font-semibold text-green-800 shadow-sm' 
-                          : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                        } ${score !== null ? 'cursor-not-allowed opacity-80' : ''}
-                      `}
-                    >
-                      <span className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold transition-all
-                        ${isSelected ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
-                        {option}
-                      </span>
-                      <span className="flex-1">{q[option]}</span>
-                    </button>
-                  );
-                })}
-              </div>
+        <main className="w-2/5 p-6 overflow-y-auto">
+          {questions.map((q, i) => (
+            <div key={i} ref={(el) => (questionRefs.current[i] = el)} className="mb-6 bg-white p-4 rounded border">
+              <p className="font-bold mb-3">{i+1}. {q.Question}</p>
+              {['A', 'B', 'C', 'D'].map((opt) => (
+                <button key={opt} onClick={() => setUserAnswers({...userAnswers, [i]: opt})}
+                  className={`w-full text-left p-2 mb-1 rounded border ${userAnswers[i] === opt ? 'bg-green-100 border-green-400' : ''}`}>
+                  {opt}: {q[opt]}
+                </button>
+              ))}
             </div>
           ))}
         </main>
-
       </div>
     </div>
   );
