@@ -5,8 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import { Roboto } from 'next/font/google';
 
-// Hãy kiểm tra đường dẫn này để đảm bảo nó trỏ đúng đến file cấu hình Firebase của bạn
-import { db } from '@/lib/firebase'; 
+// Đường dẫn tương đối đã được sửa chuẩn xác hướng ra file firebase.js ở thư mục gốc của bạn
+import { db } from '../../../../../firebase'; 
 import { doc, getDoc } from 'firebase/firestore'; 
 
 const roboto = Roboto({
@@ -45,7 +45,7 @@ export default function AdvancedQuizPage() {
         const docSnap = await getDoc(docRef);
         
         if (!docSnap.exists()) {
-          throw new Error(`Không tìm thấy dữ liệu bài học "${id}" trên Firestore. Hãy kiểm tra lại Document ID.`);
+          throw new Error(`Không tìm thấy dữ liệu bài học "${id}" trên Firestore. Hãy kiểm tra lại Document ID đã tạo trên Firebase.`);
         }
 
         const dataFromFirestore = docSnap.data();
