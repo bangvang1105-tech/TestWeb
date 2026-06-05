@@ -22,6 +22,7 @@ export default function HomePage() {
     router.push('/');
   };
 
+  // Dữ liệu MockData phục vụ render giao diện
   const grammarData = Array.from({ length: 10 }, (_, i) => ({
     id: i + 1,
     title: `Bài ${i + 1}: ${[
@@ -51,7 +52,12 @@ export default function HomePage() {
     score: i % 3 === 2 ? `${9 + (i % 2)}/10` : '0/10'
   }));
 
-  // ---- type được truyền vào để tạo URL đúng ----
+  // Điều hướng người dùng sang trang làm bài
+  const handleNavigation = (type, id) => {
+    router.push(`/lesson?type=${type}&id=${id}`);
+  };
+
+  // ---- Xử lý render danh sách thẻ bài tập ----
   const renderCards = (dataList, type) => {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4 justify-items-start">
@@ -60,6 +66,7 @@ export default function HomePage() {
             key={item.id}
             className="w-[378px] h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200"
           >
+            {/* Header Thẻ: Tiêu đề & Điểm số */}
             <div className="flex justify-between items-start gap-2">
               <h3 className="font-bold text-gray-800 text-sm line-clamp-1 flex-1">
                 {item.title}
@@ -69,7 +76,9 @@ export default function HomePage() {
               </span>
             </div>
 
+            {/* Footer Thẻ: Trạng thái hiển thị & Tổ hợp các Nút bấm */}
             <div className="flex justify-between items-center mt-2">
+              {/* Badge trạng thái học tập */}
               <span className={`text-xs font-bold px-2 py-1 rounded-md
                 ${item.status === 'Đã làm' ? 'bg-green-100 text-green-700' : ''}
                 ${item.status === 'Đang làm' ? 'bg-amber-100 text-amber-700' : ''}
@@ -78,22 +87,52 @@ export default function HomePage() {
                 {item.status}
               </span>
 
-              {item.status === 'Đã làm' ? (
-                <button
-                  style={{ border: `1px solid ${BRAND}`, color: BRAND }}
-                  className="text-xs font-bold px-3 py-1.5 rounded-lg bg-transparent hover:bg-green-50 transition duration-150"
-                >
-                  Xem lại bài
-                </button>
-              ) : (
-                <button
-                  onClick={() => router.push(`/lesson?type=${type}&id=${item.id}`)}
-                  style={{ backgroundColor: BRAND }}
-                  className="text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:opacity-90 transition duration-150"
-                >
-                  Làm bài
-                </button>
-              )}
+              {/* Phân tách logic hiển thị Button hành động dựa trên status */}
+              <div className="flex items-center gap-2">
+                
+                {/* TRƯỜNG HỢP 1: CHƯA LÀM */}
+                {item.status === 'Chưa làm' && (
+                  <button
+                    onClick={() => handleNavigation(type, item.id)}
+                    style={{ backgroundColor: BRAND }}
+                    className="text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:opacity-90 transition duration-150"
+                  >
+                    Làm bài
+                  </button>
+                )}
+
+                {/* TRƯỜNG HỢP 2: ĐANG LÀM DỞ */}
+                {item.status === 'Đang làm' && (
+                  <button
+                    onClick={() => handleNavigation(type, item.id)}
+                    style={{ backgroundColor: BRAND }}
+                    className="text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:opacity-90 transition duration-150 whitespace-nowrap"
+                  >
+                    Tiếp tục làm bài
+                  </button>
+                )}
+
+                {/* TRƯỜNG HỢP 3: ĐÃ LÀM XONG (HIỆN 2 NÚT) */}
+                {item.status === 'Đã làm' && (
+                  <>
+                    <button
+                      onClick={() => handleNavigation(type, item.id)} // Hoặc link review tùy kiến trúc của bạn
+                      style={{ border: `1px solid ${BRAND}`, color: BRAND }}
+                      className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-transparent hover:bg-green-50 transition duration-150 whitespace-nowrap"
+                    >
+                      Xem lại bài
+                    </button>
+                    <button
+                      onClick={() => handleNavigation(type, item.id)}
+                      style={{ backgroundColor: BRAND }}
+                      className="text-white text-xs font-bold px-2.5 py-1.5 rounded-lg hover:opacity-90 transition duration-150 whitespace-nowrap"
+                    >
+                      Làm lại bài
+                    </button>
+                  </>
+                )}
+
+              </div>
             </div>
           </div>
         ))}
