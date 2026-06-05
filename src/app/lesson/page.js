@@ -40,6 +40,13 @@ function parseExcel(arrayBuffer) {
         questions: [],
       };
     }
+
+    // Chuẩn hóa đáp án: Hỗ trợ cả dạng số (1,2,3,4) và dạng chữ (A,B,C,D)
+    let rawAns = String(q.answer).toUpperCase().trim();
+    if (rawAns === '1') rawAns = 'A';
+    if (rawAns === '2') rawAns = 'B';
+    if (rawAns === '3') rawAns = 'C';
+    if (rawAns === '4') rawAns = 'D';
     
     groupMap[gid].questions.push({
       question_id: q.question_id,
@@ -48,7 +55,7 @@ function parseExcel(arrayBuffer) {
       B: q.B, 
       C: q.C, 
       D: q.D,
-      answer: String(q.answer).toUpperCase().trim(),
+      answer: rawAns,
       explanation: q.explanation || '',
     });
   });
@@ -213,7 +220,6 @@ function LessonContent() {
     load();
   }, [lessonId, CURRENT_USER_ID]);
 
-  // 🛠️ ĐỒNG BỘ ĐẾM SỐ CÂU ĐÃ CHỌN CHUẨN XÁC THEO TỪNG BÀI HỌC RIÊNG BIỆT
   const currentLessonAnswerCount = allQuestions.filter(q => answers[q.question_id] !== undefined).length;
 
   const handleSelect = async (qid, option) => {
@@ -261,10 +267,11 @@ function LessonContent() {
   const currentQ = allQuestions[currentQIndex];
   const currentGroup = currentQ?.groupRef;
 
-  // ─── ĐÃ SỬA LẠI HOÀN TOÀN LOGIC ĐÁP ÁN ĐÚNG/SAI TRỰC QUAN ───────────────────
+  // ─── CHUẨN HÓA LOGIC HIỂN THỊ MÀU SẮC ĐÁP ÁN ĐÚNG/SAI ──────────────────────
   const getOptionStyle = (qid, option) => {
     const selected = answers[qid] === option;
-    const correctAnswer = allQuestions.find(q => q.question_id === qid)?.answer;
+    const targetQ = allQuestions.find(q => q.question_id === qid);
+    const correctAnswer = targetQ ? targetQ.answer : '';
     const isCorrect = option === correctAnswer;
 
     if (!submitted) {
@@ -275,21 +282,23 @@ function LessonContent() {
       };
     }
     
-    // ƯU TIÊN 1: Đáp án đúng thực tế của câu hỏi luôn bôi xanh lá bất kể học viên chọn gì
+    // TRƯỜNG HỢP XEM LẠI BÀI:
+    // 1. Ô đáp án đúng thực tế -> Luôn luôn hiển thị màu xanh lá (Bất kể học viên chọn câu nào)
     if (isCorrect) {
       return { border: '1.5px solid #4ade80', background: '#f0fdf4', color: '#166534' };
     }
-    // ƯU TIÊN 2: Nếu học viên chọn trúng đáp án sai, bôi đỏ đáp án đó
+    // 2. Ô học viên chọn dính đáp án sai -> Hiện màu đỏ
     if (selected && !isCorrect) {
       return { border: '1.5px solid #f87171', background: '#fef2f2', color: '#991b1b' };
     }
-    // Các đáp án không liên quan để mờ bình thường
+    // 3. Các ô sai còn lại -> Làm mờ đi
     return { border: '0.5px solid #e2e8f0', background: '#fff', color: '#cbd5e1' };
   };
 
   const getKeyStyle = (qid, option) => {
     const selected = answers[qid] === option;
-    const correctAnswer = allQuestions.find(q => q.question_id === qid)?.answer;
+    const targetQ = allQuestions.find(q => q.question_id === qid);
+    const correctAnswer = targetQ ? targetQ.answer : '';
     const isCorrect = option === correctAnswer;
 
     if (!submitted) {
@@ -380,7 +389,6 @@ function LessonContent() {
       <header style={{ background: BRAND, padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <button onClick={() => router.back()} style={{ background: 'rgba(255,255,255,0.25)', border: 'none', borderRadius: 6, padding: '4px 10px', color: BRAND_DARK, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>← Thoát</button>
         <span style={{ color: BRAND_DARK, fontWeight: 700, fontSize: 14 }}>{lessonMeta?.title || 'Bài làm'} {submitted && "(Chế độ xem lại đáp án)"}</span>
-        {/* SỬA LỖI ĐẾM SỐ CÂU ĐÃ CHỌN CHUẨN XÁC TẠI ĐÂY */}
         <span style={{ color: BRAND_DARK, fontSize: 12, fontWeight: 500 }}>Đã chọn: {currentLessonAnswerCount}/{totalQuestions} câu</span>
       </header>
 
@@ -441,10 +449,13 @@ function LessonContent() {
                     </button>
                   ))}
                 </div>
-                {submitted && currentQ.explanation && (
+                {/* HIỂN THỊ KHỐI GIẢI THÍCH CHI TIẾT */}
+                {submitted && (
                   <div style={{ margin: '0 12px 12px', padding: '10px 12px', background: '#f0fdf4', borderRadius: 8, border: '0.5px solid #86efac' }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: '#166534', marginBottom: 4 }}>💡 Phân tích & Giải thích chi tiết</div>
-                    <p style={{ fontSize: 12, color: '#166534', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-line' }}>{currentQ.explanation}</p>
+                    <p style={{ fontSize: 12, color: '#166534', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-line' }}>
+                      {currentQ.explanation ? currentQ.explanation : "Câu hỏi này hiện chưa cập nhật văn bản giải thích chi tiết."}
+                    </p>
                   </div>
                 )}
               </div>
