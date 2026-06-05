@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 // Màu neon ấm dùng chung — chỉnh 1 chỗ này là áp dụng toàn trang
-const BRAND = '#3dbe7a';
+const BRAND = '#4ade80';
 
 export default function HomePage() {
   const router = useRouter();
