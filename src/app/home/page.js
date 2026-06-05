@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, useEffect, useRef } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Roboto } from 'next/font/google';
 import { db } from '@/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import * as XLSX from 'xlsx';
 
 const roboto = Roboto({
   weight: ['400', '500', '700', '900'],
@@ -13,280 +14,427 @@ const roboto = Roboto({
 });
 
 const BRAND = '#4ade80';
-const CURRENT_USER_ID = "hoc_vien_01"; // Khớp chính xác với userId bên trang làm bài
+const BRAND_DARK = '#14532d';
+const BRAND_LIGHT = '#f0fdf4';
 
-export default function HomePage() {
-  const router = useRouter();
-  const [activeMenu, setActiveMenu] = useState('Tổng quan');
-  const [userProgress, setUserProgress] = useState({});
-  const [loadingProgress, setLoadingProgress] = useState(true);
+// Cơ chế tự động lấy động ID học viên đã đăng nhập từ localStorage, nếu không có sẽ dùng mặc định
+const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') || 'hoc_vien_01' : 'hoc_vien_01';
 
-  // Lấy dữ liệu tiến trình thực tế từ Database Firestore
-  useEffect(() => {
-    async function fetchProgress() {
-      try {
-        const querySnapshot = await getDocs(
-          collection(db, 'users', CURRENT_USER_ID, 'progress')
-        );
-        const progressMap = {};
-        querySnapshot.forEach((docSnap) => {
-          progressMap[docSnap.id] = docSnap.data();
-        });
-        setUserProgress(progressMap);
-      } catch (err) {
-        console.error("Lỗi đồng bộ tiến trình học viên: ", err);
-      } finally {
-        setLoadingProgress(false);
-      }
-    }
-    fetchProgress();
-  }, [activeMenu]);
+// ─── XỬ LÝ PARSE EXCEL ────────────────────────────────────────────────────────
+function parseExcel(arrayBuffer) {
+  const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+  const firstSheetName = workbook.SheetNames[0];
+  const qSheet = workbook.Sheets[firstSheetName];
+  const questions = qSheet ? XLSX.utils.sheet_to_json(qSheet, { defval: '' }) : [];
 
-  const menuItems = ['Tổng quan', 'Khóa học', 'Ngữ pháp', 'Từ vựng', 'Bài tập'];
-
-  const handleLogout = () => {
-    router.push('/');
-  };
-
-  const rawGrammarData = Array.from({ length: 10 }, (_, i) => ({
-    id: i + 1,
-    title: `Bài ${i + 1}: ${[
-      'Thì Hiện tại đơn', 'Thì Hiện tại tiếp diễn', 'Thì Quá khứ đơn',
-      'Thì Tương lai đơn', 'Mệnh đề quan hệ', 'Câu bị động',
-      'Câu điều kiện loại 1', 'Câu điều kiện loại 2', 'Động từ khuyết thiếu', 'Danh động từ'
-    ][i] || 'Chủ đề Ngữ pháp'}`
-  }));
-
-  const rawVocabularyData = Array.from({ length: 10 }, (_, i) => ({
-    id: i + 1,
-    title: `Chủ đề ${i + 1}: ${[
-      'Office (Văn phòng)', 'Travel (Du lịch)', 'Marketing (Quảng cáo)',
-      'Finance (Tài chính)', 'Technology (Công nghệ)', 'Health (Sức khỏe)',
-      'Shopping (Mua sắm)', 'Entertainment (Giải trí)', 'Transportation (Giao thông)', 'Personnel (Nhân sự)'
-    ][i] || 'Chủ đề Từ vựng'}`
-  }));
-
-  const rawExerciseData = Array.from({ length: 10 }, (_, i) => ({
-    id: i + 1,
-    title: `Đề Luyện tập số ${i + 1}`
-  }));
-
-  const buildDisplayData = (rawData, prefixType) => {
-    return rawData.map(item => {
-      const targetLessonId = `${prefixType}_${item.id}`; 
-      const progress = userProgress[targetLessonId];
-
-      let status = 'Chưa làm';
-      let scoreText = '0/10';
-
-      if (progress) {
-        if (progress.status === 'completed') {
-          status = 'Đã làm';
-          scoreText = `${progress.score}/${progress.totalQuestions || 10}`;
-        } else if (progress.status === 'in_progress') {
-          status = 'Đang làm';
-          scoreText = `0/${progress.totalQuestions || 10}`;
-        }
-      }
-
-      return {
-        ...item,
-        status,
-        score: scoreText
+  const groupMap = {};
+  questions.forEach((q) => {
+    if (!q.question_id) return;
+    const gid = (q.group_id !== undefined && q.group_id !== '') ? q.group_id : q.question_id;
+    
+    if (!groupMap[gid]) {
+      groupMap[gid] = {
+        group_id: gid,
+        image_url: q.image_url || '',
+        audio_url: q.audio_url || '',
+        passage: q.passage || '',
+        questions: [],
       };
+    }
+    
+    groupMap[gid].questions.push({
+      question_id: q.question_id,
+      question: q.question,
+      A: q.A, 
+      B: q.B, 
+      C: q.C, 
+      D: q.D,
+      answer: String(q.answer).toUpperCase().trim(),
+      explanation: q.explanation || '',
     });
+  });
+
+  return {
+    config: {}, 
+    groups: Object.values(groupMap),
+    totalQuestions: questions.length,
   };
+}
 
-  const handleNavigation = (type, id) => {
-    router.push(`/lesson?type=${type}&id=${id}`);
-  };
+// ─── AUDIO PLAYER ─────────────────────────────────────────────────────────────
+function AudioPlayer({ url }) {
+  const audioRef = useRef(null);
+  const [playing, setPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [currentTime, setCurrentTime] = useState('0:00');
+  const [duration, setDuration] = useState('0:00');
 
-  const renderCards = (rawDataList, type) => {
-    if (loadingProgress) {
-      return <p style={{ color: '#94a3b8', fontSize: 12, marginTop: 16 }}>Đang kiểm tra tiến trình học viên...</p>;
-    }
+  const fmt = (s) => `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
 
-    const dataList = buildDisplayData(rawDataList, type);
-
-    return (
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(378px, 1fr))', gap: 24, marginTop: 16, width: '100%' }}>
-        {dataList.map((item) => (
-          <div
-            key={item.id}
-            style={{
-              width: 378,
-              height: 114,
-              borderRadius: 12,
-              border: '1px solid #e2e8f0',
-              backgroundColor: '#fff',
-              boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-              padding: 16,
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              transition: 'all 0.2s'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 8 }}>
-              <h3 style={{ fontWeight: 700, color: '#1e293b', fontSize: 14, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', flex: 1 }}>
-                {item.title}
-              </h3>
-              <span style={{ fontSize: 12, fontWeight: 600, padding: '2px 8px', backgroundColor: '#f1f5f9', color: '#475569', borderRadius: 4, whiteSpace: 'nowrap' }}>
-                Điểm: {item.score}
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-              <span style={{
-                fontSize: 12,
-                fontWeight: 700,
-                padding: '4px 8px',
-                borderRadius: 6,
-                backgroundColor: item.status === 'Đã làm' ? '#dcfce7' : item.status === 'Đang làm' ? '#fef3c7' : '#f1f5f9',
-                color: item.status === 'Đã làm' ? '#166534' : item.status === 'Đang làm' ? '#92400e' : '#64748b'
-              }}>
-                {item.status}
-              </span>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {item.status === 'Chưa làm' && (
-                  <button
-                    onClick={() => handleNavigation(type, item.id)}
-                    style={{ backgroundColor: BRAND, color: '#14532d', fontSize: 12, fontWeight: 700, padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer' }}
-                  >
-                    Làm bài
-                  </button>
-                )}
-
-                {item.status === 'Đang làm' && (
-                  <button
-                    onClick={() => handleNavigation(type, item.id)}
-                    style={{ backgroundColor: BRAND, color: '#14532d', fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                  >
-                    Tiếp tục làm bài
-                  </button>
-                )}
-
-                {item.status === 'Đã làm' && (
-                  <>
-                    <button
-                      onClick={() => handleNavigation(type, item.id)} 
-                      style={{ border: `1px solid ${BRAND}`, color: '#166534', backgroundColor: 'transparent', fontSize: 12, fontWeight: 700, padding: '6px 10px', borderRadius: 8, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                    >
-                      Xem lại bài
-                    </button>
-                    <button
-                      onClick={() => handleNavigation(type, item.id)}
-                      style={{ backgroundColor: BRAND, color: '#14532d', fontSize: 12, fontWeight: 700, padding: '6px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                    >
-                      Làm lại bài
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  const renderContent = () => {
-    switch (activeMenu) {
-      case 'Tổng quan':
-        return (
-          <div>
-            <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1e293b', marginBottom: 16, margin: 0 }}>Tiến trình học tập</h2>
-            <p style={{ color: '#475569', fontSize: 14, margin: 0 }}>Chào mừng bạn quay trở lại lớp học của Thầy Băng. Chọn các mục bên thanh điều hướng để bắt đầu học tập.</p>
-          </div>
-        );
-
-      case 'Khóa học':
-        return (
-          <div>
-            <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1e293b', marginBottom: 16, margin: 0 }}>Khóa học của bạn</h2>
-            <p style={{ color: '#475569', fontSize: 14, margin: 0 }}>Danh sách các khóa học TOEIC trực tuyến.</p>
-          </div>
-        );
-
-      case 'Ngữ pháp':
-        return (
-          <div>
-            <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1e293b', marginBottom: 16, margin: 0 }}>Grammar (Ngữ pháp)</h2>
-            {renderCards(rawGrammarData, 'grammar')}
-          </div>
-        );
-
-      case 'Từ vựng':
-        return (
-          <div>
-            <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1e293b', marginBottom: 16, margin: 0 }}>Vocabulary (Từ vựng)</h2>
-            {renderCards(rawVocabularyData, 'vocabulary')}
-          </div>
-        );
-
-      case 'Bài tập':
-        return (
-          <div>
-            <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1e293b', marginBottom: 16, margin: 0 }}>Exercises (Bài tập)</h2>
-            {renderCards(rawExerciseData, 'exercise')}
-          </div>
-        );
-
-      default:
-        return <p style={{ color: '#64748b' }}>Đang tải dữ liệu...</p>;
-    }
+  const toggle = () => {
+    if (!audioRef.current) return;
+    playing ? audioRef.current.pause() : audioRef.current.play();
+    setPlaying(!playing);
   };
 
   return (
-    <div className={roboto.className} style={{ minHeight: '100vh', backgroundColor: '#f8fafc', display: 'flex', flexDirection: 'column' }}>
-      {/* ===== HEADER BAR ===== */}
-      <header style={{ backgroundColor: BRAND, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50 }}>
-        <span style={{ color: '#fff', fontWeight: 700, fontSize: 20, letterSpacing: '0.05em' }}>TOEIC Thầy Băng</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <span style={{ color: '#fff', fontSize: 14, fontWeight: 500 }}>Hellu babe</span>
-          <button onClick={handleLogout} style={{ color: '#166534', backgroundColor: '#fff', fontWeight: 600, fontSize: 14, padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)' }}>Đăng xuất</button>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#f8fafc', border: '0.5px solid #e2e8f0', borderRadius: 8, padding: '8px 12px' }}>
+      <audio
+        ref={audioRef}
+        src={url}
+        onTimeUpdate={(e) => {
+          const t = e.target;
+          setProgress(t.duration ? (t.currentTime / t.duration) * 100 : 0);
+          setCurrentTime(fmt(t.currentTime));
+        }}
+        onLoadedMetadata={(e) => setDuration(fmt(e.target.duration))}
+        onEnded={() => setPlaying(false)}
+      />
+      <button onClick={toggle} style={{ width: 32, height: 32, borderRadius: '50%', background: BRAND, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        {playing
+          ? <svg width="12" height="12" viewBox="0 0 12 12" fill={BRAND_DARK}><rect x="1" y="1" width="3.5" height="10" rx="1"/><rect x="7.5" y="1" width="3.5" height="10" rx="1"/></svg>
+          : <svg width="12" height="12" viewBox="0 0 12 12" fill={BRAND_DARK}><polygon points="2,1 11,6 2,11"/></svg>
+        }
+      </button>
+      <div style={{ flex: 1, height: 4, background: '#e2e8f0', borderRadius: 2, cursor: 'pointer' }}
+        onClick={(e) => {
+          if (!audioRef.current?.duration) return;
+          const rect = e.currentTarget.getBoundingClientRect();
+          audioRef.current.currentTime = ((e.clientX - rect.left) / rect.width) * audioRef.current.duration;
+        }}
+      >
+        <div style={{ width: `${progress}%`, height: 4, background: BRAND, borderRadius: 2, transition: 'width 0.1s linear' }} />
+      </div>
+      <span style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap' }}>{currentTime} / {duration}</span>
+    </div>
+  );
+}
+
+// ─── CONTENT ZONE (ZONE B) ────────────────────────────────────────────────────
+const blockStyle = { border: '0.5px solid #e2e8f0', borderRadius: 8, overflow: 'hidden', background: '#fff' };
+const blockLabelStyle = { fontSize: 11, color: '#64748b', padding: '5px 12px', background: '#f8fafc', borderBottom: '0.5px solid #e2e8f0', fontWeight: 500 };
+
+function ContentZone({ group }) {
+  const hasImage = !!group.image_url;
+  const hasAudio = !!group.audio_url;
+  const hasPassage = !!group.passage;
+
+  if (!hasImage && !hasAudio && !hasPassage) {
+    return <div style={{ padding: 20, color: '#94a3b8', fontSize: 13, textAlign: 'center' }}>Câu hỏi độc lập — không có nội dung đính kèm.</div>;
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {hasImage && (
+        <div style={blockStyle}>
+          <div style={blockLabelStyle}>🖼 Hình ảnh</div>
+          <div style={{ padding: 10 }}>
+            <img src={group.image_url} alt="Nội dung" style={{ width: '100%', borderRadius: 6, objectFit: 'contain', maxHeight: 240 }} />
+          </div>
         </div>
+      )}
+      {hasAudio && (
+        <div style={blockStyle}>
+          <div style={blockLabelStyle}>🎵 Audio</div>
+          <div style={{ padding: 10 }}><AudioPlayer url={group.audio_url} /></div>
+        </div>
+      )}
+      {hasPassage && (
+        <div style={blockStyle}>
+          <div style={blockLabelStyle}>📄 Đoạn văn</div>
+          <div style={{ padding: '10px 14px' }}>
+            <p style={{ fontSize: 13, lineHeight: 1.9, color: '#334155', whiteSpace: 'pre-line', margin: 0 }}>{group.passage}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── MAIN LESSON CONTENT ──────────────────────────────────────────────────────
+function LessonContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const type = searchParams.get('type');
+  const id = searchParams.get('id');
+  const lessonId = `${type}_${id}`; 
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [lessonMeta, setLessonMeta] = useState(null);
+  const [allQuestions, setAllQuestions] = useState([]);
+  const [totalQuestions, setTotalQuestions] = useState(0);
+  const [currentQIndex, setCurrentQIndex] = useState(0);
+  const [answers, setAnswers] = useState({});
+  const [submitted, setSubmitted] = useState(false);
+  const [score, setScore] = useState(null);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        // 1. Tải cấu hình bài học từ collection "lessons"
+        const snap = await getDoc(doc(db, 'lessons', lessonId));
+        if (!snap.exists()) throw new Error('Không tìm thấy cấu hình bài học này trên hệ thống.');
+        const meta = snap.data();
+        setLessonMeta(meta);
+
+        // ĐÃ SỬA: Đọc chính xác trường fileUrl viết hoa đồng bộ với Firebase của bạn
+        if (!meta.fileUrl) throw new Error('Bài học chưa được cấu hình đường dẫn fileUrl.');
+
+        // 2. Tải và xử lý tệp Excel từ link URL liên kết
+        const res = await fetch(meta.fileUrl);
+        if (!res.ok) throw new Error('Không thể tải tệp dữ liệu bài học. Vui lòng kiểm tra lại quyền chia sẻ liên kết.');
+        const buffer = await res.arrayBuffer();
+
+        const { groups, totalQuestions: total } = parseExcel(buffer);
+        setTotalQuestions(total);
+
+        const flat = [];
+        groups.forEach((g) => {
+          g.questions.forEach((q) => flat.push({ ...q, groupRef: g }));
+        });
+        setAllQuestions(flat);
+
+        // 3. Nạp lại tiến trình của người dùng (nếu có) từ database
+        const progressSnap = await getDoc(
+          doc(db, 'users', CURRENT_USER_ID, 'progress', lessonId)
+        );
+        if (progressSnap.exists()) {
+          const progressData = progressSnap.data();
+          setAnswers(progressData.answers || {});
+          if (progressData.status === 'completed') {
+            setScore(progressData.score);
+            setSubmitted(true);
+          }
+        }
+      } catch (err) {
+        setError(err.message || 'Đã xảy ra lỗi hệ thống.');
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [lessonId]);
+
+  const handleSelect = async (qid, option) => {
+    if (submitted) return;
+    
+    const updatedAnswers = { ...answers, [qid]: option };
+    setAnswers(updatedAnswers);
+
+    try {
+      // Đồng bộ trạng thái "in_progress" khi học viên tích chọn đáp án câu hỏi
+      await setDoc(doc(db, 'users', CURRENT_USER_ID, 'progress', lessonId), {
+        status: 'in_progress',
+        answers: updatedAnswers,
+        score: 0,
+        totalQuestions: totalQuestions,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    } catch (e) {
+      console.error("Lỗi đồng bộ tiến trình học: ", e);
+    }
+  };
+
+  const handleSubmit = async () => {
+    let correct = 0;
+    allQuestions.forEach((q) => { 
+      if (answers[q.question_id] === q.answer) correct++; 
+    });
+    
+    setScore(correct);
+    setSubmitted(true);
+
+    try {
+      // Lưu kết quả "completed" kèm điểm số chính xác lên Firestore
+      await setDoc(doc(db, 'users', CURRENT_USER_ID, 'progress', lessonId), {
+        status: 'completed',
+        answers: answers,
+        score: correct,
+        totalQuestions: totalQuestions,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    } catch (e) {
+      console.error("Lỗi ghi điểm nộp bài: ", e);
+    }
+  };
+
+  const currentQ = allQuestions[currentQIndex];
+  const currentGroup = currentQ?.groupRef;
+
+  const getOptionStyle = (qid, option) => {
+    const selected = answers[qid] === option;
+    const correctAnswer = allQuestions.find(q => q.question_id === qid)?.answer;
+    const isCorrect = option === correctAnswer;
+    if (!submitted) return { border: selected ? `1.5px solid ${BRAND}` : '0.5px solid #e2e8f0', background: selected ? BRAND_LIGHT : '#fff', color: selected ? '#166534' : '#334155' };
+    if (isCorrect) return { border: '1.5px solid #4ade80', background: '#f0fdf4', color: '#166534' };
+    if (selected && !isCorrect) return { border: '1.5px solid #f87171', background: '#fef2f2', color: '#991b1b' };
+    return { border: '0.5px solid #e2e8f0', background: '#fff', color: '#94a3b8' };
+  };
+
+  const getKeyStyle = (qid, option) => {
+    const selected = answers[qid] === option;
+    const correctAnswer = allQuestions.find(q => q.question_id === qid)?.answer;
+    const isCorrect = option === correctAnswer;
+    if (!submitted) return { background: selected ? BRAND : 'transparent', color: selected ? BRAND_DARK : '#94a3b8', border: selected ? `1px solid ${BRAND}` : '0.5px solid #e2e8f0' };
+    if (isCorrect) return { background: '#4ade80', color: BRAND_DARK, border: '1px solid #4ade80' };
+    if (selected && !isCorrect) return { background: '#f87171', color: '#fff', border: '1px solid #f87171' };
+    return { background: 'transparent', color: '#cbd5e1', border: '0.5px solid #e2e8f0' };
+  };
+
+  if (loading) {
+    return (
+      <div className={roboto.className} style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', gap: 16 }}>
+        <div style={{ width: 40, height: 40, border: `3px solid ${BRAND}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <p style={{ color: '#64748b', fontSize: 14 }}>Đang nạp dữ liệu bài tập...</p>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={roboto.className} style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', gap: 12 }}>
+        <p style={{ color: '#ef4444', fontSize: 14, fontWeight: 500 }}>⚠️ {error}</p>
+        <button onClick={() => router.back()} style={{ background: BRAND, color: BRAND_DARK, border: 'none', borderRadius: 8, padding: '8px 20px', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>← Quay lại trang chủ</button>
+      </div>
+    );
+  }
+
+  // Màn hình trả kết quả tổng quan sau khi bấm nộp bài thành công
+  if (submitted && score !== null) {
+    const pct = Math.round((score / totalQuestions) * 100);
+    return (
+      <div className={roboto.className} style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}>
+        <div style={{ background: '#fff', borderRadius: 16, border: '0.5px solid #e2e8f0', padding: '40px 48px', textAlign: 'center', maxWidth: 400, width: '100%' }}>
+          <div style={{ fontSize: 52, fontWeight: 900, color: BRAND, marginBottom: 4 }}>{pct}%</div>
+          <div style={{ fontSize: 15, color: '#475569', marginBottom: 4 }}>
+            Kết quả làm bài: <strong style={{ color: '#1e293b' }}>{score}/{totalQuestions}</strong> câu đúng
+          </div>
+          <div style={{ fontSize: 13, color: '#94a3b8', marginBottom: 28 }}>
+            {pct >= 80 ? '🎉 Xuất sắc! Kết quả học tập rất tuyệt vời.'
+              : pct >= 60 ? '👍 Khá tốt! Đọc thêm giải thích các câu sai nhé.'
+              : '💪 Hãy kiên trì luyện tập thêm để cải thiện phản xạ.'}
+          </div>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+            <button
+              onClick={async () => { 
+                setSubmitted(false); setAnswers({}); setScore(null); setCurrentQIndex(0);
+                await setDoc(doc(db, 'users', CURRENT_USER_ID, 'progress', lessonId), {
+                  status: 'not_started',
+                  answers: {},
+                  score: 0,
+                  updatedAt: serverTimestamp()
+                }, { merge: true });
+              }}
+              style={{ border: `1px solid ${BRAND}`, color: '#166534', background: 'transparent', borderRadius: 8, padding: '8px 18px', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}
+            >
+              Làm lại bài
+            </button>
+            <button
+              onClick={() => setSubmitted(false)} // Quay về chế độ xem đáp án kèm giải thích
+              style={{ background: '#f1f5f9', color: '#334155', border: 'none', borderRadius: 8, padding: '8px 18px', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}
+            >
+              Xem đáp án
+            </button>
+            <button
+              onClick={() => router.back()}
+              style={{ background: BRAND, color: BRAND_DARK, border: 'none', borderRadius: 8, padding: '8px 18px', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}
+            >
+              Trang chủ
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={roboto.className} style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#f8fafc', overflow: 'hidden' }}>
+      <header style={{ background: BRAND, padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+        <button onClick={() => router.back()} style={{ background: 'rgba(255,255,255,0.25)', border: 'none', borderRadius: 6, padding: '4px 10px', color: BRAND_DARK, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>← Thoát</button>
+        <span style={{ color: BRAND_DARK, fontWeight: 700, fontSize: 14 }}>{lessonMeta?.title || 'Bài làm'}</span>
+        <span style={{ color: BRAND_DARK, fontSize: 12, fontWeight: 500 }}>Đã chọn: {Object.keys(answers).length}/{totalQuestions} câu</span>
       </header>
 
-      {/* ===== LAYOUT BODY ===== */}
-      <div style={{ display: 'flex', flex: 1, paddingTop: 56 }}>
-        {/* ===== SIDEBAR ===== */}
-        <aside style={{ backgroundColor: BRAND, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', width: 192, display: 'flex', flexDirection: 'column', padding: '24px 12px', gap: 4, position: 'fixed', left: 0, top: 56, bottom: 0, overflowY: 'auto' }}>
-          {menuItems.map((item) => (
-            <button
-              key={item}
-              onClick={() => setActiveMenu(item)}
-              style={{
-                textAlign: 'left',
-                width: '100%',
-                padding: '12px 16px',
-                borderRadius: 8,
-                fontSize: 14,
-                fontWeight: 600,
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'all 0.15s',
-                backgroundColor: activeMenu === item ? '#fff' : 'transparent',
-                color: activeMenu === item ? '#166534' : '#fff',
-                boxShadow: activeMenu === item ? '0 1px 2px 0 rgba(0, 0, 0, 0.05)' : 'none'
-              }}
-            >
-              {item}
-            </button>
-          ))}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        {/* Zone A - Danh sách mục lục câu hỏi */}
+        <aside style={{ width: 72, flexShrink: 0, background: '#fff', borderRight: '0.5px solid #e2e8f0', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textAlign: 'center', padding: '8px 4px 6px', borderBottom: '0.5px solid #e2e8f0', letterSpacing: '0.05em' }}>MỤC LỤC</div>
+          <div style={{ overflowY: 'auto', flex: 1, padding: '8px 6px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {allQuestions.map((q, idx) => {
+              const isActive = idx === currentQIndex;
+              const isDone = answers[q.question_id] !== undefined;
+              return (
+                <button key={q.question_id} onClick={() => setCurrentQIndex(idx)} style={{ width: '100%', padding: '6px 0', textAlign: 'center', fontSize: 12, fontWeight: 600, borderRadius: 6, cursor: 'pointer', border: 'none', background: isActive ? BRAND : isDone ? '#dcfce7' : '#f1f5f9', color: isActive ? BRAND_DARK : isDone ? '#166534' : '#64748b', transition: 'all 0.15s' }}>
+                  {idx + 1}
+                </button>
+              );
+            })}
+          </div>
         </aside>
 
-        {/* ===== MAIN CONTENT ===== */}
-        <main style={{ flex: 1, padding: 32, marginLeft: 192 }}>
-          <div style={{ maxWidth: 1024, margin: '0 auto', borderRadius: 12, backgroundColor: '#fff', padding: 24, boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)', border: '1px solid #f1f5f9' }}>
-            <p style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16, margin: 0 }}>
-              Trang chủ / <span style={{ color: BRAND, fontWeight: 500 }}>{activeMenu}</span>
-            </p>
-            <div style={{ marginTop: 8 }}>{renderContent()}</div>
+        {/* Zone B - Hiển thị ngữ cảnh đính kèm (Ảnh/Audio/Passage) */}
+        <section style={{ flex: 1.1, background: '#fff', borderRight: '0.5px solid #e2e8f0', display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', padding: '7px 14px', background: '#f8fafc', borderBottom: '0.5px solid #e2e8f0', letterSpacing: '0.04em' }}>NGỮ CẢNH ĐỀ BÀI</div>
+          <div style={{ overflowY: 'auto', flex: 1, padding: 14 }}>
+            {currentGroup && <ContentZone group={currentGroup} />}
           </div>
-        </main>
+        </section>
+
+        {/* Zone C - Chi tiết câu hỏi trắc nghiệm & lựa chọn đáp án */}
+        <section style={{ flex: 1, background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', padding: '7px 14px', background: '#f8fafc', borderBottom: '0.5px solid #e2e8f0', letterSpacing: '0.04em' }}>LỰA CHỌN ĐÁP ÁN</div>
+          <div style={{ overflowY: 'auto', flex: 1, padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {currentQ && (
+              <div style={{ border: '0.5px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
+                <div style={{ padding: '10px 14px', background: '#f8fafc', borderBottom: '0.5px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>Câu hỏi {currentQIndex + 1} trên {totalQuestions}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#1e293b', lineHeight: 1.6 }}>{currentQ.question}</div>
+                </div>
+                <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  {['A', 'B', 'C', 'D'].map((opt) => (
+                    <button key={opt} onClick={() => handleSelect(currentQ.question_id, opt)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, cursor: submitted ? 'default' : 'pointer', textAlign: 'left', width: '100%', transition: 'all 0.15s', ...getOptionStyle(currentQ.question_id, opt) }}>
+                      <span style={{ width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, transition: 'all 0.15s', ...getKeyStyle(currentQ.question_id, opt) }}>{opt}</span>
+                      <span style={{ fontSize: 13, lineHeight: 1.5 }}>{currentQ[opt]}</span>
+                    </button>
+                  ))}
+                </div>
+                {/* Đọc và phân tích các đáp án đúng sai chi tiết của đề thi sau khi nộp bài */}
+                {submitted && currentQ.explanation && (
+                  <div style={{ margin: '0 12px 12px', padding: '10px 12px', background: '#f0fdf4', borderRadius: 8, border: '0.5px solid #86efac' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#166534', marginBottom: 4 }}>💡 Phân tích & Giải thích chi tiết</div>
+                    <p style={{ fontSize: 12, color: '#166534', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-line' }}>{currentQ.explanation}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
       </div>
+
+      {/* FOOTER ĐIỀU HƯỚNG BÀI LÀM */}
+      <footer style={{ background: '#fff', borderTop: '0.5px solid #e2e8f0', padding: '8px 16px', display: 'flex', alignItems: 'center', justifyBetween: 'space-between', flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => setCurrentQIndex((i) => Math.max(0, i - 1))} disabled={currentQIndex === 0} style={{ border: '0.5px solid #e2e8f0', borderRadius: 7, padding: '6px 14px', fontSize: 12, fontWeight: 600, background: 'transparent', color: currentQIndex === 0 ? '#cbd5e1' : '#475569', cursor: currentQIndex === 0 ? 'not-allowed' : 'pointer' }}>← Câu trước</button>
+          <button onClick={() => setCurrentQIndex((i) => Math.min(allQuestions.length - 1, i + 1))} disabled={currentQIndex === allQuestions.length - 1} style={{ border: '0.5px solid #e2e8f0', borderRadius: 7, padding: '6px 14px', fontSize: 12, fontWeight: 600, background: 'transparent', color: currentQIndex === allQuestions.length - 1 ? '#cbd5e1' : '#475569', cursor: currentQIndex === allQuestions.length - 1 ? 'not-allowed' : 'pointer' }}>Câu sau →</button>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 100, height: 4, background: '#e2e8f0', borderRadius: 2 }}>
+            <div style={{ width: `${totalQuestions > 0 ? (Object.keys(answers).length / totalQuestions) * 100 : 0}%`, height: 4, background: BRAND, borderRadius: 2, transition: 'width 0.3s ease' }} />
+          </div>
+          <span style={{ fontSize: 11, color: '#94a3b8' }}>{Object.keys(answers).length}/{totalQuestions}</span>
+        </div>
+        <button onClick={handleSubmit} disabled={submitted} style={{ background: BRAND, color: BRAND_DARK, border: 'none', borderRadius: 7, padding: '7px 20px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Nộp bài hoàn thành ✓</button>
+      </footer>
     </div>
+  );
+}
+
+export default function LessonPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 14 }}>Đang tải đề bài...</div>}>
+      <LessonContent />
+    </Suspense>
   );
 }
