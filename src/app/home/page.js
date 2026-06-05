@@ -13,7 +13,6 @@ const roboto = Roboto({
 });
 
 const BRAND = '#4ade80';
-const CURRENT_USER_ID = "hoc_vien_01"; // Phải trùng khớp với userId bên trang làm bài
 
 export default function HomePage() {
   const router = useRouter();
@@ -21,10 +20,14 @@ export default function HomePage() {
   const [userProgress, setUserProgress] = useState({});
   const [loadingProgress, setLoadingProgress] = useState(true);
 
+  // Lấy động User ID từ localStorage sau khi đăng nhập, mặc định là hoc_vien_01 nếu trống
+  const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') || 'hoc_vien_01' : 'hoc_vien_01';
+
   // Lấy dữ liệu tiến trình thực tế từ Database Firestore
   useEffect(() => {
     async function fetchProgress() {
       try {
+        setLoadingProgress(true);
         const querySnapshot = await getDocs(
           collection(db, 'users', CURRENT_USER_ID, 'progress')
         );
@@ -40,14 +43,18 @@ export default function HomePage() {
       }
     }
     fetchProgress();
-  }, [activeMenu]);
+  }, [activeMenu, CURRENT_USER_ID]);
 
   const menuItems = ['Tổng quan', 'Khóa học', 'Ngữ pháp', 'Từ vựng', 'Bài tập'];
 
   const handleLogout = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('userId');
+    }
     router.push('/');
   };
 
+  // Dữ liệu danh sách bài học gốc
   const rawGrammarData = Array.from({ length: 10 }, (_, i) => ({
     id: i + 1,
     title: `Bài ${i + 1}: ${[
@@ -71,6 +78,7 @@ export default function HomePage() {
     title: `Đề Luyện tập số ${i + 1}`
   }));
 
+  // Hàm ánh xạ trạng thái bài học từ Firestore
   const buildDisplayData = (rawData, prefixType) => {
     return rawData.map(item => {
       const targetLessonId = `${prefixType}_${item.id}`; 
@@ -101,6 +109,7 @@ export default function HomePage() {
     router.push(`/lesson?type=${type}&id=${id}`);
   };
 
+  // Render các Card bài học sử dụng hệ thống class của Tailwind CSS
   const renderCards = (rawDataList, type) => {
     if (loadingProgress) {
       return <p className="text-gray-400 text-xs mt-4">Đang kiểm tra tiến trình học viên...</p>;
@@ -115,6 +124,7 @@ export default function HomePage() {
             key={item.id}
             className="w-[378px] h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200"
           >
+            {/* Tiêu đề & Điểm số */}
             <div className="flex justify-between items-start gap-2">
               <h3 className="font-bold text-gray-800 text-sm line-clamp-1 flex-1">
                 {item.title}
@@ -124,6 +134,7 @@ export default function HomePage() {
               </span>
             </div>
 
+            {/* Trạng thái & Các nút bấm điều hướng */}
             <div className="flex justify-between items-center mt-2">
               <span className={`text-xs font-bold px-2 py-1 rounded-md
                 ${item.status === 'Đã làm' ? 'bg-green-100 text-green-700' : ''}
@@ -134,6 +145,7 @@ export default function HomePage() {
               </span>
 
               <div className="flex items-center gap-2">
+                {/* 1. Trạng thái CHƯA LÀM */}
                 {item.status === 'Chưa làm' && (
                   <button
                     onClick={() => handleNavigation(type, item.id)}
@@ -144,6 +156,7 @@ export default function HomePage() {
                   </button>
                 )}
 
+                {/* 2. Trạng thái ĐANG LÀM DỞ */}
                 {item.status === 'Đang làm' && (
                   <button
                     onClick={() => handleNavigation(type, item.id)}
@@ -154,6 +167,7 @@ export default function HomePage() {
                   </button>
                 )}
 
+                {/* 3. Trạng thái ĐÃ HOÀN THÀNH */}
                 {item.status === 'Đã làm' && (
                   <>
                     <button
@@ -229,6 +243,7 @@ export default function HomePage() {
 
   return (
     <div className={`min-h-screen bg-gray-50 flex flex-col ${roboto.className}`}>
+      {/* ===== HEADER BAR ===== */}
       <header style={{ backgroundColor: BRAND }} className="shadow-md px-6 py-3 flex items-center justify-between fixed top-0 left-0 right-0 z-50">
         <span className="text-white font-bold text-xl tracking-wide">TOEIC Thầy Băng</span>
         <div className="flex items-center gap-4">
@@ -237,7 +252,9 @@ export default function HomePage() {
         </div>
       </header>
 
+      {/* ===== LAYOUT BODY ===== */}
       <div className="flex flex-1 pt-14">
+        {/* ===== SIDEBAR ===== */}
         <aside style={{ backgroundColor: BRAND }} className="w-48 shadow-lg flex flex-col py-6 px-3 gap-1 fixed left-0 top-14 bottom-0 overflow-y-auto">
           {menuItems.map((item) => (
             <button
@@ -252,6 +269,7 @@ export default function HomePage() {
           ))}
         </aside>
 
+        {/* ===== MAIN CONTENT ===== */}
         <main className="flex-1 p-8 ml-48">
           <div className="max-w-5xl mx-auto rounded-xl bg-white p-6 shadow-sm border border-gray-100">
             <p className="text-xs text-gray-400 mb-4">

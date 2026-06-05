@@ -17,9 +17,8 @@ const BRAND = '#4ade80';
 const BRAND_DARK = '#14532d';
 const BRAND_LIGHT = '#f0fdf4';
 
-// Tạm thời cố định userId để kiểm tra hệ thống.
-// Sau này có Firebase Auth, bạn chỉ cần thay bằng ID tài khoản thật.
-const CURRENT_USER_ID = "hoc_vien_01"; 
+// Cơ chế tự động lấy động ID học viên đã đăng nhập từ localStorage
+const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') || 'hoc_vien_01' : 'hoc_vien_01';
 
 // ─── XỬ LÝ PARSE EXCEL ────────────────────────────────────────────────────────
 function parseExcel(arrayBuffer) {
@@ -173,17 +172,17 @@ function LessonContent() {
   useEffect(() => {
     async function load() {
       try {
-        // 1. Tải cấu hình link Excel từ collection "lessons"
+        // 1. Tải cấu hình bài học từ collection "lessons"
         const snap = await getDoc(doc(db, 'lessons', lessonId));
         if (!snap.exists()) throw new Error('Không tìm thấy cấu hình bài học này trên hệ thống.');
         const meta = snap.data();
         setLessonMeta(meta);
 
-        // Đọc chính xác trường file_url từ Database Firestore của bạn
-        if (!meta.file_url) throw new Error('Bài học chưa được cấu hình đường dẫn file_url.');
+        // Đọc chính xác trường fileUrl viết hoa đồng bộ với Firebase Console
+        if (!meta.fileUrl) throw new Error('Bài học chưa được cấu hình đường dẫn fileUrl.');
 
-        // 2. Tải và xử lý tệp Excel
-        const res = await fetch(meta.file_url);
+        // 2. Tải và xử lý tệp Excel từ link URL liên kết
+        const res = await fetch(meta.fileUrl);
         if (!res.ok) throw new Error('Không thể tải tệp dữ liệu bài học. Vui lòng kiểm tra lại quyền chia sẻ liên kết.');
         const buffer = await res.arrayBuffer();
 
@@ -196,7 +195,7 @@ function LessonContent() {
         });
         setAllQuestions(flat);
 
-        // 3. Nạp lại tiến trình của người dùng (nếu có)
+        // 3. Nạp lại tiến trình của người dùng từ database
         const progressSnap = await getDoc(
           doc(db, 'users', CURRENT_USER_ID, 'progress', lessonId)
         );
@@ -215,7 +214,7 @@ function LessonContent() {
       }
     }
     load();
-  }, [lessonId]);
+  }, [lessonId, CURRENT_USER_ID]);
 
   const handleSelect = async (qid, option) => {
     if (submitted) return;
@@ -224,7 +223,7 @@ function LessonContent() {
     setAnswers(updatedAnswers);
 
     try {
-      // Đồng bộ trạng thái "in_progress" khi học viên chọn đáp án
+      // Đồng bộ trạng thái "in_progress" khi học viên tích chọn đáp án
       await setDoc(doc(db, 'users', CURRENT_USER_ID, 'progress', lessonId), {
         status: 'in_progress',
         answers: updatedAnswers,
@@ -247,7 +246,7 @@ function LessonContent() {
     setSubmitted(true);
 
     try {
-      // Đồng bộ lưu kết quả "completed" kèm điểm số chính xác lên Firestore
+      // Lưu kết quả "completed" kèm điểm số chính xác lên Firestore
       await setDoc(doc(db, 'users', CURRENT_USER_ID, 'progress', lessonId), {
         status: 'completed',
         answers: answers,
@@ -287,7 +286,7 @@ function LessonContent() {
     return (
       <div className={roboto.className} style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', gap: 16 }}>
         <div style={{ width: 40, height: 40, border: `3px solid ${BRAND}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-        <p style={{ color: '#64748b', fontSize: 14 }}>Đang đồng bộ dữ liệu bài học...</p>
+        <p style={{ color: '#64748b', fontSize: 14 }}>Đang nạp dữ liệu bài tập...</p>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
@@ -302,7 +301,6 @@ function LessonContent() {
     );
   }
 
-  // Màn hình trả kết quả sau khi nộp bài thành công
   if (submitted && score !== null) {
     const pct = Math.round((score / totalQuestions) * 100);
     return (
@@ -333,7 +331,7 @@ function LessonContent() {
               Làm lại bài
             </button>
             <button
-              onClick={() => setSubmitted(false)} 
+              onClick={() => setSubmitted(false)}
               style={{ background: '#f1f5f9', color: '#334155', border: 'none', borderRadius: 8, padding: '8px 18px', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}
             >
               Xem đáp án
@@ -359,7 +357,7 @@ function LessonContent() {
       </header>
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* Zone A */}
+        {/* Zone A - Mục lục câu hỏi */}
         <aside style={{ width: 72, flexShrink: 0, background: '#fff', borderRight: '0.5px solid #e2e8f0', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textAlign: 'center', padding: '8px 4px 6px', borderBottom: '0.5px solid #e2e8f0', letterSpacing: '0.05em' }}>MỤC LỤC</div>
           <div style={{ overflowY: 'auto', flex: 1, padding: '8px 6px', display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -375,7 +373,7 @@ function LessonContent() {
           </div>
         </aside>
 
-        {/* Zone B */}
+        {/* Zone B - Ngữ cảnh đính kèm */}
         <section style={{ flex: 1.1, background: '#fff', borderRight: '0.5px solid #e2e8f0', display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', padding: '7px 14px', background: '#f8fafc', borderBottom: '0.5px solid #e2e8f0', letterSpacing: '0.04em' }}>NGỮ CẢNH ĐỀ BÀI</div>
           <div style={{ overflowY: 'auto', flex: 1, padding: 14 }}>
@@ -383,7 +381,7 @@ function LessonContent() {
           </div>
         </section>
 
-        {/* Zone C */}
+        {/* Zone C - Câu hỏi trắc nghiệm */}
         <section style={{ flex: 1, background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', padding: '7px 14px', background: '#f8fafc', borderBottom: '0.5px solid #e2e8f0', letterSpacing: '0.04em' }}>LỰA CHỌN ĐÁP ÁN</div>
           <div style={{ overflowY: 'auto', flex: 1, padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -413,6 +411,7 @@ function LessonContent() {
         </section>
       </div>
 
+      {/* FOOTER ĐIỀU HƯỚNG */}
       <footer style={{ background: '#fff', borderTop: '0.5px solid #e2e8f0', padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={() => setCurrentQIndex((i) => Math.max(0, i - 1))} disabled={currentQIndex === 0} style={{ border: '0.5px solid #e2e8f0', borderRadius: 7, padding: '6px 14px', fontSize: 12, fontWeight: 600, background: 'transparent', color: currentQIndex === 0 ? '#cbd5e1' : '#475569', cursor: currentQIndex === 0 ? 'not-allowed' : 'pointer' }}>← Câu trước</button>
