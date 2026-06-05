@@ -19,7 +19,7 @@ const BRAND_LIGHT = '#f0fdf4';
 
 const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') || 'hoc_vien_01' : 'hoc_vien_01';
 
-// ─── XỬ LÝ PARSE EXCEL (ĐÃ TỐI ƯU CHUẨN HÓA ĐÁP ÁN) ───────────────────────────
+// ─── XỬ LÝ PARSE EXCEL ────────────────────────────────────────────────────────
 function parseExcel(arrayBuffer) {
   const workbook = XLSX.read(arrayBuffer, { type: 'array' });
   const firstSheetName = workbook.SheetNames[0];
@@ -41,7 +41,7 @@ function parseExcel(arrayBuffer) {
       };
     }
 
-    // CHUẨN HÓA ĐÁP ÁN TUYỆT ĐỐI: Xóa khoảng trắng, viết hoa, xử lý cả số và chữ thường (a,b,c,d -> A,B,C,D)
+    // Chuẩn hóa đáp án tuyệt đối
     let rawAns = String(q.answer).toUpperCase().trim();
     if (rawAns === '1') rawAns = 'A';
     if (rawAns === '2') rawAns = 'B';
@@ -267,7 +267,7 @@ function LessonContent() {
   const currentQ = allQuestions[currentQIndex];
   const currentGroup = currentQ?.groupRef;
 
-  // ─── LOGIC HIỂN THỊ MÀU SẮC ĐÁP ÁN ĐÚNG/SAI ────────────────────────────────
+  // ─── ĐÃ FIX TRIỆT ĐỂ LOGIC MÀU SẮC ĐÁP ÁN ĐÚNG/SAU KHI SUBMIT ─────────────────
   const getOptionStyle = (qid, option) => {
     const selected = answers[qid] === option;
     const targetQ = allQuestions.find(q => q.question_id === qid);
@@ -282,16 +282,16 @@ function LessonContent() {
       };
     }
     
-    // TRƯỜNG HỢP XEM LẠI BÀI:
-    // 1. Ô đáp án đúng thực tế -> Luôn hiển thị màu xanh lá (Bất kể học viên chọn đúng hay sai)
+    // TRƯỜNG HỢP XEM LẠI BÀI (SUBMITTED):
+    // ƯU TIÊN 1: Cứ là đáp án đúng thực tế -> LUÔN HIỂN THỊ XANH LÁ (Bất kể học viên chọn đúng hay sai)
     if (isCorrect) {
       return { border: '1.5px solid #4ade80', background: '#f0fdf4', color: '#166534' };
     }
-    // 2. Ô học viên chọn dính đáp án sai -> Hiện màu đỏ
+    // ƯU TIÊN 2: Học viên chọn trúng đáp án sai -> HIỂN THỊ ĐỎ
     if (selected && !isCorrect) {
       return { border: '1.5px solid #f87171', background: '#fef2f2', color: '#991b1b' };
     }
-    // 3. Các ô không liên quan -> Làm mờ chữ đi
+    // ƯU TIÊN 3: Các đáp án sai khác và không được chọn -> Làm mờ chữ xám
     return { border: '0.5px solid #e2e8f0', background: '#fff', color: '#cbd5e1' };
   };
 
