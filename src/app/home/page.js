@@ -2,15 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-// Import font Roboto hỗ trợ tiếng Việt 100% từ Google Font
-import { Roboto } from 'next/font/google';
-
-// Cấu hình font Roboto
-const roboto = Roboto({
-  weight: ['400', '500', '700', '900'],
-  subsets: ['vietnamese'], // Ép hệ thống render chuẩn bộ ký tự tiếng Việt
-  display: 'swap',
-});
 
 const BRAND = '#4ade80';
 
@@ -155,8 +146,7 @@ export default function HomePage() {
   };
 
   return (
-    // Thêm className của roboto vào thẻ cha ngoài cùng để áp dụng đồng bộ font toàn trang
-    <div className={`min-h-screen bg-gray-50 flex flex-col ${roboto.className}`}>
+    <div className="min-h-screen bg-gray-50 flex flex-col">
 
       {/* ===== TOOLBAR TRÊN CÙNG ===== */}
       <header
