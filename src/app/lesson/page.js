@@ -19,7 +19,7 @@ const BRAND_LIGHT = '#f0fdf4';
 
 const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') || 'hoc_vien_01' : 'hoc_vien_01';
 
-// ─── XỬ LÝ PARSE EXCEL ────────────────────────────────────────────────────────
+// ─── XỬ LÝ PARSE EXCEL (ĐÃ ĐỒNG BỘ TÊN CỘT CORRECT ANSWER) ────────────────────
 function parseExcel(arrayBuffer) {
   const workbook = XLSX.read(arrayBuffer, { type: 'array' });
   const firstSheetName = workbook.SheetNames[0];
@@ -41,8 +41,11 @@ function parseExcel(arrayBuffer) {
       };
     }
 
-    // Chuẩn hóa đáp án tuyệt đối
-    let rawAns = String(q.answer).toUpperCase().trim();
+    // 🌟 KHẮC PHỤC CHÍNH XÁC: Đọc cột "correct answer" từ file Excel của bạn
+    const sourceAnswer = q['correct answer'] !== undefined ? q['correct answer'] : q.answer;
+    
+    // Chuẩn hóa đáp án tuyệt đối (xử lý khoảng trắng, viết hoa, số 1,2,3,4)
+    let rawAns = String(sourceAnswer).toUpperCase().trim();
     if (rawAns === '1') rawAns = 'A';
     if (rawAns === '2') rawAns = 'B';
     if (rawAns === '3') rawAns = 'C';
@@ -267,7 +270,6 @@ function LessonContent() {
   const currentQ = allQuestions[currentQIndex];
   const currentGroup = currentQ?.groupRef;
 
-  // ─── ĐÃ FIX TRIỆT ĐỂ LOGIC MÀU SẮC ĐÁP ÁN ĐÚNG/SAU KHI SUBMIT ─────────────────
   const getOptionStyle = (qid, option) => {
     const selected = answers[qid] === option;
     const targetQ = allQuestions.find(q => q.question_id === qid);
@@ -282,16 +284,12 @@ function LessonContent() {
       };
     }
     
-    // TRƯỜNG HỢP XEM LẠI BÀI (SUBMITTED):
-    // ƯU TIÊN 1: Cứ là đáp án đúng thực tế -> LUÔN HIỂN THỊ XANH LÁ (Bất kể học viên chọn đúng hay sai)
     if (isCorrect) {
       return { border: '1.5px solid #4ade80', background: '#f0fdf4', color: '#166534' };
     }
-    // ƯU TIÊN 2: Học viên chọn trúng đáp án sai -> HIỂN THỊ ĐỎ
     if (selected && !isCorrect) {
       return { border: '1.5px solid #f87171', background: '#fef2f2', color: '#991b1b' };
     }
-    // ƯU TIÊN 3: Các đáp án sai khác và không được chọn -> Làm mờ chữ xám
     return { border: '0.5px solid #e2e8f0', background: '#fff', color: '#cbd5e1' };
   };
 
@@ -388,7 +386,7 @@ function LessonContent() {
     <div className={roboto.className} style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#f8fafc', overflow: 'hidden' }}>
       <header style={{ background: BRAND, padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <button onClick={() => router.back()} style={{ background: 'rgba(255,255,255,0.25)', border: 'none', borderRadius: 6, padding: '4px 10px', color: BRAND_DARK, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>← Thoát</button>
-        <span style={{ color: BRAND_DARK, fontWeight: 700, fontSize: 14 }}>{lessonMeta?.title || 'Bài làm'} {submitted && "(Chế độ xem lại đáp án)"}</span>
+        <span style={{ background: BRAND, color: BRAND_DARK, fontWeight: 700, fontSize: 14 }}>{lessonMeta?.title || 'Bài làm'} {submitted && "(Chế độ xem lại đáp án)"}</span>
         <span style={{ color: BRAND_DARK, fontSize: 12, fontWeight: 500 }}>Đã chọn: {currentLessonAnswerCount}/{totalQuestions} câu</span>
       </header>
 
