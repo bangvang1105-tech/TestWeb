@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+// Màu neon ấm dùng chung — chỉnh 1 chỗ này là áp dụng toàn trang
+const BRAND = '#3dbe7a';
+
 export default function HomePage() {
   const router = useRouter();
   const [activeMenu, setActiveMenu] = useState('Tổng quan');
@@ -17,39 +20,45 @@ export default function HomePage() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
 
       {/* ===== TOOLBAR TRÊN CÙNG ===== */}
-      <header className="bg-green-500 shadow-md px-6 py-3 flex items-center justify-between fixed top-0 left-0 right-0 z-50">
-        {/* Tên ứng dụng - bên trái */}
+      <header
+        style={{ backgroundColor: BRAND }}
+        className="shadow-md px-6 py-3 flex items-center justify-between fixed top-0 left-0 right-0 z-50"
+      >
         <span className="text-white font-bold text-xl tracking-wide">
           TOEIC Thầy Băng
         </span>
 
-        {/* Lời chào + nút đăng xuất - bên phải */}
         <div className="flex items-center gap-4">
           <span className="text-white text-sm font-medium">
             Hellu babe
           </span>
           <button
             onClick={handleLogout}
-            className="bg-white text-green-600 font-semibold text-sm px-4 py-1.5 rounded-lg hover:bg-green-50 transition duration-200 shadow-sm"
+            style={{ color: BRAND }}
+            className="bg-white font-semibold text-sm px-4 py-1.5 rounded-lg hover:bg-green-50 transition duration-200 shadow-sm"
           >
             Đăng xuất
           </button>
         </div>
       </header>
 
-      {/* ===== LAYOUT CHÍNH (bên dưới toolbar trên) ===== */}
+      {/* ===== LAYOUT CHÍNH ===== */}
       <div className="flex flex-1 pt-14">
 
         {/* ===== SIDEBAR BÊN TRÁI ===== */}
-        <aside className="w-48 bg-green-500 shadow-lg flex flex-col py-6 px-3 gap-1 fixed left-0 top-14 bottom-0 overflow-y-auto">
+        <aside
+          style={{ backgroundColor: BRAND }}
+          className="w-48 shadow-lg flex flex-col py-6 px-3 gap-1 fixed left-0 top-14 bottom-0 overflow-y-auto"
+        >
           {menuItems.map((item) => (
             <button
               key={item}
               onClick={() => setActiveMenu(item)}
+              style={activeMenu === item ? { color: BRAND } : {}}
               className={`text-left w-full px-4 py-3 rounded-lg text-sm font-semibold transition duration-150
                 ${activeMenu === item
-                  ? 'bg-white text-green-600 shadow-sm'
-                  : 'text-white hover:bg-green-400'
+                  ? 'bg-white shadow-sm'
+                  : 'text-white hover:bg-white/20'
                 }`}
             >
               {item}
@@ -64,10 +73,10 @@ export default function HomePage() {
               Chào mừng bạn đến với Trang Chủ!
             </h1>
             <p className="text-gray-600">
-              Bạn đang xem mục: <span className="font-semibold text-green-600">{activeMenu}</span>
+              Bạn đang xem mục:{' '}
+              <span style={{ color: BRAND }} className="font-semibold">{activeMenu}</span>
             </p>
 
-            {/* Vùng trống để bạn thêm code sau này */}
             <div className="mt-8 border-2 border-dashed border-gray-200 rounded-lg h-64 flex items-center justify-center text-gray-400 text-sm">
               Không gian thiết kế giao diện của bạn nằm ở đây
             </div>
