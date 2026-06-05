@@ -17,24 +17,23 @@ const BRAND = '#4ade80';
 const BRAND_DARK = '#14532d';
 const BRAND_LIGHT = '#f0fdf4';
 
-// ─── Parse Excel ──────────────────────────────────────────────────────────────
+// ─── Parse Excel (Đã sửa lỗi tự động nhận Sheet đầu tiên) ──────────────────
 
 function parseExcel(arrayBuffer) {
   const workbook = XLSX.read(arrayBuffer, { type: 'array' });
 
-  const configSheet = workbook.Sheets['config'];
-  const config = {};
-  if (configSheet) {
-    const rows = XLSX.utils.sheet_to_json(configSheet, { header: 1 });
-    rows.forEach(([key, value]) => { if (key) config[key] = value; });
-  }
-
-  const qSheet = workbook.Sheets['questions'];
+  // Tự động lấy trang tính đầu tiên (dù tên là "Trang tính1" hay "questions")
+  const firstSheetName = workbook.SheetNames[0];
+  const qSheet = workbook.Sheets[firstSheetName];
   const questions = qSheet ? XLSX.utils.sheet_to_json(qSheet, { defval: '' }) : [];
 
   const groupMap = {};
   questions.forEach((q) => {
-    const gid = q.group_id ?? q.question_id;
+    if (!q.question_id) return; // Bỏ qua nếu dòng đó không có ID câu hỏi
+
+    // Nếu không có group_id, tự động gom nhóm theo chính question_id để xử lý câu đơn lẻ
+    const gid = (q.group_id !== undefined && q.group_id !== '') ? q.group_id : q.question_id;
+    
     if (!groupMap[gid]) {
       groupMap[gid] = {
         group_id: gid,
@@ -44,17 +43,21 @@ function parseExcel(arrayBuffer) {
         questions: [],
       };
     }
+    
     groupMap[gid].questions.push({
       question_id: q.question_id,
       question: q.question,
-      A: q.A, B: q.B, C: q.C, D: q.D,
-      answer: String(q.answer).toUpperCase(),
+      A: q.A, 
+      B: q.B, 
+      C: q.C, 
+      D: q.D,
+      answer: String(q.answer).toUpperCase().trim(), // Làm sạch đáp án (Xóa khoảng trắng thừa nếu có)
       explanation: q.explanation || '',
     });
   });
 
   return {
-    config,
+    config: {}, 
     groups: Object.values(groupMap),
     totalQuestions: questions.length,
   };
