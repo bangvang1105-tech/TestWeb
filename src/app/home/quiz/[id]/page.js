@@ -5,8 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import { Roboto } from 'next/font/google';
 
-// Sử dụng alias đã định nghĩa trong jsconfig.json để tránh lỗi đếm tầng thư mục
-import { db } from '@firebase'; 
+// Đường dẫn chính xác: nhảy ra khỏi app -> home -> quiz -> [id] -> src -> ra ngoài cùng
+import { db } from '../../../../../firebase'; 
 import { doc, getDoc } from 'firebase/firestore'; 
 
 const roboto = Roboto({
@@ -38,7 +38,7 @@ export default function AdvancedQuizPage() {
         const docRef = doc(db, "lessons", id);
         const docSnap = await getDoc(docRef);
         
-        if (!docSnap.exists()) throw new Error(`Không tìm thấy bài học "${id}".`);
+        if (!docSnap.exists()) throw new Error(`Không tìm thấy dữ liệu bài "${id}".`);
 
         const data = docSnap.data();
         setMediaData({ imageUrl: data.image_url || '', audioUrl: data.audio_url || '' });
@@ -89,7 +89,7 @@ export default function AdvancedQuizPage() {
 
         <section className="w-2/5 p-6 overflow-y-auto space-y-4">
           {mediaData.audioUrl && <audio src={mediaData.audioUrl} controls className="w-full" />}
-          {mediaData.imageUrl && <img src={mediaData.imageUrl} className="w-full rounded" />}
+          {mediaData.imageUrl && <img src={mediaData.imageUrl} className="w-full rounded" alt="quiz-img"/>}
           {questions[currentQuestionIndex]?.Reading_Text && <p className="whitespace-pre-line text-sm bg-white p-4 rounded">{questions[currentQuestionIndex].Reading_Text}</p>}
         </section>
 
