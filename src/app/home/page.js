@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Roboto } from 'next/font/google';
+import { db } from '@/firebase';
+import { collection, getDocs } from 'firebase/firestore';
 
 const roboto = Roboto({
   weight: ['400', '500', '700', '900'],
@@ -11,10 +13,34 @@ const roboto = Roboto({
 });
 
 const BRAND = '#4ade80';
+const CURRENT_USER_ID = "hoc_vien_01"; // Đồng bộ với userId bên trang làm bài
 
 export default function HomePage() {
   const router = useRouter();
   const [activeMenu, setActiveMenu] = useState('Tổng quan');
+  const [userProgress, setUserProgress] = useState({});
+  const [loadingProgress, setLoadingProgress] = useState(true);
+
+  // 1. Tải Tiến trình học tập thực tế từ Firestore khi tải trang chủ
+  useEffect(() => {
+    async function fetchProgress() {
+      try {
+        const querySnapshot = await getDocs(
+          collection(db, 'users', CURRENT_USER_ID, 'progress')
+        );
+        const progressMap = {};
+        querySnapshot.forEach((docSnap) => {
+          progressMap[docSnap.id] = docSnap.data();
+        });
+        setUserProgress(progressMap);
+      } catch (err) {
+        console.error("Lỗi khi tải tiến trình học viên: ", err);
+      } finally {
+        setLoadingProgress(false);
+      }
+    }
+    fetchProgress();
+  }, [activeMenu]); // Re-fetch khi chuyển đổi menu để cập nhật liên tục dữ liệu mới nhất
 
   const menuItems = ['Tổng quan', 'Khóa học', 'Ngữ pháp', 'Từ vựng', 'Bài tập'];
 
@@ -22,43 +48,69 @@ export default function HomePage() {
     router.push('/');
   };
 
-  // Dữ liệu MockData phục vụ render giao diện
-  const grammarData = Array.from({ length: 10 }, (_, i) => ({
+  // Cấu trúc danh sách bài học nguyên bản
+  const rawGrammarData = Array.from({ length: 10 }, (_, i) => ({
     id: i + 1,
     title: `Bài ${i + 1}: ${[
       'Thì Hiện tại đơn', 'Thì Hiện tại tiếp diễn', 'Thì Quá khứ đơn',
       'Thì Tương lai đơn', 'Mệnh đề quan hệ', 'Câu bị động',
       'Câu điều kiện loại 1', 'Câu điều kiện loại 2', 'Động từ khuyết thiếu', 'Danh động từ'
-    ][i] || 'Chủ đề Ngữ pháp'}`,
-    status: ['Đã làm', 'Đang làm', 'Chưa làm'][i % 3],
-    score: i % 3 === 0 ? `${8 + (i % 3)}/10` : '0/10'
+    ][i] || 'Chủ đề Ngữ pháp'}`
   }));
 
-  const vocabularyData = Array.from({ length: 10 }, (_, i) => ({
+  const rawVocabularyData = Array.from({ length: 10 }, (_, i) => ({
     id: i + 1,
     title: `Chủ đề ${i + 1}: ${[
       'Office (Văn phòng)', 'Travel (Du lịch)', 'Marketing (Quảng cáo)',
       'Finance (Tài chính)', 'Technology (Công nghệ)', 'Health (Sức khỏe)',
       'Shopping (Mua sắm)', 'Entertainment (Giải trí)', 'Transportation (Giao thông)', 'Personnel (Nhân sự)'
-    ][i] || 'Chủ đề Từ vựng'}`,
-    status: ['Chưa làm', 'Đã làm', 'Đang làm'][i % 3],
-    score: i % 3 === 1 ? `${7 + (i % 3)}/10` : '0/10'
+    ][i] || 'Chủ đề Từ vựng'}`
   }));
 
-  const exerciseData = Array.from({ length: 10 }, (_, i) => ({
+  const rawExerciseData = Array.from({ length: 10 }, (_, i) => ({
     id: i + 1,
-    title: `Đề Luyện tập số ${i + 1}`,
-    status: ['Đang làm', 'Chưa làm', 'Đã làm'][i % 3],
-    score: i % 3 === 2 ? `${9 + (i % 2)}/10` : '0/10'
+    title: `Đề Luyện tập số ${i + 1}`
   }));
 
-  // Điều hướng người dùng sang trang làm bài
+  // Hàm so khớp dữ liệu thô với dữ liệu tiến trình từ Firestore để đưa ra Trạng thái và Điểm số thật
+  const buildDisplayData = (rawData, prefixType) => {
+    return rawData.map(item => {
+      const targetLessonId = `${prefixType}_${item.id}`;
+      const progress = userProgress[targetLessonId];
+
+      let status = 'Chưa làm';
+      let scoreText = '0/10';
+
+      if (progress) {
+        if (progress.status === 'completed') {
+          status = 'Đã làm';
+          scoreText = `${progress.score}/${progress.totalQuestions || 10}`;
+        } else if (progress.status === 'in_progress') {
+          status = 'Đang làm';
+          scoreText = `0/${progress.totalQuestions || 10}`;
+        }
+      }
+
+      return {
+        ...item,
+        status,
+        score: scoreText
+      };
+    });
+  };
+
   const handleNavigation = (type, id) => {
     router.push(`/lesson?type=${type}&id=${id}`);
   };
 
   // ---- Xử lý render danh sách thẻ bài tập ----
-  const renderCards = (dataList, type) => {
+  const renderCards = (rawDataList, type) => {
+    if (loadingProgress) {
+      return <p className="text-gray-400 text-xs mt-4">Đang đồng bộ tiến trình học tập...</p>;
+    }
+
+    const dataList = buildDisplayData(rawDataList, type);
+
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4 justify-items-start">
         {dataList.map((item) => (
@@ -87,7 +139,7 @@ export default function HomePage() {
                 {item.status}
               </span>
 
-              {/* Phân tách logic hiển thị Button hành động dựa trên status */}
+              {/* Phân tách nút dựa trên trạng thái đồng bộ Firestore */}
               <div className="flex items-center gap-2">
                 
                 {/* TRƯỜNG HỢP 1: CHƯA LÀM */}
@@ -116,7 +168,7 @@ export default function HomePage() {
                 {item.status === 'Đã làm' && (
                   <>
                     <button
-                      onClick={() => handleNavigation(type, item.id)} // Hoặc link review tùy kiến trúc của bạn
+                      onClick={() => handleNavigation(type, item.id)} 
                       style={{ border: `1px solid ${BRAND}`, color: BRAND }}
                       className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-transparent hover:bg-green-50 transition duration-150 whitespace-nowrap"
                     >
@@ -164,7 +216,7 @@ export default function HomePage() {
             <h2 className="text-xl font-extrabold text-gray-800 mb-4">
               Grammar (Ngữ pháp)
             </h2>
-            {renderCards(grammarData, 'grammar')}
+            {renderCards(rawGrammarData, 'grammar')}
           </div>
         );
 
@@ -174,7 +226,7 @@ export default function HomePage() {
             <h2 className="text-xl font-extrabold text-gray-800 mb-4">
               Vocabulary (Từ vựng)
             </h2>
-            {renderCards(vocabularyData, 'vocabulary')}
+            {renderCards(rawVocabularyData, 'vocabulary')}
           </div>
         );
 
@@ -184,7 +236,7 @@ export default function HomePage() {
             <h2 className="text-xl font-extrabold text-gray-800 mb-4">
               Exercises (Bài tập)
             </h2>
-            {renderCards(exerciseData, 'exercise')}
+            {renderCards(rawExerciseData, 'exercise')}
           </div>
         );
 
@@ -195,48 +247,26 @@ export default function HomePage() {
 
   return (
     <div className={`min-h-screen bg-gray-50 flex flex-col ${roboto.className}`}>
-
       {/* ===== TOOLBAR TRÊN CÙNG ===== */}
-      <header
-        style={{ backgroundColor: BRAND }}
-        className="shadow-md px-6 py-3 flex items-center justify-between fixed top-0 left-0 right-0 z-50"
-      >
-        <span className="text-white font-bold text-xl tracking-wide">
-          TOEIC Thầy Băng
-        </span>
-
+      <header style={{ backgroundColor: BRAND }} className="shadow-md px-6 py-3 flex items-center justify-between fixed top-0 left-0 right-0 z-50">
+        <span className="text-white font-bold text-xl tracking-wide">TOEIC Thầy Băng</span>
         <div className="flex items-center gap-4">
-          <span className="text-white text-sm font-medium">
-            Hellu babe
-          </span>
-          <button
-            onClick={handleLogout}
-            style={{ color: BRAND }}
-            className="bg-white font-semibold text-sm px-4 py-1.5 rounded-lg hover:bg-green-50 transition duration-200 shadow-sm"
-          >
-            Đăng xuất
-          </button>
+          <span className="text-white text-sm font-medium">Hellu babe</span>
+          <button onClick={handleLogout} style={{ color: BRAND }} className="bg-white font-semibold text-sm px-4 py-1.5 rounded-lg hover:bg-green-50 transition duration-200 shadow-sm">Đăng xuất</button>
         </div>
       </header>
 
       {/* ===== LAYOUT CHÍNH ===== */}
       <div className="flex flex-1 pt-14">
-
         {/* ===== SIDEBAR BÊN TRÁI ===== */}
-        <aside
-          style={{ backgroundColor: BRAND }}
-          className="w-48 shadow-lg flex flex-col py-6 px-3 gap-1 fixed left-0 top-14 bottom-0 overflow-y-auto"
-        >
+        <aside style={{ backgroundColor: BRAND }} className="w-48 shadow-lg flex flex-col py-6 px-3 gap-1 fixed left-0 top-14 bottom-0 overflow-y-auto">
           {menuItems.map((item) => (
             <button
               key={item}
               onClick={() => setActiveMenu(item)}
               style={activeMenu === item ? { color: BRAND } : {}}
               className={`text-left w-full px-4 py-3 rounded-lg text-sm font-semibold transition duration-150
-                ${activeMenu === item
-                  ? 'bg-white shadow-sm'
-                  : 'text-white hover:bg-white/20'
-                }`}
+                ${activeMenu === item ? 'bg-white shadow-sm' : 'text-white hover:bg-white/20'}`}
             >
               {item}
             </button>
@@ -249,14 +279,9 @@ export default function HomePage() {
             <p className="text-xs text-gray-400 mb-4">
               Trang chủ / <span style={{ color: BRAND }} className="font-medium">{activeMenu}</span>
             </p>
-
-            <div className="mt-2">
-              {renderContent()}
-            </div>
-
+            <div className="mt-2">{renderContent()}</div>
           </div>
         </main>
-
       </div>
     </div>
   );
