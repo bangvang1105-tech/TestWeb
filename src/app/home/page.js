@@ -25,9 +25,9 @@ export default function HomePage() {
 
   // Xử lý bảo mật chặn truy cập trái phép & Lấy tiến trình học tập thực tế
   useEffect(() => {
-    // 🛡️ CHẶN BẢO MẬT: Nếu chưa đăng nhập (không có ID), đá ngay về trang login
+    // 🛡️ CHẶN BẢO MẬT: Nếu chưa đăng nhập (không có ID), đá ngay về trang gốc yêu cầu login
     if (!CURRENT_USER_ID) {
-      router.push('/login');
+      router.push('/');
       return;
     }
 
@@ -53,11 +53,12 @@ export default function HomePage() {
 
   const menuItems = ['Tổng quan', 'Khóa học', 'Ngữ pháp', 'Từ vựng', 'Bài tập'];
 
+  // Cố định hàm đăng xuất điều hướng về trang gốc không còn bị 404
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('userId'); // Xóa lịch sử đăng nhập
+      localStorage.removeItem('userId'); // Xóa lịch sử phiên đăng nhập
     }
-    router.push('/login');
+    router.push('/'); // Chuyển hướng chuẩn xác về trang gốc
   };
 
   // Dữ liệu danh sách bài học gốc
@@ -112,6 +113,11 @@ export default function HomePage() {
   };
 
   const renderCards = (rawDataList, type) => {
+    // 🛡️ BẢO VỆ AN TOÀN: Tránh lỗi "Cannot read properties of undefined (reading 'map')"
+    if (!rawDataList || !Array.isArray(rawDataList)) {
+      return <p className="text-gray-400 text-xs mt-4">Không tìm thấy danh sách cấu hình dữ liệu.</p>;
+    }
+
     if (loadingProgress) {
       return <p className="text-gray-400 text-xs mt-4">Đang tải dữ liệu học tập...</p>;
     }
