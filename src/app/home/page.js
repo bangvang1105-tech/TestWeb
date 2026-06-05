@@ -1,302 +1,215 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
-// ===================== DỮ LIỆU MẪU =====================
-
-const grammarData = [
-  { id: 1, title: 'Thì hiện tại đơn', status: 'done', score: 9, maxScore: 10 },
-  { id: 2, title: 'Thì hiện tại tiếp diễn', status: 'doing', score: 5, maxScore: 10 },
-  { id: 3, title: 'Thì quá khứ đơn', status: 'notDone', score: 0, maxScore: 10 },
-  { id: 4, title: 'Thì quá khứ tiếp diễn', status: 'notDone', score: 0, maxScore: 10 },
-  { id: 5, title: 'Thì tương lai đơn', status: 'done', score: 8, maxScore: 10 },
-  { id: 6, title: 'Thì hiện tại hoàn thành', status: 'doing', score: 3, maxScore: 10 },
-  { id: 7, title: 'Câu điều kiện loại 1', status: 'notDone', score: 0, maxScore: 10 },
-  { id: 8, title: 'Câu điều kiện loại 2', status: 'notDone', score: 0, maxScore: 10 },
-  { id: 9, title: 'Câu bị động', status: 'done', score: 10, maxScore: 10 },
-  { id: 10, title: 'Mệnh đề quan hệ', status: 'notDone', score: 0, maxScore: 10 },
-];
-
-const vocabularyData = [
-  { id: 1, title: 'Chủ đề: Gia đình', status: 'done', score: 10, maxScore: 10 },
-  { id: 2, title: 'Chủ đề: Trường học', status: 'done', score: 7, maxScore: 10 },
-  { id: 3, title: 'Chủ đề: Thực phẩm', status: 'doing', score: 4, maxScore: 10 },
-  { id: 4, title: 'Chủ đề: Du lịch', status: 'notDone', score: 0, maxScore: 10 },
-  { id: 5, title: 'Chủ đề: Sức khỏe', status: 'notDone', score: 0, maxScore: 10 },
-  { id: 6, title: 'Chủ đề: Công việc', status: 'doing', score: 6, maxScore: 10 },
-  { id: 7, title: 'Chủ đề: Thiên nhiên', status: 'notDone', score: 0, maxScore: 10 },
-  { id: 8, title: 'Chủ đề: Công nghệ', status: 'done', score: 9, maxScore: 10 },
-  { id: 9, title: 'Chủ đề: Thể thao', status: 'notDone', score: 0, maxScore: 10 },
-  { id: 10, title: 'Chủ đề: Nghệ thuật', status: 'notDone', score: 0, maxScore: 10 },
-];
-
-const exercisesData = [
-  { id: 1, title: 'Bài tập: Điền vào chỗ trống', status: 'done', score: 8, maxScore: 10 },
-  { id: 2, title: 'Bài tập: Chọn đáp án đúng', status: 'done', score: 9, maxScore: 10 },
-  { id: 3, title: 'Bài tập: Sắp xếp câu', status: 'doing', score: 5, maxScore: 10 },
-  { id: 4, title: 'Bài tập: Viết lại câu', status: 'notDone', score: 0, maxScore: 10 },
-  { id: 5, title: 'Bài tập: Dịch câu', status: 'notDone', score: 0, maxScore: 10 },
-  { id: 6, title: 'Bài tập: Đọc hiểu', status: 'done', score: 7, maxScore: 10 },
-  { id: 7, title: 'Bài tập: Nghe điền từ', status: 'notDone', score: 0, maxScore: 10 },
-  { id: 8, title: 'Bài tập: Nối từ', status: 'doing', score: 2, maxScore: 10 },
-  { id: 9, title: 'Bài tập: Tìm lỗi sai', status: 'notDone', score: 0, maxScore: 10 },
-  { id: 10, title: 'Bài tập: Hoàn thành đoạn văn', status: 'notDone', score: 0, maxScore: 10 },
-];
-
-// ===================== COMPONENT CARD =====================
-
-function LessonCard({ item }) {
-  const statusMap = {
-    done: { label: 'Đã làm', color: '#16a34a', bg: '#dcfce7', border: '#86efac' },
-    doing: { label: 'Đang làm', color: '#d97706', bg: '#fef3c7', border: '#fcd34d' },
-    notDone: { label: 'Chưa làm', color: '#6b7280', bg: '#f3f4f6', border: '#d1d5db' },
-  };
-
-  const s = statusMap[item.status];
-
-  return (
-    <div style={{
-      width: '340px',        // ~9cm
-      minHeight: '114px',    // ~3cm
-      background: '#ffffff',
-      border: `1.5px solid ${s.border}`,
-      borderRadius: '14px',
-      padding: '14px 18px',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'space-between',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
-      transition: 'box-shadow 0.2s, transform 0.2s',
-    }}
-      onMouseEnter={e => {
-        e.currentTarget.style.boxShadow = '0 6px 18px rgba(0,0,0,0.13)';
-        e.currentTarget.style.transform = 'translateY(-2px)';
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.07)';
-        e.currentTarget.style.transform = 'translateY(0)';
-      }}
-    >
-      {/* Dòng trên: Tên bài + Trạng thái */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-        <span style={{ fontWeight: 600, fontSize: '14px', color: '#1e293b', lineHeight: 1.4, flex: 1 }}>
-          {item.title}
-        </span>
-        <span style={{
-          fontSize: '11px',
-          fontWeight: 600,
-          color: s.color,
-          background: s.bg,
-          border: `1px solid ${s.border}`,
-          borderRadius: '20px',
-          padding: '2px 10px',
-          whiteSpace: 'nowrap',
-          flexShrink: 0,
-        }}>
-          {s.label}
-        </span>
-      </div>
-
-      {/* Dòng dưới: Điểm + Nút */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
-        <span style={{ fontSize: '13px', color: '#64748b' }}>
-          Điểm: <strong style={{ color: '#1e293b' }}>{item.score}/{item.maxScore}</strong>
-        </span>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button style={{
-            fontSize: '12px',
-            fontWeight: 600,
-            color: '#ffffff',
-            background: '#3b82f6',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '5px 14px',
-            cursor: 'pointer',
-            transition: 'background 0.15s',
-          }}
-            onMouseEnter={e => e.currentTarget.style.background = '#2563eb'}
-            onMouseLeave={e => e.currentTarget.style.background = '#3b82f6'}
-          >
-            Làm bài
-          </button>
-
-          {/* Nút "Xem lại bài" chỉ hiện khi đã làm xong */}
-          {item.status === 'done' && (
-            <button style={{
-              fontSize: '12px',
-              fontWeight: 600,
-              color: '#16a34a',
-              background: '#dcfce7',
-              border: '1.5px solid #86efac',
-              borderRadius: '8px',
-              padding: '5px 14px',
-              cursor: 'pointer',
-              transition: 'background 0.15s',
-            }}
-              onMouseEnter={e => e.currentTarget.style.background = '#bbf7d0'}
-              onMouseLeave={e => e.currentTarget.style.background = '#dcfce7'}
-            >
-              Xem lại bài
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ===================== COMPONENT NỘI DUNG TỪNG MỤC =====================
-
-function SectionPage({ title, subtitle, data }) {
-  return (
-    <div>
-      <div style={{ marginBottom: '28px' }}>
-        <h2 style={{ fontSize: '26px', fontWeight: 700, color: '#1e293b', margin: 0 }}>
-          {title}
-        </h2>
-        <p style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>{subtitle}</p>
-      </div>
-      <div style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: '16px',
-      }}>
-        {data.map(item => (
-          <LessonCard key={item.id} item={item} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ===================== TRANG CHỦ =====================
-
-const navItems = [
-  { key: 'home', label: 'Trang chủ', icon: '🏠' },
-  { key: 'grammar', label: 'Ngữ pháp', icon: '📖' },
-  { key: 'vocabulary', label: 'Từ vựng', icon: '📝' },
-  { key: 'exercises', label: 'Bài tập', icon: '✏️' },
-];
+const BRAND = '#4ade80';
 
 export default function HomePage() {
-  const [activeTab, setActiveTab] = useState('home');
+  const router = useRouter();
+  const [activeMenu, setActiveMenu] = useState('Tổng quan');
 
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'grammar':
-        return (
-          <SectionPage
-            title="Grammar (Ngữ pháp)"
-            subtitle="Ôn tập và luyện tập các chủ điểm ngữ pháp tiếng Anh"
-            data={grammarData}
-          />
-        );
-      case 'vocabulary':
-        return (
-          <SectionPage
-            title="Vocabulary (Từ vựng)"
-            subtitle="Mở rộng vốn từ vựng theo từng chủ đề"
-            data={vocabularyData}
-          />
-        );
-      case 'exercises':
-        return (
-          <SectionPage
-            title="Exercises (Bài tập)"
-            subtitle="Luyện tập tổng hợp với các dạng bài tập đa dạng"
-            data={exercisesData}
-          />
-        );
-      default:
-        return (
-          <div>
-            <h2 style={{ fontSize: '24px', fontWeight: 700, color: '#1e293b', marginBottom: '8px' }}>
-              Chào mừng bạn đến với Trang Chủ! 👋
-            </h2>
-            <p style={{ color: '#64748b', marginBottom: '24px' }}>
-              Bạn đã đăng nhập thành công. Chọn mục học từ thanh bên trái để bắt đầu.
-            </p>
-            <div style={{
-              border: '2px dashed #cbd5e1',
-              borderRadius: '12px',
-              height: '240px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#94a3b8',
-              fontSize: '14px',
-            }}>
-              Không gian thiết kế giao diện của bạn nằm ở đây
+  const menuItems = ['Tổng quan', 'Khóa học', 'Ngữ pháp', 'Từ vựng', 'Bài tập'];
+
+  const handleLogout = () => {
+    router.push('/');
+  };
+
+  const grammarData = Array.from({ length: 10 }, (_, i) => ({
+    id: i + 1,
+    title: `Bài ${i + 1}: ${[
+      'Thì Hiện tại đơn', 'Thì Hiện tại tiếp diễn', 'Thì Quá khứ đơn', 
+      'Thì Tương lai đơn', 'Mệnh đề quan hệ', 'Câu bị động', 
+      'Câu điều kiện loại 1', 'Câu điều kiện loại 2', 'Động từ khuyết thiếu', 'Danh động từ'
+    ][i] || 'Chủ đề Ngữ pháp'}`,
+    status: ['Đã làm', 'Đang làm', 'Chưa làm'][i % 3],
+    score: i % 3 === 0 ? `${8 + (i % 3)}/10` : '0/10'
+  }));
+
+  const vocabularyData = Array.from({ length: 10 }, (_, i) => ({
+    id: i + 1,
+    title: `Chủ đề ${i + 1}: ${[
+      'Office (Văn phòng)', 'Travel (Du lịch)', 'Marketing (Quảng cáo)', 
+      'Finance (Tài chính)', 'Technology (Công nghệ)', 'Health (Sức khỏe)', 
+      'Shopping (Mua sắm)', 'Entertainment (Giải trí)', 'Transportation (Giao thông)', 'Personnel (Nhân sự)'
+    ][i] || 'Chủ đề Từ vựng'}`,
+    status: ['Chưa làm', 'Đã làm', 'Đang làm'][i % 3],
+    score: i % 3 === 1 ? `${7 + (i % 3)}/10` : '0/10'
+  }));
+
+  const exerciseData = Array.from({ length: 10 }, (_, i) => ({
+    id: i + 1,
+    title: `Đề Luyện tập số ${i + 1}`,
+    status: ['Đang làm', 'Chưa làm', 'Đã làm'][i % 3],
+    score: i % 3 === 2 ? `${9 + (i % 2)}/10` : '0/10'
+  }));
+
+  const renderCards = (dataList) => {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4 justify-items-start">
+        {dataList.map((item) => (
+          <div 
+            key={item.id}
+            className="w-[378px] h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200"
+          >
+            <div className="flex justify-between items-start gap-2">
+              <h3 className="font-bold text-gray-800 text-sm line-clamp-1 flex-1">
+                {item.title}
+              </h3>
+              <span className="text-xs font-semibold px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
+                Điểm: {item.score}
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center mt-2">
+              <span className={`text-xs font-bold px-2 py-1 rounded-md
+                ${item.status === 'Đã làm' ? 'bg-green-100 text-green-700' : ''}
+                ${item.status === 'Đang làm' ? 'bg-amber-100 text-amber-700' : ''}
+                ${item.status === 'Chưa làm' ? 'bg-gray-100 text-gray-500' : ''}
+              `}>
+                {item.status}
+              </span>
+
+              {item.status === 'Đã làm' ? (
+                <button 
+                  style={{ border: `1px solid ${BRAND}`, color: BRAND }}
+                  className="text-xs font-bold px-3 py-1.5 rounded-lg bg-transparent hover:bg-green-50 transition duration-150"
+                >
+                  Xem lại bài
+                </button>
+              ) : (
+                <button 
+                  style={{ backgroundColor: BRAND }}
+                  className="text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:opacity-90 transition duration-150"
+                >
+                  Làm bài
+                </button>
+              )}
             </div>
           </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderContent = () => {
+    switch (activeMenu) {
+      case 'Tổng quan':
+        return (
+          <div>
+            <h2 className="text-xl font-bold text-gray-800 mb-4">Tiến trình học tập</h2>
+            <p className="text-gray-600 text-sm">Chào mừng bạn quay trở lại lớp học của Thầy Băng. Chọn các mục bên thanh điều hướng để bắt đầu học tập.</p>
+          </div>
         );
+
+      case 'Khóa học':
+        return (
+          <div>
+            <h2 className="text-xl font-bold text-gray-800 mb-4">Khóa học của bạn</h2>
+            <p className="text-gray-600 text-sm">Danh sách các khóa học TOEIC trực tuyến.</p>
+          </div>
+        );
+
+      case 'Ngữ pháp':
+        return (
+          <div>
+            <h2 className="text-xl font-extrabold text-gray-800 mb-4">
+              Grammar (Ngữ pháp)
+            </h2>
+            {renderCards(grammarData)}
+          </div>
+        );
+
+      case 'Từ vựng':
+        return (
+          <div>
+            <h2 className="text-xl font-extrabold text-gray-800 mb-4">
+              Vocabulary (Từ vựng)
+            </h2>
+            {renderCards(vocabularyData)}
+          </div>
+        );
+
+      case 'Bài tập':
+        return (
+          <div>
+            <h2 className="text-xl font-extrabold text-gray-800 mb-4">
+              Exercises (Bài tập)
+            </h2>
+            {renderCards(exerciseData)}
+          </div>
+        );
+
+      default:
+        return <p className="text-gray-500">Đang tải dữ liệu...</p>;
     }
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc', fontFamily: 'sans-serif' }}>
+    <div className="min-h-screen bg-gray-50 flex flex-col">
 
-      {/* ===== SIDEBAR ===== */}
-      <aside style={{
-        width: '220px',
-        flexShrink: 0,
-        background: '#1e293b',
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '24px 0',
-        boxShadow: '2px 0 8px rgba(0,0,0,0.12)',
-      }}>
-        {/* Logo / Tên app */}
-        <div style={{ padding: '0 20px 24px', borderBottom: '1px solid #334155' }}>
-          <span style={{ fontSize: '18px', fontWeight: 700, color: '#f1f5f9', letterSpacing: '0.5px' }}>
-            📚 EnglishApp
+      {/* ===== TOOLBAR TRÊN CÙNG ===== */}
+      <header
+        style={{ backgroundColor: BRAND }}
+        className="shadow-md px-6 py-3 flex items-center justify-between fixed top-0 left-0 right-0 z-50"
+      >
+        <span className="text-white font-bold text-xl tracking-wide">
+          TOEIC Thầy Băng
+        </span>
+
+        <div className="flex items-center gap-4">
+          <span className="text-white text-sm font-medium">
+            Hellu babe
           </span>
+          <button
+            onClick={handleLogout}
+            style={{ color: BRAND }}
+            className="bg-white font-semibold text-sm px-4 py-1.5 rounded-lg hover:bg-green-50 transition duration-200 shadow-sm"
+          >
+            Đăng xuất
+          </button>
         </div>
+      </header>
 
-        {/* Menu items */}
-        <nav style={{ marginTop: '16px', flex: 1 }}>
-          {navItems.map(item => {
-            const isActive = activeTab === item.key;
-            return (
-              <button
-                key={item.key}
-                onClick={() => setActiveTab(item.key)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  width: '100%',
-                  padding: '11px 20px',
-                  background: isActive ? '#3b82f6' : 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: isActive ? '#ffffff' : '#94a3b8',
-                  fontSize: '14px',
-                  fontWeight: isActive ? 600 : 400,
-                  textAlign: 'left',
-                  borderRadius: isActive ? '0 8px 8px 0' : '0',
-                  marginRight: isActive ? '12px' : '0',
-                  transition: 'all 0.15s',
-                }}
-                onMouseEnter={e => {
-                  if (!isActive) e.currentTarget.style.color = '#f1f5f9';
-                }}
-                onMouseLeave={e => {
-                  if (!isActive) e.currentTarget.style.color = '#94a3b8';
-                }}
-              >
-                <span style={{ fontSize: '16px' }}>{item.icon}</span>
-                {item.label}
-              </button>
-            );
-          })}
-        </nav>
-      </aside>
+      {/* ===== LAYOUT CHÍNH ===== */}
+      <div className="flex flex-1 pt-14">
 
-      {/* ===== NỘI DUNG CHÍNH ===== */}
-      <main style={{ flex: 1, padding: '36px 40px', overflowY: 'auto' }}>
-        {renderContent()}
-      </main>
+        {/* ===== SIDEBAR BÊN TRÁI ===== */}
+        <aside
+          style={{ backgroundColor: BRAND }}
+          className="w-48 shadow-lg flex flex-col py-6 px-3 gap-1 fixed left-0 top-14 bottom-0 overflow-y-auto"
+        >
+          {menuItems.map((item) => (
+            <button
+              key={item}
+              onClick={() => setActiveMenu(item)}
+              style={activeMenu === item ? { color: BRAND } : {}}
+              className={`text-left w-full px-4 py-3 rounded-lg text-sm font-semibold transition duration-150
+                ${activeMenu === item
+                  ? 'bg-white shadow-sm'
+                  : 'text-white hover:bg-white/20'
+                }`}
+            >
+              {item}
+            </button>
+          ))}
+        </aside>
+
+        {/* ===== NỘI DUNG CHÍNH ===== */}
+        <main className="flex-1 p-8 ml-48">
+          <div className="max-w-5xl mx-auto rounded-xl bg-white p-6 shadow-sm border border-gray-100">
+            <p className="text-xs text-gray-400 mb-4">
+              Trang chủ / <span style={{ color: BRAND }} className="font-medium">{activeMenu}</span>
+            </p>
+
+            <div className="mt-2">
+              {renderContent()}
+            </div>
+
+          </div>
+        </main>
+
+      </div>
     </div>
   );
 }
