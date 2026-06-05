@@ -19,7 +19,7 @@ const BRAND_LIGHT = '#f0fdf4';
 
 const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') || 'hoc_vien_01' : 'hoc_vien_01';
 
-// ─── XỬ LÝ PARSE EXCEL ────────────────────────────────────────────────────────
+// ─── XỬ LÝ PARSE EXCEL (ĐÃ TỐI ƯU CHUẨN HÓA ĐÁP ÁN) ───────────────────────────
 function parseExcel(arrayBuffer) {
   const workbook = XLSX.read(arrayBuffer, { type: 'array' });
   const firstSheetName = workbook.SheetNames[0];
@@ -41,7 +41,7 @@ function parseExcel(arrayBuffer) {
       };
     }
 
-    // Chuẩn hóa đáp án: Hỗ trợ cả dạng số (1,2,3,4) và dạng chữ (A,B,C,D)
+    // CHUẨN HÓA ĐÁP ÁN TUYỆT ĐỐI: Xóa khoảng trắng, viết hoa, xử lý cả số và chữ thường (a,b,c,d -> A,B,C,D)
     let rawAns = String(q.answer).toUpperCase().trim();
     if (rawAns === '1') rawAns = 'A';
     if (rawAns === '2') rawAns = 'B';
@@ -267,7 +267,7 @@ function LessonContent() {
   const currentQ = allQuestions[currentQIndex];
   const currentGroup = currentQ?.groupRef;
 
-  // ─── CHUẨN HÓA LOGIC HIỂN THỊ MÀU SẮC ĐÁP ÁN ĐÚNG/SAI ──────────────────────
+  // ─── LOGIC HIỂN THỊ MÀU SẮC ĐÁP ÁN ĐÚNG/SAI ────────────────────────────────
   const getOptionStyle = (qid, option) => {
     const selected = answers[qid] === option;
     const targetQ = allQuestions.find(q => q.question_id === qid);
@@ -283,7 +283,7 @@ function LessonContent() {
     }
     
     // TRƯỜNG HỢP XEM LẠI BÀI:
-    // 1. Ô đáp án đúng thực tế -> Luôn luôn hiển thị màu xanh lá (Bất kể học viên chọn câu nào)
+    // 1. Ô đáp án đúng thực tế -> Luôn hiển thị màu xanh lá (Bất kể học viên chọn đúng hay sai)
     if (isCorrect) {
       return { border: '1.5px solid #4ade80', background: '#f0fdf4', color: '#166534' };
     }
@@ -291,7 +291,7 @@ function LessonContent() {
     if (selected && !isCorrect) {
       return { border: '1.5px solid #f87171', background: '#fef2f2', color: '#991b1b' };
     }
-    // 3. Các ô sai còn lại -> Làm mờ đi
+    // 3. Các ô không liên quan -> Làm mờ chữ đi
     return { border: '0.5px solid #e2e8f0', background: '#fff', color: '#cbd5e1' };
   };
 
@@ -449,7 +449,6 @@ function LessonContent() {
                     </button>
                   ))}
                 </div>
-                {/* HIỂN THỊ KHỐI GIẢI THÍCH CHI TIẾT */}
                 {submitted && (
                   <div style={{ margin: '0 12px 12px', padding: '10px 12px', background: '#f0fdf4', borderRadius: 8, border: '0.5px solid #86efac' }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: '#166534', marginBottom: 4 }}>💡 Phân tích & Giải thích chi tiết</div>
