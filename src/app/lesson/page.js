@@ -17,7 +17,6 @@ const BRAND = '#4ade80';
 const BRAND_DARK = '#14532d';
 const BRAND_LIGHT = '#f0fdf4';
 
-// Cơ chế tự động lấy động ID học viên đã đăng nhập từ localStorage
 const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') || 'hoc_vien_01' : 'hoc_vien_01';
 
 // ─── XỬ LÝ PARSE EXCEL ────────────────────────────────────────────────────────
@@ -168,12 +167,11 @@ function LessonContent() {
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [score, setScore] = useState(null);
-  const [showResultCard, setShowResultCard] = useState(false); // Quản lý ẩn/hiện hộp thoại tổng kết điểm
+  const [showResultCard, setShowResultCard] = useState(false);
 
   useEffect(() => {
     async function load() {
       try {
-        // 1. Tải cấu hình bài học từ collection "lessons"
         const snap = await getDoc(doc(db, 'lessons', lessonId));
         if (!snap.exists()) throw new Error('Không tìm thấy cấu hình bài học này trên hệ thống.');
         const meta = snap.data();
@@ -181,7 +179,6 @@ function LessonContent() {
 
         if (!meta.fileUrl) throw new Error('Bài học chưa được cấu hình đường dẫn fileUrl.');
 
-        // 2. Tải và xử lý tệp Excel từ link URL liên kết
         const res = await fetch(meta.fileUrl);
         if (!res.ok) throw new Error('Không thể tải tệp dữ liệu bài học. Vui lòng kiểm tra lại quyền chia sẻ liên kết.');
         const buffer = await res.arrayBuffer();
@@ -195,7 +192,6 @@ function LessonContent() {
         });
         setAllQuestions(flat);
 
-        // 3. Nạp lại tiến trình của người dùng từ database
         const progressSnap = await getDoc(
           doc(db, 'users', CURRENT_USER_ID, 'progress', lessonId)
         );
@@ -205,7 +201,7 @@ function LessonContent() {
           if (progressData.status === 'completed') {
             setScore(progressData.score);
             setSubmitted(true);
-            setShowResultCard(true); // Bật bảng điểm tổng kết lên trước
+            setShowResultCard(true); 
           }
         }
       } catch (err) {
@@ -216,6 +212,9 @@ function LessonContent() {
     }
     load();
   }, [lessonId, CURRENT_USER_ID]);
+
+  // 🛠️ ĐỒNG BỘ ĐẾM SỐ CÂU ĐÃ CHỌN CHUẨN XÁC THEO TỪNG BÀI HỌC RIÊNG BIỆT
+  const currentLessonAnswerCount = allQuestions.filter(q => answers[q.question_id] !== undefined).length;
 
   const handleSelect = async (qid, option) => {
     if (submitted) return;
@@ -262,7 +261,7 @@ function LessonContent() {
   const currentQ = allQuestions[currentQIndex];
   const currentGroup = currentQ?.groupRef;
 
-  // ─── TỰ ĐỘNG ĐỔI STYLE THEO ĐÁP ÁN ĐÚNG/SAI KHI ĐÃ SUBMIT ─────────────────────
+  // ─── ĐÃ SỬA LẠI HOÀN TOÀN LOGIC ĐÁP ÁN ĐÚNG/SAI TRỰC QUAN ───────────────────
   const getOptionStyle = (qid, option) => {
     const selected = answers[qid] === option;
     const correctAnswer = allQuestions.find(q => q.question_id === qid)?.answer;
@@ -275,14 +274,17 @@ function LessonContent() {
         color: selected ? '#166534' : '#334155' 
       };
     }
-    // Chế độ xem lại bài / Đã nộp bài:
+    
+    // ƯU TIÊN 1: Đáp án đúng thực tế của câu hỏi luôn bôi xanh lá bất kể học viên chọn gì
     if (isCorrect) {
-      return { border: '1.5px solid #4ade80', background: '#f0fdf4', color: '#166534' }; // Đáp án đúng luôn màu xanh
+      return { border: '1.5px solid #4ade80', background: '#f0fdf4', color: '#166534' };
     }
+    // ƯU TIÊN 2: Nếu học viên chọn trúng đáp án sai, bôi đỏ đáp án đó
     if (selected && !isCorrect) {
-      return { border: '1.5px solid #f87171', background: '#fef2f2', color: '#991b1b' }; // Học viên chọn sai hiện màu đỏ
+      return { border: '1.5px solid #f87171', background: '#fef2f2', color: '#991b1b' };
     }
-    return { border: '0.5px solid #e2e8f0', background: '#fff', color: '#94a3b8' };
+    // Các đáp án không liên quan để mờ bình thường
+    return { border: '0.5px solid #e2e8f0', background: '#fff', color: '#cbd5e1' };
   };
 
   const getKeyStyle = (qid, option) => {
@@ -297,7 +299,7 @@ function LessonContent() {
         border: selected ? `1px solid ${BRAND}` : '0.5px solid #e2e8f0' 
       };
     }
-    // Chế độ xem lại bài / Đã nộp bài:
+    
     if (isCorrect) {
       return { background: '#4ade80', color: BRAND_DARK, border: '1px solid #4ade80' };
     }
@@ -326,7 +328,6 @@ function LessonContent() {
     );
   }
 
-  // Khung điểm hiển thị ban đầu khi nộp bài hoặc bấm "Xem lại bài"
   if (submitted && score !== null && showResultCard) {
     const pct = Math.round((score / totalQuestions) * 100);
     return (
@@ -376,14 +377,14 @@ function LessonContent() {
 
   return (
     <div className={roboto.className} style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#f8fafc', overflow: 'hidden' }}>
-      <header style={{ background: BRAND, padding: '10px 20px', display: 'flex', alignItems: 'center', justifyBetween: 'space-between', flexShrink: 0 }}>
+      <header style={{ background: BRAND, padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <button onClick={() => router.back()} style={{ background: 'rgba(255,255,255,0.25)', border: 'none', borderRadius: 6, padding: '4px 10px', color: BRAND_DARK, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>← Thoát</button>
         <span style={{ color: BRAND_DARK, fontWeight: 700, fontSize: 14 }}>{lessonMeta?.title || 'Bài làm'} {submitted && "(Chế độ xem lại đáp án)"}</span>
-        <span style={{ color: BRAND_DARK, fontSize: 12, fontWeight: 500 }}>Đã chọn: {Object.keys(answers).length}/{totalQuestions} câu</span>
+        {/* SỬA LỖI ĐẾM SỐ CÂU ĐÃ CHỌN CHUẨN XÁC TẠI ĐÂY */}
+        <span style={{ color: BRAND_DARK, fontSize: 12, fontWeight: 500 }}>Đã chọn: {currentLessonAnswerCount}/{totalQuestions} câu</span>
       </header>
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* Zone A - Mục lục câu hỏi */}
         <aside style={{ width: 72, flexShrink: 0, background: '#fff', borderRight: '0.5px solid #e2e8f0', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textAlign: 'center', padding: '8px 4px 6px', borderBottom: '0.5px solid #e2e8f0', letterSpacing: '0.05em' }}>MỤC LỤC</div>
           <div style={{ overflowY: 'auto', flex: 1, padding: '8px 6px', display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -392,7 +393,6 @@ function LessonContent() {
               const isDone = answers[q.question_id] !== undefined;
               const isCorrect = answers[q.question_id] === q.answer;
 
-              // Trực quan hóa nút mục lục bên trái khi xem lại bài
               let btnBg = '#f1f5f9';
               let btnColor = '#64748b';
               if (isActive) {
@@ -400,7 +400,7 @@ function LessonContent() {
                 btnColor = BRAND_DARK;
               } else if (isDone) {
                 if (submitted) {
-                  btnBg = isCorrect ? '#dcfce7' : '#fee2e2'; // Đúng màu xanh lá nhạt, sai màu đỏ nhạt
+                  btnBg = isCorrect ? '#dcfce7' : '#fee2e2'; 
                   btnColor = isCorrect ? '#166534' : '#991b1b';
                 } else {
                   btnBg = '#dcfce7';
@@ -417,7 +417,6 @@ function LessonContent() {
           </div>
         </aside>
 
-        {/* Zone B - Ngữ cảnh đính kèm */}
         <section style={{ flex: 1.1, background: '#fff', borderRight: '0.5px solid #e2e8f0', display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', padding: '7px 14px', background: '#f8fafc', borderBottom: '0.5px solid #e2e8f0', letterSpacing: '0.04em' }}>NGỮ CẢNH ĐỀ BÀI</div>
           <div style={{ overflowY: 'auto', flex: 1, padding: 14 }}>
@@ -425,7 +424,6 @@ function LessonContent() {
           </div>
         </section>
 
-        {/* Zone C - Câu hỏi trắc nghiệm */}
         <section style={{ flex: 1, background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', padding: '7px 14px', background: '#f8fafc', borderBottom: '0.5px solid #e2e8f0', letterSpacing: '0.04em' }}>LỰA CHỌN ĐÁP ÁN</div>
           <div style={{ overflowY: 'auto', flex: 1, padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -455,17 +453,16 @@ function LessonContent() {
         </section>
       </div>
 
-      {/* FOOTER ĐIỀU HƯỚNG */}
-      <footer style={{ background: '#fff', borderTop: '0.5px solid #e2e8f0', padding: '8px 16px', display: 'flex', alignItems: 'center', justifyBetween: 'space-between', flexShrink: 0 }}>
+      <footer style={{ background: '#fff', borderTop: '0.5px solid #e2e8f0', padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={() => setCurrentQIndex((i) => Math.max(0, i - 1))} disabled={currentQIndex === 0} style={{ border: '0.5px solid #e2e8f0', borderRadius: 7, padding: '6px 14px', fontSize: 12, fontWeight: 600, background: 'transparent', color: currentQIndex === 0 ? '#cbd5e1' : '#475569', cursor: currentQIndex === 0 ? 'not-allowed' : 'pointer' }}>← Câu trước</button>
           <button onClick={() => setCurrentQIndex((i) => Math.min(allQuestions.length - 1, i + 1))} disabled={currentQIndex === allQuestions.length - 1} style={{ border: '0.5px solid #e2e8f0', borderRadius: 7, padding: '6px 14px', fontSize: 12, fontWeight: 600, background: 'transparent', color: currentQIndex === allQuestions.length - 1 ? '#cbd5e1' : '#475569', cursor: currentQIndex === allQuestions.length - 1 ? 'not-allowed' : 'pointer' }}>Câu sau →</button>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ width: 100, height: 4, background: '#e2e8f0', borderRadius: 2 }}>
-            <div style={{ width: `${totalQuestions > 0 ? (Object.keys(answers).length / totalQuestions) * 100 : 0}%`, height: 4, background: BRAND, borderRadius: 2, transition: 'width 0.3s ease' }} />
+            <div style={{ width: `${totalQuestions > 0 ? (currentLessonAnswerCount / totalQuestions) * 100 : 0}%`, height: 4, background: BRAND, borderRadius: 2, transition: 'width 0.3s ease' }} />
           </div>
-          <span style={{ fontSize: 11, color: '#94a3b8' }}>{Object.keys(answers).length}/{totalQuestions}</span>
+          <span style={{ fontSize: 11, color: '#94a3b8' }}>{currentLessonAnswerCount}/{totalQuestions}</span>
         </div>
         
         {submitted ? (
