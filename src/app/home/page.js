@@ -13,7 +13,7 @@ const roboto = Roboto({
 });
 
 const BRAND = '#4ade80';
-const CURRENT_USER_ID = "hoc_vien_01"; // Đồng bộ với userId bên trang làm bài
+const CURRENT_USER_ID = "hoc_vien_01"; // Phải trùng khớp với userId bên trang làm bài
 
 export default function HomePage() {
   const router = useRouter();
@@ -21,7 +21,7 @@ export default function HomePage() {
   const [userProgress, setUserProgress] = useState({});
   const [loadingProgress, setLoadingProgress] = useState(true);
 
-  // 1. Tải Tiến trình học tập thực tế từ Firestore khi tải trang chủ
+  // Lấy dữ liệu tiến trình thực tế từ Database Firestore
   useEffect(() => {
     async function fetchProgress() {
       try {
@@ -34,13 +34,13 @@ export default function HomePage() {
         });
         setUserProgress(progressMap);
       } catch (err) {
-        console.error("Lỗi khi tải tiến trình học viên: ", err);
+        console.error("Lỗi đồng bộ tiến trình học viên: ", err);
       } finally {
         setLoadingProgress(false);
       }
     }
     fetchProgress();
-  }, [activeMenu]); // Re-fetch khi chuyển đổi menu để cập nhật liên tục dữ liệu mới nhất
+  }, [activeMenu]);
 
   const menuItems = ['Tổng quan', 'Khóa học', 'Ngữ pháp', 'Từ vựng', 'Bài tập'];
 
@@ -48,7 +48,6 @@ export default function HomePage() {
     router.push('/');
   };
 
-  // Cấu trúc danh sách bài học nguyên bản
   const rawGrammarData = Array.from({ length: 10 }, (_, i) => ({
     id: i + 1,
     title: `Bài ${i + 1}: ${[
@@ -72,10 +71,9 @@ export default function HomePage() {
     title: `Đề Luyện tập số ${i + 1}`
   }));
 
-  // Hàm so khớp dữ liệu thô với dữ liệu tiến trình từ Firestore để đưa ra Trạng thái và Điểm số thật
   const buildDisplayData = (rawData, prefixType) => {
     return rawData.map(item => {
-      const targetLessonId = `${prefixType}_${item.id}`;
+      const targetLessonId = `${prefixType}_${item.id}`; 
       const progress = userProgress[targetLessonId];
 
       let status = 'Chưa làm';
@@ -103,10 +101,9 @@ export default function HomePage() {
     router.push(`/lesson?type=${type}&id=${id}`);
   };
 
-  // ---- Xử lý render danh sách thẻ bài tập ----
   const renderCards = (rawDataList, type) => {
     if (loadingProgress) {
-      return <p className="text-gray-400 text-xs mt-4">Đang đồng bộ tiến trình học tập...</p>;
+      return <p className="text-gray-400 text-xs mt-4">Đang kiểm tra tiến trình học viên...</p>;
     }
 
     const dataList = buildDisplayData(rawDataList, type);
@@ -118,7 +115,6 @@ export default function HomePage() {
             key={item.id}
             className="w-[378px] h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200"
           >
-            {/* Header Thẻ: Tiêu đề & Điểm số */}
             <div className="flex justify-between items-start gap-2">
               <h3 className="font-bold text-gray-800 text-sm line-clamp-1 flex-1">
                 {item.title}
@@ -128,9 +124,7 @@ export default function HomePage() {
               </span>
             </div>
 
-            {/* Footer Thẻ: Trạng thái hiển thị & Tổ hợp các Nút bấm */}
             <div className="flex justify-between items-center mt-2">
-              {/* Badge trạng thái học tập */}
               <span className={`text-xs font-bold px-2 py-1 rounded-md
                 ${item.status === 'Đã làm' ? 'bg-green-100 text-green-700' : ''}
                 ${item.status === 'Đang làm' ? 'bg-amber-100 text-amber-700' : ''}
@@ -139,10 +133,7 @@ export default function HomePage() {
                 {item.status}
               </span>
 
-              {/* Phân tách nút dựa trên trạng thái đồng bộ Firestore */}
               <div className="flex items-center gap-2">
-                
-                {/* TRƯỜNG HỢP 1: CHƯA LÀM */}
                 {item.status === 'Chưa làm' && (
                   <button
                     onClick={() => handleNavigation(type, item.id)}
@@ -153,7 +144,6 @@ export default function HomePage() {
                   </button>
                 )}
 
-                {/* TRƯỜNG HỢP 2: ĐANG LÀM DỞ */}
                 {item.status === 'Đang làm' && (
                   <button
                     onClick={() => handleNavigation(type, item.id)}
@@ -164,7 +154,6 @@ export default function HomePage() {
                   </button>
                 )}
 
-                {/* TRƯỜNG HỢP 3: ĐÃ LÀM XONG (HIỆN 2 NÚT) */}
                 {item.status === 'Đã làm' && (
                   <>
                     <button
@@ -183,7 +172,6 @@ export default function HomePage() {
                     </button>
                   </>
                 )}
-
               </div>
             </div>
           </div>
@@ -213,9 +201,7 @@ export default function HomePage() {
       case 'Ngữ pháp':
         return (
           <div>
-            <h2 className="text-xl font-extrabold text-gray-800 mb-4">
-              Grammar (Ngữ pháp)
-            </h2>
+            <h2 className="text-xl font-extrabold text-gray-800 mb-4">Grammar (Ngữ pháp)</h2>
             {renderCards(rawGrammarData, 'grammar')}
           </div>
         );
@@ -223,9 +209,7 @@ export default function HomePage() {
       case 'Từ vựng':
         return (
           <div>
-            <h2 className="text-xl font-extrabold text-gray-800 mb-4">
-              Vocabulary (Từ vựng)
-            </h2>
+            <h2 className="text-xl font-extrabold text-gray-800 mb-4">Vocabulary (Từ vựng)</h2>
             {renderCards(rawVocabularyData, 'vocabulary')}
           </div>
         );
@@ -233,9 +217,7 @@ export default function HomePage() {
       case 'Bài tập':
         return (
           <div>
-            <h2 className="text-xl font-extrabold text-gray-800 mb-4">
-              Exercises (Bài tập)
-            </h2>
+            <h2 className="text-xl font-extrabold text-gray-800 mb-4">Exercises (Bài tập)</h2>
             {renderCards(rawExerciseData, 'exercise')}
           </div>
         );
@@ -247,7 +229,6 @@ export default function HomePage() {
 
   return (
     <div className={`min-h-screen bg-gray-50 flex flex-col ${roboto.className}`}>
-      {/* ===== TOOLBAR TRÊN CÙNG ===== */}
       <header style={{ backgroundColor: BRAND }} className="shadow-md px-6 py-3 flex items-center justify-between fixed top-0 left-0 right-0 z-50">
         <span className="text-white font-bold text-xl tracking-wide">TOEIC Thầy Băng</span>
         <div className="flex items-center gap-4">
@@ -256,9 +237,7 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* ===== LAYOUT CHÍNH ===== */}
       <div className="flex flex-1 pt-14">
-        {/* ===== SIDEBAR BÊN TRÁI ===== */}
         <aside style={{ backgroundColor: BRAND }} className="w-48 shadow-lg flex flex-col py-6 px-3 gap-1 fixed left-0 top-14 bottom-0 overflow-y-auto">
           {menuItems.map((item) => (
             <button
@@ -273,7 +252,6 @@ export default function HomePage() {
           ))}
         </aside>
 
-        {/* ===== NỘI DUNG CHÍNH ===== */}
         <main className="flex-1 p-8 ml-48">
           <div className="max-w-5xl mx-auto rounded-xl bg-white p-6 shadow-sm border border-gray-100">
             <p className="text-xs text-gray-400 mb-4">
