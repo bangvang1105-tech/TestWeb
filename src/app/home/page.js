@@ -2,6 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Roboto } from 'next/font/google';
+
+const roboto = Roboto({
+  weight: ['400', '500', '700', '900'],
+  subsets: ['vietnamese'],
+  display: 'swap',
+});
 
 const BRAND = '#4ade80';
 
@@ -18,8 +25,8 @@ export default function HomePage() {
   const grammarData = Array.from({ length: 10 }, (_, i) => ({
     id: i + 1,
     title: `Bài ${i + 1}: ${[
-      'Thì Hiện tại đơn', 'Thì Hiện tại tiếp diễn', 'Thì Quá khứ đơn', 
-      'Thì Tương lai đơn', 'Mệnh đề quan hệ', 'Câu bị động', 
+      'Thì Hiện tại đơn', 'Thì Hiện tại tiếp diễn', 'Thì Quá khứ đơn',
+      'Thì Tương lai đơn', 'Mệnh đề quan hệ', 'Câu bị động',
       'Câu điều kiện loại 1', 'Câu điều kiện loại 2', 'Động từ khuyết thiếu', 'Danh động từ'
     ][i] || 'Chủ đề Ngữ pháp'}`,
     status: ['Đã làm', 'Đang làm', 'Chưa làm'][i % 3],
@@ -29,8 +36,8 @@ export default function HomePage() {
   const vocabularyData = Array.from({ length: 10 }, (_, i) => ({
     id: i + 1,
     title: `Chủ đề ${i + 1}: ${[
-      'Office (Văn phòng)', 'Travel (Du lịch)', 'Marketing (Quảng cáo)', 
-      'Finance (Tài chính)', 'Technology (Công nghệ)', 'Health (Sức khỏe)', 
+      'Office (Văn phòng)', 'Travel (Du lịch)', 'Marketing (Quảng cáo)',
+      'Finance (Tài chính)', 'Technology (Công nghệ)', 'Health (Sức khỏe)',
       'Shopping (Mua sắm)', 'Entertainment (Giải trí)', 'Transportation (Giao thông)', 'Personnel (Nhân sự)'
     ][i] || 'Chủ đề Từ vựng'}`,
     status: ['Chưa làm', 'Đã làm', 'Đang làm'][i % 3],
@@ -44,11 +51,12 @@ export default function HomePage() {
     score: i % 3 === 2 ? `${9 + (i % 2)}/10` : '0/10'
   }));
 
-  const renderCards = (dataList) => {
+  // ---- type được truyền vào để tạo URL đúng ----
+  const renderCards = (dataList, type) => {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4 justify-items-start">
         {dataList.map((item) => (
-          <div 
+          <div
             key={item.id}
             className="w-[378px] h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200"
           >
@@ -71,14 +79,15 @@ export default function HomePage() {
               </span>
 
               {item.status === 'Đã làm' ? (
-                <button 
+                <button
                   style={{ border: `1px solid ${BRAND}`, color: BRAND }}
                   className="text-xs font-bold px-3 py-1.5 rounded-lg bg-transparent hover:bg-green-50 transition duration-150"
                 >
                   Xem lại bài
                 </button>
               ) : (
-                <button 
+                <button
+                  onClick={() => router.push(`/lesson?type=${type}&id=${item.id}`)}
                   style={{ backgroundColor: BRAND }}
                   className="text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:opacity-90 transition duration-150"
                 >
@@ -116,7 +125,7 @@ export default function HomePage() {
             <h2 className="text-xl font-extrabold text-gray-800 mb-4">
               Grammar (Ngữ pháp)
             </h2>
-            {renderCards(grammarData)}
+            {renderCards(grammarData, 'grammar')}
           </div>
         );
 
@@ -126,7 +135,7 @@ export default function HomePage() {
             <h2 className="text-xl font-extrabold text-gray-800 mb-4">
               Vocabulary (Từ vựng)
             </h2>
-            {renderCards(vocabularyData)}
+            {renderCards(vocabularyData, 'vocabulary')}
           </div>
         );
 
@@ -136,7 +145,7 @@ export default function HomePage() {
             <h2 className="text-xl font-extrabold text-gray-800 mb-4">
               Exercises (Bài tập)
             </h2>
-            {renderCards(exerciseData)}
+            {renderCards(exerciseData, 'exercise')}
           </div>
         );
 
@@ -146,7 +155,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className={`min-h-screen bg-gray-50 flex flex-col ${roboto.className}`}>
 
       {/* ===== TOOLBAR TRÊN CÙNG ===== */}
       <header
