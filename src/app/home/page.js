@@ -13,7 +13,7 @@ const roboto = Roboto({
 });
 
 const BRAND = '#4ade80';
-const CURRENT_USER_ID = "hoc_vien_01"; // Phải trùng khớp với userId bên trang làm bài
+const CURRENT_USER_ID = "hoc_vien_01"; // Khớp chính xác với userId bên trang làm bài
 
 export default function HomePage() {
   const router = useRouter();
@@ -103,42 +103,56 @@ export default function HomePage() {
 
   const renderCards = (rawDataList, type) => {
     if (loadingProgress) {
-      return <p className="text-gray-400 text-xs mt-4">Đang kiểm tra tiến trình học viên...</p>;
+      return <p style={{ color: '#94a3b8', fontSize: 12, marginTop: 16 }}>Đang kiểm tra tiến trình học viên...</p>;
     }
 
     const dataList = buildDisplayData(rawDataList, type);
 
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4 justify-items-start">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(378px, 1fr))', gap: 24, marginTop: 16, width: '100%' }}>
         {dataList.map((item) => (
           <div
             key={item.id}
-            className="w-[378px] h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200"
+            style={{
+              width: 378,
+              height: 114,
+              borderRadius: 12,
+              border: '1px solid #e2e8f0',
+              backgroundColor: '#fff',
+              boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+              padding: 16,
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              transition: 'all 0.2s'
+            }}
           >
-            <div className="flex justify-between items-start gap-2">
-              <h3 className="font-bold text-gray-800 text-sm line-clamp-1 flex-1">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 8 }}>
+              <h3 style={{ fontWeight: 700, color: '#1e293b', fontSize: 14, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', flex: 1 }}>
                 {item.title}
               </h3>
-              <span className="text-xs font-semibold px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
+              <span style={{ fontSize: 12, fontWeight: 600, padding: '2px 8px', backgroundColor: '#f1f5f9', color: '#475569', borderRadius: 4, whiteSpace: 'nowrap' }}>
                 Điểm: {item.score}
               </span>
             </div>
 
-            <div className="flex justify-between items-center mt-2">
-              <span className={`text-xs font-bold px-2 py-1 rounded-md
-                ${item.status === 'Đã làm' ? 'bg-green-100 text-green-700' : ''}
-                ${item.status === 'Đang làm' ? 'bg-amber-100 text-amber-700' : ''}
-                ${item.status === 'Chưa làm' ? 'bg-gray-100 text-gray-500' : ''}
-              `}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+              <span style={{
+                fontSize: 12,
+                fontWeight: 700,
+                padding: '4px 8px',
+                borderRadius: 6,
+                backgroundColor: item.status === 'Đã làm' ? '#dcfce7' : item.status === 'Đang làm' ? '#fef3c7' : '#f1f5f9',
+                color: item.status === 'Đã làm' ? '#166534' : item.status === 'Đang làm' ? '#92400e' : '#64748b'
+              }}>
                 {item.status}
               </span>
 
-              <div className="flex items-center gap-2">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {item.status === 'Chưa làm' && (
                   <button
                     onClick={() => handleNavigation(type, item.id)}
-                    style={{ backgroundColor: BRAND }}
-                    className="text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:opacity-90 transition duration-150"
+                    style={{ backgroundColor: BRAND, color: '#14532d', fontSize: 12, fontWeight: 700, padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer' }}
                   >
                     Làm bài
                   </button>
@@ -147,8 +161,7 @@ export default function HomePage() {
                 {item.status === 'Đang làm' && (
                   <button
                     onClick={() => handleNavigation(type, item.id)}
-                    style={{ backgroundColor: BRAND }}
-                    className="text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:opacity-90 transition duration-150 whitespace-nowrap"
+                    style={{ backgroundColor: BRAND, color: '#14532d', fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
                   >
                     Tiếp tục làm bài
                   </button>
@@ -158,15 +171,13 @@ export default function HomePage() {
                   <>
                     <button
                       onClick={() => handleNavigation(type, item.id)} 
-                      style={{ border: `1px solid ${BRAND}`, color: BRAND }}
-                      className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-transparent hover:bg-green-50 transition duration-150 whitespace-nowrap"
+                      style={{ border: `1px solid ${BRAND}`, color: '#166534', backgroundColor: 'transparent', fontSize: 12, fontWeight: 700, padding: '6px 10px', borderRadius: 8, cursor: 'pointer', whiteSpace: 'nowrap' }}
                     >
                       Xem lại bài
                     </button>
                     <button
                       onClick={() => handleNavigation(type, item.id)}
-                      style={{ backgroundColor: BRAND }}
-                      className="text-white text-xs font-bold px-2.5 py-1.5 rounded-lg hover:opacity-90 transition duration-150 whitespace-nowrap"
+                      style={{ backgroundColor: BRAND, color: '#14532d', fontSize: 12, fontWeight: 700, padding: '6px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
                     >
                       Làm lại bài
                     </button>
@@ -185,23 +196,23 @@ export default function HomePage() {
       case 'Tổng quan':
         return (
           <div>
-            <h2 className="text-xl font-bold text-gray-800 mb-4">Tiến trình học tập</h2>
-            <p className="text-gray-600 text-sm">Chào mừng bạn quay trở lại lớp học của Thầy Băng. Chọn các mục bên thanh điều hướng để bắt đầu học tập.</p>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1e293b', marginBottom: 16, margin: 0 }}>Tiến trình học tập</h2>
+            <p style={{ color: '#475569', fontSize: 14, margin: 0 }}>Chào mừng bạn quay trở lại lớp học của Thầy Băng. Chọn các mục bên thanh điều hướng để bắt đầu học tập.</p>
           </div>
         );
 
       case 'Khóa học':
         return (
           <div>
-            <h2 className="text-xl font-bold text-gray-800 mb-4">Khóa học của bạn</h2>
-            <p className="text-gray-600 text-sm">Danh sách các khóa học TOEIC trực tuyến.</p>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1e293b', marginBottom: 16, margin: 0 }}>Khóa học của bạn</h2>
+            <p style={{ color: '#475569', fontSize: 14, margin: 0 }}>Danh sách các khóa học TOEIC trực tuyến.</p>
           </div>
         );
 
       case 'Ngữ pháp':
         return (
           <div>
-            <h2 className="text-xl font-extrabold text-gray-800 mb-4">Grammar (Ngữ pháp)</h2>
+            <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1e293b', marginBottom: 16, margin: 0 }}>Grammar (Ngữ pháp)</h2>
             {renderCards(rawGrammarData, 'grammar')}
           </div>
         );
@@ -209,7 +220,7 @@ export default function HomePage() {
       case 'Từ vựng':
         return (
           <div>
-            <h2 className="text-xl font-extrabold text-gray-800 mb-4">Vocabulary (Từ vựng)</h2>
+            <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1e293b', marginBottom: 16, margin: 0 }}>Vocabulary (Từ vựng)</h2>
             {renderCards(rawVocabularyData, 'vocabulary')}
           </div>
         );
@@ -217,47 +228,62 @@ export default function HomePage() {
       case 'Bài tập':
         return (
           <div>
-            <h2 className="text-xl font-extrabold text-gray-800 mb-4">Exercises (Bài tập)</h2>
+            <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1e293b', marginBottom: 16, margin: 0 }}>Exercises (Bài tập)</h2>
             {renderCards(rawExerciseData, 'exercise')}
           </div>
         );
 
       default:
-        return <p className="text-gray-500">Đang tải dữ liệu...</p>;
+        return <p style={{ color: '#64748b' }}>Đang tải dữ liệu...</p>;
     }
   };
 
   return (
-    <div className={`min-h-screen bg-gray-50 flex flex-col ${roboto.className}`}>
-      <header style={{ backgroundColor: BRAND }} className="shadow-md px-6 py-3 flex items-center justify-between fixed top-0 left-0 right-0 z-50">
-        <span className="text-white font-bold text-xl tracking-wide">TOEIC Thầy Băng</span>
-        <div className="flex items-center gap-4">
-          <span className="text-white text-sm font-medium">Hellu babe</span>
-          <button onClick={handleLogout} style={{ color: BRAND }} className="bg-white font-semibold text-sm px-4 py-1.5 rounded-lg hover:bg-green-50 transition duration-200 shadow-sm">Đăng xuất</button>
+    <div className={roboto.className} style={{ minHeight: '100vh', backgroundColor: '#f8fafc', display: 'flex', flexDirection: 'column' }}>
+      {/* ===== HEADER BAR ===== */}
+      <header style={{ backgroundColor: BRAND, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50 }}>
+        <span style={{ color: '#fff', fontWeight: 700, fontSize: 20, letterSpacing: '0.05em' }}>TOEIC Thầy Băng</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <span style={{ color: '#fff', fontSize: 14, fontWeight: 500 }}>Hellu babe</span>
+          <button onClick={handleLogout} style={{ color: '#166534', backgroundColor: '#fff', fontWeight: 600, fontSize: 14, padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)' }}>Đăng xuất</button>
         </div>
       </header>
 
-      <div className="flex flex-1 pt-14">
-        <aside style={{ backgroundColor: BRAND }} className="w-48 shadow-lg flex flex-col py-6 px-3 gap-1 fixed left-0 top-14 bottom-0 overflow-y-auto">
+      {/* ===== LAYOUT BODY ===== */}
+      <div style={{ display: 'flex', flex: 1, paddingTop: 56 }}>
+        {/* ===== SIDEBAR ===== */}
+        <aside style={{ backgroundColor: BRAND, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', width: 192, display: 'flex', flexDirection: 'column', padding: '24px 12px', gap: 4, position: 'fixed', left: 0, top: 56, bottom: 0, overflowY: 'auto' }}>
           {menuItems.map((item) => (
             <button
               key={item}
               onClick={() => setActiveMenu(item)}
-              style={activeMenu === item ? { color: BRAND } : {}}
-              className={`text-left w-full px-4 py-3 rounded-lg text-sm font-semibold transition duration-150
-                ${activeMenu === item ? 'bg-white shadow-sm' : 'text-white hover:bg-white/20'}`}
+              style={{
+                textAlign: 'left',
+                width: '100%',
+                padding: '12px 16px',
+                borderRadius: 8,
+                fontSize: 14,
+                fontWeight: 600,
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+                backgroundColor: activeMenu === item ? '#fff' : 'transparent',
+                color: activeMenu === item ? '#166534' : '#fff',
+                boxShadow: activeMenu === item ? '0 1px 2px 0 rgba(0, 0, 0, 0.05)' : 'none'
+              }}
             >
               {item}
             </button>
           ))}
         </aside>
 
-        <main className="flex-1 p-8 ml-48">
-          <div className="max-w-5xl mx-auto rounded-xl bg-white p-6 shadow-sm border border-gray-100">
-            <p className="text-xs text-gray-400 mb-4">
-              Trang chủ / <span style={{ color: BRAND }} className="font-medium">{activeMenu}</span>
+        {/* ===== MAIN CONTENT ===== */}
+        <main style={{ flex: 1, padding: 32, marginLeft: 192 }}>
+          <div style={{ maxWidth: 1024, margin: '0 auto', borderRadius: 12, backgroundColor: '#fff', padding: 24, boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)', border: '1px solid #f1f5f9' }}>
+            <p style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16, margin: 0 }}>
+              Trang chủ / <span style={{ color: BRAND, fontWeight: 500 }}>{activeMenu}</span>
             </p>
-            <div className="mt-2">{renderContent()}</div>
+            <div style={{ marginTop: 8 }}>{renderContent()}</div>
           </div>
         </main>
       </div>
