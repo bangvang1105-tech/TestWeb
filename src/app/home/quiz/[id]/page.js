@@ -5,8 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import { Roboto } from 'next/font/google';
 
-// ĐƯỜNG DẪN ĐÃ SỬA: Import từ file firebase.js nằm trong thư mục src
-import { db } from '../../../firebase'; 
+// Sử dụng alias đã định nghĩa trong jsconfig.json để tránh lỗi đếm tầng thư mục
+import { db } from '@firebase'; 
 import { doc, getDoc } from 'firebase/firestore'; 
 
 const roboto = Roboto({
@@ -25,7 +25,6 @@ export default function AdvancedQuizPage() {
   const [mediaData, setMediaData] = useState({ imageUrl: '', audioUrl: '' });
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
-  
   const [userAnswers, setUserAnswers] = useState({});
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [score, setScore] = useState(null);
@@ -36,10 +35,6 @@ export default function AdvancedQuizPage() {
     async function fetchFullQuizData() {
       try {
         setLoading(true);
-        
-        // Kiểm tra xem db có tồn tại không
-        if (!db) throw new Error("Không thể kết nối Firebase.");
-
         const docRef = doc(db, "lessons", id);
         const docSnap = await getDoc(docRef);
         
@@ -65,7 +60,7 @@ export default function AdvancedQuizPage() {
     if (id) fetchFullQuizData();
   }, [id]);
 
-  if (loading) return <div className="p-10 text-center">Đang tải dữ liệu...</div>;
+  if (loading) return <div className="p-10 text-center">Đang tải...</div>;
   if (errorMsg) return <div className="p-10 text-center text-red-500">{errorMsg}</div>;
 
   return (
@@ -78,7 +73,7 @@ export default function AdvancedQuizPage() {
             questions.forEach((q, i) => { if(userAnswers[i] === String(q.Correct).trim()) c++; });
             setScore({ correct: c, total: questions.length });
           }} style={{ backgroundColor: BRAND }} className="text-white px-4 py-1.5 rounded text-sm font-bold">Nộp bài</button>
-        ) : <button onClick={() => router.push('/home')} className="text-sm">Thoát</button>}
+        ) : <button onClick={() => router.push('/home')} className="text-sm font-medium text-gray-500">Thoát</button>}
       </header>
 
       <div className="flex flex-1 overflow-hidden">
@@ -86,7 +81,7 @@ export default function AdvancedQuizPage() {
           <div className="grid grid-cols-4 gap-2">
             {questions.map((_, i) => (
               <button key={i} onClick={() => { setCurrentQuestionIndex(i); questionRefs.current[i]?.scrollIntoView({ behavior: 'smooth' }); }}
-                className={`h-8 rounded ${userAnswers[i] ? 'text-white' : 'text-gray-600'}`}
+                className={`h-8 rounded text-xs font-bold ${userAnswers[i] ? 'text-white' : 'text-gray-600'}`}
                 style={{ backgroundColor: userAnswers[i] ? BRAND : '#f3f4f6' }}>{i+1}</button>
             ))}
           </div>
