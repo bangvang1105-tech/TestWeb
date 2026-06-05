@@ -20,11 +20,17 @@ export default function HomePage() {
   const [userProgress, setUserProgress] = useState({});
   const [loadingProgress, setLoadingProgress] = useState(true);
 
-  // Lấy động User ID từ localStorage sau khi đăng nhập, mặc định là hoc_vien_01 nếu trống
-  const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') || 'hoc_vien_01' : 'hoc_vien_01';
+  // Lấy User ID động từ trình duyệt
+  const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
 
-  // Lấy dữ liệu tiến trình thực tế từ Database Firestore
+  // Xử lý bảo mật chặn truy cập trái phép & Lấy tiến trình học tập thực tế
   useEffect(() => {
+    // 🛡️ CHẶN BẢO MẬT: Nếu chưa đăng nhập (không có ID), đá ngay về trang login
+    if (!CURRENT_USER_ID) {
+      router.push('/login');
+      return;
+    }
+
     async function fetchProgress() {
       try {
         setLoadingProgress(true);
@@ -43,15 +49,15 @@ export default function HomePage() {
       }
     }
     fetchProgress();
-  }, [activeMenu, CURRENT_USER_ID]);
+  }, [activeMenu, CURRENT_USER_ID, router]);
 
   const menuItems = ['Tổng quan', 'Khóa học', 'Ngữ pháp', 'Từ vựng', 'Bài tập'];
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('userId');
+      localStorage.removeItem('userId'); // Xóa lịch sử đăng nhập
     }
-    router.push('/');
+    router.push('/login');
   };
 
   // Dữ liệu danh sách bài học gốc
@@ -78,7 +84,7 @@ export default function HomePage() {
     title: `Đề Luyện tập số ${i + 1}`
   }));
 
-  // Hàm ánh xạ trạng thái bài học từ Firestore
+  // Ánh xạ trạng thái làm bài thực tế từ Firestore
   const buildDisplayData = (rawData, prefixType) => {
     return rawData.map(item => {
       const targetLessonId = `${prefixType}_${item.id}`; 
@@ -97,11 +103,7 @@ export default function HomePage() {
         }
       }
 
-      return {
-        ...item,
-        status,
-        score: scoreText
-      };
+      return { ...item, status, score: scoreText };
     });
   };
 
@@ -109,10 +111,9 @@ export default function HomePage() {
     router.push(`/lesson?type=${type}&id=${id}`);
   };
 
-  // Render các Card bài học sử dụng hệ thống class của Tailwind CSS
   const renderCards = (rawDataList, type) => {
     if (loadingProgress) {
-      return <p className="text-gray-400 text-xs mt-4">Đang kiểm tra tiến trình học viên...</p>;
+      return <p className="text-gray-400 text-xs mt-4">Đang tải dữ liệu học tập...</p>;
     }
 
     const dataList = buildDisplayData(rawDataList, type);
@@ -124,7 +125,6 @@ export default function HomePage() {
             key={item.id}
             className="w-[378px] h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200"
           >
-            {/* Tiêu đề & Điểm số */}
             <div className="flex justify-between items-start gap-2">
               <h3 className="font-bold text-gray-800 text-sm line-clamp-1 flex-1">
                 {item.title}
@@ -134,7 +134,6 @@ export default function HomePage() {
               </span>
             </div>
 
-            {/* Trạng thái & Các nút bấm điều hướng */}
             <div className="flex justify-between items-center mt-2">
               <span className={`text-xs font-bold px-2 py-1 rounded-md
                 ${item.status === 'Đã làm' ? 'bg-green-100 text-green-700' : ''}
@@ -145,7 +144,6 @@ export default function HomePage() {
               </span>
 
               <div className="flex items-center gap-2">
-                {/* 1. Trạng thái CHƯA LÀM */}
                 {item.status === 'Chưa làm' && (
                   <button
                     onClick={() => handleNavigation(type, item.id)}
@@ -156,7 +154,6 @@ export default function HomePage() {
                   </button>
                 )}
 
-                {/* 2. Trạng thái ĐANG LÀM DỞ */}
                 {item.status === 'Đang làm' && (
                   <button
                     onClick={() => handleNavigation(type, item.id)}
@@ -167,7 +164,6 @@ export default function HomePage() {
                   </button>
                 )}
 
-                {/* 3. Trạng thái ĐÃ HOÀN THÀNH */}
                 {item.status === 'Đã làm' && (
                   <>
                     <button
@@ -203,7 +199,6 @@ export default function HomePage() {
             <p className="text-gray-600 text-sm">Chào mừng bạn quay trở lại lớp học của Thầy Băng. Chọn các mục bên thanh điều hướng để bắt đầu học tập.</p>
           </div>
         );
-
       case 'Khóa học':
         return (
           <div>
@@ -211,7 +206,6 @@ export default function HomePage() {
             <p className="text-gray-600 text-sm">Danh sách các khóa học TOEIC trực tuyến.</p>
           </div>
         );
-
       case 'Ngữ pháp':
         return (
           <div>
@@ -219,7 +213,6 @@ export default function HomePage() {
             {renderCards(rawGrammarData, 'grammar')}
           </div>
         );
-
       case 'Từ vựng':
         return (
           <div>
@@ -227,7 +220,6 @@ export default function HomePage() {
             {renderCards(rawVocabularyData, 'vocabulary')}
           </div>
         );
-
       case 'Bài tập':
         return (
           <div>
@@ -235,7 +227,6 @@ export default function HomePage() {
             {renderCards(rawExerciseData, 'exercise')}
           </div>
         );
-
       default:
         return <p className="text-gray-500">Đang tải dữ liệu...</p>;
     }
@@ -247,7 +238,7 @@ export default function HomePage() {
       <header style={{ backgroundColor: BRAND }} className="shadow-md px-6 py-3 flex items-center justify-between fixed top-0 left-0 right-0 z-50">
         <span className="text-white font-bold text-xl tracking-wide">TOEIC Thầy Băng</span>
         <div className="flex items-center gap-4">
-          <span className="text-white text-sm font-medium">Hellu babe</span>
+          <span className="text-white text-sm font-medium">Xin chào, {CURRENT_USER_ID}!</span>
           <button onClick={handleLogout} style={{ color: BRAND }} className="bg-white font-semibold text-sm px-4 py-1.5 rounded-lg hover:bg-green-50 transition duration-200 shadow-sm">Đăng xuất</button>
         </div>
       </header>
