@@ -47,15 +47,15 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4 py-12 antialiased">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100 px-4 py-12 antialiased">
       {/* Thanh thông báo */}
-      <div className="mb-4 w-full max-w-md p-3.5 text-center text-sm font-semibold rounded-xl border shadow-sm bg-green-50 border-green-200 text-green-600">
+      <div className="mb-4 w-full max-w-md p-3.5 text-center text-sm font-medium rounded-xl border shadow-sm bg-green-50 border-green-200 text-green-600">
         Bạn đã sẵn sàng đạt 990 TOEIC cùng khầy Băng rồi chứ =)
       </div>
 
       {/* Khung Form Đăng nhập */}
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-md border border-gray-100">
-        <h2 className="mb-2 text-center text-3xl font-black tracking-tight text-gray-800">
+      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg border border-gray-100">
+        <h2 className="mb-3 text-center text-3xl font-black text-gray-800">
           Đăng Nhập
         </h2>
         <p className="mb-6 text-center text-sm text-gray-400 font-medium">
@@ -110,9 +110,9 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl bg-green-400 py-3.5 text-sm font-bold text-white shadow-sm shadow-green-400/20 transition hover:opacity-95 focus:outline-none focus:ring-4 focus:ring-green-400/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full rounded-xl bg-green-400 py-3.5 text-sm font-bold text-white shadow-md shadow-green-400/20 transition hover:opacity-95 focus:outline-none focus:ring-4 focus:ring-green-400/20 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Đang xác thực thông tin...' : 'Đăng nhập ngay'}
+            {loading ? 'Đang xác thực...' : 'Đăng nhập ngay'}
           </button>
         </form>
 
