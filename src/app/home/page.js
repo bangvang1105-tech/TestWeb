@@ -77,7 +77,6 @@ const EXERCISE_PARTS = {
   ]
 };
 
-// 🌟 THÊM MỚI: Danh sách các bộ giáo trình Luyện Đề (Menu cấp 2)
 const EXAM_BOOKS = [
   { key: 'ets2023', label: 'ETS 2023', icon: '📚' },
   { key: 'ets2024', label: 'ETS 2024', icon: '📗' },
@@ -95,8 +94,7 @@ export default function HomePage() {
   const [exerciseSkill, setExerciseSkill] = useState(null); 
   const [exercisePart, setExercisePart] = useState(null);   
 
-  // 🌟 THÊM MỚI: Trạng thái quản lý phân cấp Luyện Đề
-  const [examBook, setExamBook] = useState(null); // Lưu bộ sách đang chọn (Ví dụ: ets2024)
+  const [examBook, setExamBook] = useState(null); 
 
   const [userProgress, setUserProgress] = useState({});
   const [loadingProgress, setLoadingProgress] = useState(true);
@@ -129,7 +127,6 @@ export default function HomePage() {
     fetchProgress();
   }, [activeMenu, CURRENT_USER_ID, router]);
 
-  // 🌟 THÊM MỚI: Bổ sung "Luyện đề" vào mảng menu chính
   const menuItems = ['Tổng quan', 'Khóa học', 'Ngữ pháp', 'Từ vựng', 'Bài tập', 'Luyện đề'];
 
   const handleLogout = () => {
@@ -148,7 +145,6 @@ export default function HomePage() {
       setExercisePart(null);
     }
     if (item !== 'Luyện đề') {
-      // 🌟 Reset trạng thái luyện đề khi nhảy menu khác
       setExamBook(null);
     }
   };
@@ -169,7 +165,6 @@ export default function HomePage() {
     router.push(`/exercise?part=${partKey}`);
   };
 
-  // 🌟 THÊM MỚI: Hàm điều hướng khi làm đề thi thử (10 bộ TEST)
   const handleExamNavigation = (bookKey, testId) => {
     router.push(`/exam?book=${bookKey}&test=${testId}`);
   };
@@ -240,7 +235,6 @@ export default function HomePage() {
     );
   };
 
-  // 🌟 THÊM MỚI: Render 10 thẻ TEST cho bộ đề thi được lựa chọn
   const renderExamTestCards = (bookKey) => {
     const tests = Array.from({ length: 10 }, (_, i) => i + 1);
     return (
@@ -277,13 +271,123 @@ export default function HomePage() {
 
   const renderContent = () => {
     switch (activeMenu) {
+      // 🌟 PHÁT TRIỂN MỚI: Đồng bộ hóa nội dung mục Tổng quan
       case 'Tổng quan':
+        const completedLessons = Object.values(userProgress).filter(p => p.status === 'completed');
+        const totalCompleted = completedLessons.length;
+        
+        let averageScorePct = 0;
+        if (totalCompleted > 0) {
+          const totalPct = completedLessons.reduce((acc, curr) => {
+            const totalQ = curr.totalQuestions || 10;
+            return acc + ((curr.score / totalQ) * 100);
+          }, 0);
+          averageScorePct = Math.round(totalPct / totalCompleted);
+        }
+
+        const inProgressLessons = Object.entries(userProgress).filter(([_, p]) => p.status === 'in_progress');
+        const recentIncomplete = inProgressLessons[0];
+
         return (
-          <div>
-            <h2 className="text-xl font-bold text-gray-800 mb-4">Tiến trình học tập</h2>
-            <p className="text-gray-600 text-sm">Chào mừng bạn quay trở lại lớp học của Thầy Băng. Chọn các mục bên thanh điều hướng để bắt đầu học tập.</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            
+            {/* 1. BANNER CHÀO MỪNG */}
+            <div style={{ backgroundColor: BRAND, borderRadius: '12px', padding: '20px 24px', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+              <div>
+                <h2 style={{ fontSize: '20px', fontWeight: '900', margin: '0' }}>
+                  XIN CHÀO, {CURRENT_USER_ID ? String(CURRENT_USER_ID).toUpperCase() : 'HỌC VIÊN'}! 👋
+                </h2>
+                <p style={{ fontSize: '13px', margin: '4px 0 0 0', color: 'rgba(255,255,255,0.9)', fontWeight: '500' }}>
+                  "Mục tiêu đạt 990 TOEIC cùng Thầy Băng đã sẵn sàng, vào học ngay thôi nào!"
+                </p>
+              </div>
+              <div style={{ background: 'rgba(255, 255, 255, 0.2)', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700' }}>
+                🔥 Chuỗi học: 5 ngày
+              </div>
+            </div>
+
+            {/* 2. THẺ THỐNG KÊ TIẾN TRÌNH */}
+            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+              <div style={{ width: '240px', border: '0.5px solid #e2e8f0', borderRadius: '12px', background: '#fff', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' }}>Bài tập đã xong</span>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+                  <span style={{ fontSize: '28px', fontWeight: '900', color: '#1e293b' }}>{totalCompleted}</span>
+                  <span style={{ fontSize: '12px', color: '#64748b' }}>bài làm</span>
+                </div>
+              </div>
+
+              <div style={{ width: '240px', border: '0.5px solid #e2e8f0', borderRadius: '12px', background: '#fff', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' }}>Độ chính xác mục tiêu</span>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+                  <span style={{ fontSize: '28px', fontWeight: '900', color: '#166534' }}>{averageScorePct}%</span>
+                  <span style={{ fontSize: '12px', color: '#475569' }}>trung bình</span>
+                </div>
+              </div>
+
+              <div style={{ width: '240px', border: '0.5px solid #e2e8f0', borderRadius: '12px', background: '#fff', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px', justifyContent: 'center' }}>
+                <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>Trạng thái lớp</span>
+                <div>
+                  <span style={{ fontSize: '12px', fontWeight: '700', padding: '4px 10px', background: '#f0fdf4', color: '#166534', borderRadius: '6px', border: '0.5px solid #bbf7d0' }}>
+                    Đang hoạt động
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. KHU VỰC LIÊN KẾT NHANH VÀ BÀI LÀM DỞ */}
+            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+              <div style={{ flex: '1', minWidth: '300px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <h3 style={{ fontSize: '12px', fontWeight: '700', color: '#94a3b8', margin: '0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Học tiếp bài cũ</h3>
+                {recentIncomplete ? (
+                  <div style={{ padding: '16px', borderRadius: '12px', border: '0.5px solid #fde68a', background: '#fffbeb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                    <div>
+                      <span style={{ fontSize: '10px', fontWeight: '700', background: '#fef3c7', color: '#92400e', padding: '2px 6px', borderRadius: '4px' }}>Đang làm dở</span>
+                      <h4 style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', margin: '8px 0 2px 0' }}>
+                        {recentIncomplete[0].replace('_', ' ').toUpperCase()}
+                      </h4>
+                      <p style={{ fontSize: '12px', color: '#64748b', margin: '0' }}>Quay lại hoàn thành hệ thống câu hỏi này.</p>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        const [type, id] = recentIncomplete[0].split('_');
+                        router.push(`/lesson?type=${type}&id=${id}`);
+                      }}
+                      style={{ backgroundColor: '#f59e0b', color: '#fff', border: 'none', padding: '8px 14px', fontSize: '12px', fontWeight: '700', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >
+                      Làm tiếp →
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ padding: '24px', borderRadius: '12px', border: '1px dashed #e2e8f0', background: '#fff', color: '#94a3b8', fontSize: '12px', textAlign: 'center' }}>
+                    🎉 Học viên xuất sắc! Bạn hiện tại không có bài tập nào bị bỏ dở.
+                  </div>
+                )}
+              </div>
+
+              <div style={{ width: '320px', border: '0.5px solid #e2e8f0', borderRadius: '12px', background: '#fff', padding: '16px' }}>
+                <h3 style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b', margin: '0 0 12px 0' }}>🏆 Bảng Vàng Học Viên</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {[
+                    { rank: 1, name: 'Hồng Nhung', score: '985 TOEIC' },
+                    { rank: 2, name: 'Minh Quân', score: '945 TOEIC' },
+                    { rank: 3, name: 'Thanh Hải', score: '910 TOEIC' },
+                  ].map((student, index) => (
+                    <div key={index} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', borderBottom: '0.5px solid #f1f5f9', paddingBottom: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: index === 0 ? '#fef3c7' : '#f1f5f9', color: index === 0 ? '#b45309' : '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '900' }}>
+                          {student.rank}
+                        </span>
+                        <span style={{ color: '#334155', fontWeight: '600' }}>{student.name}</span>
+                      </div>
+                      <span style={{ fontWeight: '700', color: '#64748b' }}>{student.score}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         );
+
       case 'Khóa học':
         return (
           <div>
@@ -389,7 +493,6 @@ export default function HomePage() {
         }
 
       case 'Luyện đề':
-        // 🌟 THÊM MỚI: Logic render phân hệ Luyện đề
         if (!examBook) {
           return (
             <div>
@@ -508,7 +611,7 @@ export default function HomePage() {
                 </div>
               )}
 
-              {/* 🌟 THÊM MỚI: Submenu hiển thị danh sách bộ giáo trình Luyện Đề trên Sidebar */}
+              {/* Submenu Luyện đề */}
               {item === 'Luyện đề' && activeMenu === 'Luyện đề' && (
                 <div className="mt-1 ml-2 flex flex-col gap-0.5">
                   {EXAM_BOOKS.map((book) => (
@@ -546,7 +649,6 @@ export default function HomePage() {
               {exerciseSkill && activeMenu === 'Bài tập' && (
                 <> / <span style={{ color: BRAND }} className="font-medium">{EXERCISE_SKILLS.find(s => s.key === exerciseSkill)?.label}</span></>
               )}
-              {/* Breadcrumb động cho hệ thống luyện đề */}
               {examBook && activeMenu === 'Luyện đề' && (
                 <> / <span style={{ color: BRAND }} className="font-medium">{EXAM_BOOKS.find(b => b.key === examBook)?.label}</span></>
               )}
