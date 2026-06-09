@@ -271,7 +271,7 @@ export default function HomePage() {
 
   const renderContent = () => {
     switch (activeMenu) {
-      // 🌟 PHÁT TRIỂN MỚI: Đồng bộ hóa nội dung mục Tổng quan
+      // 🌟 PHÁT TRIỂN MỚI: Cấu trúc giao diện Tổng quan nâng cao, cuốn hút hơn
       case 'Tổng quan':
         const completedLessons = Object.values(userProgress).filter(p => p.status === 'completed');
         const totalCompleted = completedLessons.length;
@@ -289,101 +289,199 @@ export default function HomePage() {
         const recentIncomplete = inProgressLessons[0];
 
         return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', padding: '4px' }}>
             
-            {/* 1. BANNER CHÀO MỪNG */}
-            <div style={{ backgroundColor: BRAND, borderRadius: '12px', padding: '20px 24px', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-              <div>
-                <h2 style={{ fontSize: '20px', fontWeight: '900', margin: '0' }}>
+            {/* 1. WELCOME BANNER: Phối màu Gradient chiều sâu và bo góc mềm mại */}
+            <div style={{ 
+              background: `linear-gradient(135deg, ${BRAND} 0%, #22c55e 100%)`, 
+              borderRadius: '16px', 
+              padding: '26px 32px', 
+              color: '#fff', 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              flexWrap: 'wrap', 
+              gap: '20px',
+              boxShadow: '0 10px 25px -5px rgba(74, 222, 128, 0.25)',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              {/* Vòng tròn decor chìm tinh tế */}
+              <div style={{ position: 'absolute', width: '180px', height: '180px', borderRadius: '50%', background: 'rgba(255,255,255,0.07)', top: '-40px', right: '-25px' }}></div>
+              
+              <div style={{ zIndex: 1 }}>
+                <h2 style={{ fontSize: '22px', fontWeight: '900', margin: '0', letterSpacing: '0.01em', textShadow: '0 2px 4px rgba(0,0,0,0.06)' }}>
                   XIN CHÀO, {CURRENT_USER_ID ? String(CURRENT_USER_ID).toUpperCase() : 'HỌC VIÊN'}! 👋
                 </h2>
-                <p style={{ fontSize: '13px', margin: '4px 0 0 0', color: 'rgba(255,255,255,0.9)', fontWeight: '500' }}>
-                  "Mục tiêu đạt 990 TOEIC cùng Thầy Băng đã sẵn sàng, vào học ngay thôi nào!"
+                <p style={{ fontSize: '14px', margin: '6px 0 0 0', color: 'rgba(255,255,255,0.95)', fontWeight: '500', maxWidth: '520px', lineHeight: '1.5' }}>
+                  "Đường chạy chinh phục chứng chỉ TOEIC cùng Thầy Băng đã kích hoạt. Hôm nay hãy tiếp tục bứt phá giới hạn nhé!"
                 </p>
               </div>
-              <div style={{ background: 'rgba(255, 255, 255, 0.2)', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700' }}>
-                🔥 Chuỗi học: 5 ngày
+              <div style={{ 
+                background: 'rgba(255, 255, 255, 0.2)', 
+                backdropFilter: 'blur(4px)',
+                padding: '8px 16px', 
+                borderRadius: '20px', 
+                fontSize: '12px', 
+                fontWeight: '800',
+                border: '1px solid rgba(255,255,255,0.25)',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                zIndex: 1
+              }}>
+                🔥 Chuỗi học: 5 ngày liên tục
               </div>
             </div>
 
-            {/* 2. THẺ THỐNG KÊ TIẾN TRÌNH */}
-            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-              <div style={{ width: '240px', border: '0.5px solid #e2e8f0', borderRadius: '12px', background: '#fff', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' }}>Bài tập đã xong</span>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-                  <span style={{ fontSize: '28px', fontWeight: '900', color: '#1e293b' }}>{totalCompleted}</span>
-                  <span style={{ fontSize: '12px', color: '#64748b' }}>bài làm</span>
+            {/* 2. STATS CARDS: Bố cục Grid co giãn tự động kèm hiệu ứng nổi khối Card */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '24px' }}>
+              
+              {/* Thẻ 1: Số bài tập */}
+              <div className="hover:-translate-y-0.5 hover:border-green-200 transition-all duration-200" style={{ border: '1px solid #f1f5f9', borderRadius: '16px', background: '#fff', padding: '24px', display: 'flex', flexDirection: 'column', gap: '10px', boxShadow: '0 4px 15px rgba(0,0,0,0.02)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '18px' }}>🎯</span>
+                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Nhiệm vụ đã hoàn thành</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                  <span style={{ fontSize: '34px', fontWeight: '900', color: '#1e293b' }}>{totalCompleted}</span>
+                  <span style={{ fontSize: '13px', color: '#94a3b8', fontWeight: '600' }}>chủ đề</span>
                 </div>
               </div>
 
-              <div style={{ width: '240px', border: '0.5px solid #e2e8f0', borderRadius: '12px', background: '#fff', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' }}>Độ chính xác mục tiêu</span>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-                  <span style={{ fontSize: '28px', fontWeight: '900', color: '#166534' }}>{averageScorePct}%</span>
-                  <span style={{ fontSize: '12px', color: '#475569' }}>trung bình</span>
+              {/* Thẻ 2: Điểm số */}
+              <div className="hover:-translate-y-0.5 hover:border-green-200 transition-all duration-200" style={{ border: '1px solid #f1f5f9', borderRadius: '16px', background: '#fff', padding: '24px', display: 'flex', flexDirection: 'column', gap: '10px', boxShadow: '0 4px 15px rgba(0,0,0,0.02)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '18px' }}>⚡</span>
+                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tỷ lệ chính xác</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                  <span style={{ fontSize: '34px', fontWeight: '900', color: '#10b981' }}>{averageScorePct}%</span>
+                  <span style={{ fontSize: '13px', color: '#94a3b8', fontWeight: '600' }}>mục tiêu</span>
                 </div>
               </div>
 
-              <div style={{ width: '240px', border: '0.5px solid #e2e8f0', borderRadius: '12px', background: '#fff', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px', justifyContent: 'center' }}>
-                <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>Trạng thái lớp</span>
-                <div>
-                  <span style={{ fontSize: '12px', fontWeight: '700', padding: '4px 10px', background: '#f0fdf4', color: '#166534', borderRadius: '6px', border: '0.5px solid #bbf7d0' }}>
-                    Đang hoạt động
+              {/* Thẻ 3: Trạng thái */}
+              <div className="hover:-translate-y-0.5 hover:border-green-200 transition-all duration-200" style={{ border: '1px solid #f1f5f9', borderRadius: '16px', background: '#fff', padding: '24px', display: 'flex', flexDirection: 'column', gap: '10px', boxShadow: '0 4px 15px rgba(0,0,0,0.02)', justifyContent: 'center' }}>
+                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Trạng thái học tập</span>
+                <div style={{ marginTop: '2px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '800', padding: '6px 14px', background: '#ecfdf5', color: '#047857', borderRadius: '30px', border: '1px solid #a7f3d0', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span>
+                    Tài khoản hoạt động
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* 3. KHU VỰC LIÊN KẾT NHANH VÀ BÀI LÀM DỞ */}
-            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-              <div style={{ flex: '1', minWidth: '300px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <h3 style={{ fontSize: '12px', fontWeight: '700', color: '#94a3b8', margin: '0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Học tiếp bài cũ</h3>
+            {/* 3. LAYOUT CHI TIẾT: Phân tỷ lệ 2 cột cân đối giữa Bài đang làm dở và Bảng thành tích */}
+            <div style={{ display: 'flex', gap: '28px', flexWrap: 'wrap', marginTop: '4px' }}>
+              
+              {/* Cột Trái: Trình trạng bài làm dở */}
+              <div style={{ flex: '1.8', minWidth: '320px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <h3 style={{ fontSize: '13px', fontWeight: '800', color: '#64748b', margin: '0', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  📌 Lịch trình ôn luyện
+                </h3>
+                
                 {recentIncomplete ? (
-                  <div style={{ padding: '16px', borderRadius: '12px', border: '0.5px solid #fde68a', background: '#fffbeb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ 
+                    padding: '20px', 
+                    borderRadius: '16px', 
+                    border: '1px solid #fef3c7', 
+                    background: 'linear-gradient(to right, #fffdf5, #ffffff)', 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    gap: '16px',
+                    boxShadow: '0 8px 20px rgba(245, 158, 11, 0.04)'
+                  }}>
                     <div>
-                      <span style={{ fontSize: '10px', fontWeight: '700', background: '#fef3c7', color: '#92400e', padding: '2px 6px', borderRadius: '4px' }}>Đang làm dở</span>
-                      <h4 style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', margin: '8px 0 2px 0' }}>
+                      <span style={{ fontSize: '10px', fontWeight: '800', background: '#fff7ed', color: '#c2410c', padding: '3px 8px', borderRadius: '6px', border: '0.5px solid #ffedd5' }}>HỌC DỞ GẦN NHẤT</span>
+                      <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#1e293b', margin: '10px 0 4px 0', lineClamp: '1' }}>
                         {recentIncomplete[0].replace('_', ' ').toUpperCase()}
                       </h4>
-                      <p style={{ fontSize: '12px', color: '#64748b', margin: '0' }}>Quay lại hoàn thành hệ thống câu hỏi này.</p>
+                      <p style={{ fontSize: '12px', color: '#64748b', margin: '0' }}>Hệ thống đã lưu tiến trình cũ, bấm vào để tiếp tục tích lũy kiến thức.</p>
                     </div>
                     <button 
                       onClick={() => {
                         const [type, id] = recentIncomplete[0].split('_');
                         router.push(`/lesson?type=${type}&id=${id}`);
                       }}
-                      style={{ backgroundColor: '#f59e0b', color: '#fff', border: 'none', padding: '8px 14px', fontSize: '12px', fontWeight: '700', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                      style={{ 
+                        backgroundColor: '#f59e0b', 
+                        color: '#fff', 
+                        border: 'none', 
+                        padding: '10px 18px', 
+                        fontSize: '12px', 
+                        fontWeight: '700', 
+                        borderRadius: '10px', 
+                        cursor: 'pointer', 
+                        whiteSpace: 'nowrap',
+                        boxShadow: '0 4px 12px rgba(245, 158, 11, 0.2)'
+                      }}
                     >
                       Làm tiếp →
                     </button>
                   </div>
                 ) : (
-                  <div style={{ padding: '24px', borderRadius: '12px', border: '1px dashed #e2e8f0', background: '#fff', color: '#94a3b8', fontSize: '12px', textAlign: 'center' }}>
-                    🎉 Học viên xuất sắc! Bạn hiện tại không có bài tập nào bị bỏ dở.
+                  <div style={{ padding: '36px 24px', borderRadius: '16px', border: '2px dashed #e2e8f0', background: '#fff', color: '#94a3b8', fontSize: '13px', textAlign: 'center', fontWeight: '500' }}>
+                    ✨ Thật tuyệt vời! Bạn đã hoàn thành xuất sắc tất cả các mục tiêu gần đây.
                   </div>
                 )}
+                
+                {/* Các nút truy cập nhanh phong cách Card tối giản */}
+                <div style={{ display: 'flex', gap: '14px', marginTop: '4px' }}>
+                  <button onClick={() => handleMenuClick('Từ vựng')} style={{ flex: 1, padding: '16px', background: '#fff', border: '1px solid #f1f5f9', borderRadius: '12px', cursor: 'pointer', textAlign: 'left', boxShadow: '0 2px 8px rgba(0,0,0,0.01)' }} className="hover:border-green-300 hover:shadow-xs transition-all">
+                    <span style={{ fontSize: '20px' }}>📖</span>
+                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#334155', marginTop: '6px' }}>Ôn tập Từ vựng nhanh</div>
+                  </button>
+                  <button onClick={() => handleMenuClick('Luyện đề')} style={{ flex: 1, padding: '16px', background: '#fff', border: '1px solid #f1f5f9', borderRadius: '12px', cursor: 'pointer', textAlign: 'left', boxShadow: '0 2px 8px rgba(0,0,0,0.01)' }} className="hover:border-green-300 hover:shadow-xs transition-all">
+                    <span style={{ fontSize: '20px' }}>⏱️</span>
+                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#334155', marginTop: '6px' }}>Thử sức Full-Test</div>
+                  </button>
+                </div>
               </div>
 
-              <div style={{ width: '320px', border: '0.5px solid #e2e8f0', borderRadius: '12px', background: '#fff', padding: '16px' }}>
-                <h3 style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b', margin: '0 0 12px 0' }}>🏆 Bảng Vàng Học Viên</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {/* Cột Phải: Bảng xếp hạng vinh danh cao cấp */}
+              <div style={{ width: '320px', border: '1px solid #f1f5f9', borderRadius: '16px', background: '#fff', padding: '20px', boxShadow: '0 4px 15px rgba(0,0,0,0.01)' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: '800', color: '#1e293b', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  👑 Top Học Viên Xuất Sắc
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {[
-                    { rank: 1, name: 'Hồng Nhung', score: '985 TOEIC' },
-                    { rank: 2, name: 'Minh Quân', score: '945 TOEIC' },
-                    { rank: 3, name: 'Thanh Hải', score: '910 TOEIC' },
+                    { rank: 1, name: 'Hồng Nhung', score: '985 TOEIC', badge: '🥇' },
+                    { rank: 2, name: 'Minh Quân', score: '945 TOEIC', badge: '🥈' },
+                    { rank: 3, name: 'Thanh Hải', score: '910 TOEIC', badge: '🥉' },
                   ].map((student, index) => (
-                    <div key={index} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', borderBottom: '0.5px solid #f1f5f9', paddingBottom: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: index === 0 ? '#fef3c7' : '#f1f5f9', color: index === 0 ? '#b45309' : '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '900' }}>
+                    <div key={index} style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'space-between', 
+                      fontSize: '13px', 
+                      borderBottom: index !== 2 ? '1px solid #f8fafc' : 'none', 
+                      paddingBottom: '10px' 
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ 
+                          width: '24px', 
+                          height: '24px', 
+                          borderRadius: '50%', 
+                          background: index === 0 ? '#fef3c7' : index === 1 ? '#f1f5f9' : '#fff7ed', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          fontSize: '11px', 
+                          fontWeight: '800' 
+                        }}>
                           {student.rank}
                         </span>
-                        <span style={{ color: '#334155', fontWeight: '600' }}>{student.name}</span>
+                        <span style={{ color: '#475569', fontWeight: '600' }}>{student.name}</span>
                       </div>
-                      <span style={{ fontWeight: '700', color: '#64748b' }}>{student.score}</span>
+                      <span style={{ fontWeight: '800', color: '#334155', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        {student.score} {student.badge}
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
+
             </div>
           </div>
         );
