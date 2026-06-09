@@ -58,13 +58,11 @@ const GRAMMAR_TOPICS = [
   { id: 12, title: 'Hòa hợp chủ vị', subtitle: 'Subject-Verb Agreement' },
 ];
 
-// 🌟 THÊM MỚI: Cấu hình Menu cấp 2 cho Bài tập (Kỹ năng)
 const EXERCISE_SKILLS = [
   { key: 'listening', label: 'Kỹ năng Nghe', icon: '🎧' },
   { key: 'reading', label: 'Kỹ năng Đọc', icon: '📖' },
 ];
 
-// 🌟 THÊM MỚI: Cấu hình Menu cấp 3 cho Bài tập (Chi tiết các Part)
 const EXERCISE_PARTS = {
   listening: [
     { key: 'dictation_p1', label: 'Nghe chép chính tả Part 1', detail: 'Hình ảnh (Photos)' },
@@ -79,15 +77,26 @@ const EXERCISE_PARTS = {
   ]
 };
 
+// 🌟 THÊM MỚI: Danh sách các bộ giáo trình Luyện Đề (Menu cấp 2)
+const EXAM_BOOKS = [
+  { key: 'ets2023', label: 'ETS 2023', icon: '📚' },
+  { key: 'ets2024', label: 'ETS 2024', icon: '📗' },
+  { key: 'ets2026', label: 'ETS 2026', icon: '📘' },
+  { key: 'hacker2', label: 'Hacker 2', icon: '📙' },
+  { key: 'hacker3', label: 'Hacker 3', icon: '📕' },
+];
+
 export default function HomePage() {
   const router = useRouter();
   const [activeMenu, setActiveMenu] = useState('Tổng quan');
   const [vocabSubMenu, setVocabSubMenu] = useState(null); 
   const [grammarSubMenu, setGrammarSubMenu] = useState(null); 
   
-  // 🌟 THÊM MỚI: Trạng thái quản lý phân cấp Bài tập
-  const [exerciseSkill, setExerciseSkill] = useState(null); // 'listening' hoặc 'reading'
-  const [exercisePart, setExercisePart] = useState(null);   // Lưu part đang chọn
+  const [exerciseSkill, setExerciseSkill] = useState(null); 
+  const [exercisePart, setExercisePart] = useState(null);   
+
+  // 🌟 THÊM MỚI: Trạng thái quản lý phân cấp Luyện Đề
+  const [examBook, setExamBook] = useState(null); // Lưu bộ sách đang chọn (Ví dụ: ets2024)
 
   const [userProgress, setUserProgress] = useState({});
   const [loadingProgress, setLoadingProgress] = useState(true);
@@ -120,7 +129,8 @@ export default function HomePage() {
     fetchProgress();
   }, [activeMenu, CURRENT_USER_ID, router]);
 
-  const menuItems = ['Tổng quan', 'Khóa học', 'Ngữ pháp', 'Từ vựng', 'Bài tập'];
+  // 🌟 THÊM MỚI: Bổ sung "Luyện đề" vào mảng menu chính
+  const menuItems = ['Tổng quan', 'Khóa học', 'Ngữ pháp', 'Từ vựng', 'Bài tập', 'Luyện đề'];
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
@@ -134,13 +144,15 @@ export default function HomePage() {
     if (item !== 'Từ vựng') setVocabSubMenu(null);
     if (item !== 'Ngữ pháp') setGrammarSubMenu(null);
     if (item !== 'Bài tập') {
-      // 🌟 Reset trạng thái bài tập nếu bấm sang danh mục khác
       setExerciseSkill(null);
       setExercisePart(null);
     }
+    if (item !== 'Luyện đề') {
+      // 🌟 Reset trạng thái luyện đề khi nhảy menu khác
+      setExamBook(null);
+    }
   };
 
-  // Logic điều hướng cũ
   const handleNavigation = (type, id) => {
     router.push(`/lesson?type=${type}&id=${id}`);
   };
@@ -153,14 +165,13 @@ export default function HomePage() {
     router.push(`/grammar?mode=${mode}&topic=${topicId}`);
   };
 
-  // 🌟 THÊM MỚI: Điều hướng các Part bài tập sang trang bạn sẽ thiết kế sau
   const handleExerciseNavigation = (partKey) => {
     router.push(`/exercise?part=${partKey}`);
   };
 
-  // Render cards cũ (Dành cho tiến trình tổng quát nếu có)
-  const renderCards = (rawDataList, type) => {
-    return <p className="text-gray-400 text-xs mt-4">Chọn kỹ năng và Part cụ thể để làm bài.</p>;
+  // 🌟 THÊM MỚI: Hàm điều hướng khi làm đề thi thử (10 bộ TEST)
+  const handleExamNavigation = (bookKey, testId) => {
+    router.push(`/exam?book=${bookKey}&test=${testId}`);
   };
 
   const renderVocabTopicCards = (mode) => {
@@ -207,16 +218,12 @@ export default function HomePage() {
     );
   };
 
-  // 🌟 THÊM MỚI: Render các thẻ Part tương ứng với Kỹ năng được chọn
   const renderExercisePartCards = (skillKey) => {
     const parts = EXERCISE_PARTS[skillKey] || [];
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4 justify-items-start">
         {parts.map((part) => (
-          <div
-            key={part.key}
-            className="w-[378px] h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200"
-          >
+          <div key={part.key} className="w-[378px] h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
             <div className="flex justify-between items-start gap-2">
               <div className="flex-1">
                 <h3 className="font-bold text-gray-800 text-sm line-clamp-1">{part.label}</h3>
@@ -225,12 +232,41 @@ export default function HomePage() {
             </div>
             <div className="flex justify-between items-center mt-2">
               <span className="text-xs font-bold px-2 py-1 rounded-md bg-gray-100 text-gray-500">Chưa làm</span>
+              <button onClick={() => handleExerciseNavigation(part.key)} style={{ backgroundColor: BRAND }} className="text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:opacity-90 transition duration-150">Vào luyện tập</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // 🌟 THÊM MỚI: Render 10 thẻ TEST cho bộ đề thi được lựa chọn
+  const renderExamTestCards = (bookKey) => {
+    const tests = Array.from({ length: 10 }, (_, i) => i + 1);
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4 justify-items-start">
+        {tests.map((testNum) => (
+          <div
+            key={testNum}
+            className="w-[378px] h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200"
+          >
+            <div className="flex justify-between items-start gap-2">
+              <div className="flex-1">
+                <h3 className="font-bold text-gray-800 text-sm">Đề khảo sát số {testNum}</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Mã đề: {bookKey.toUpperCase()} _ TEST {testNum}</p>
+              </div>
+              <span className="text-xs font-semibold px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded border border-emerald-100">
+                200 Câu hỏi
+              </span>
+            </div>
+            <div className="flex justify-between items-center mt-2">
+              <span className="text-xs font-bold px-2 py-1 rounded-md bg-gray-100 text-gray-500">Chưa thi</span>
               <button
-                onClick={() => handleExerciseNavigation(part.key)}
+                onClick={() => handleExamNavigation(bookKey, testNum)}
                 style={{ backgroundColor: BRAND }}
                 className="text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:opacity-90 transition duration-150"
               >
-                Vào luyện tập
+                Bắt đầu làm
               </button>
             </div>
           </div>
@@ -320,7 +356,6 @@ export default function HomePage() {
           );
         }
       case 'Bài tập':
-        // 🌟 THÊM MỚI: Quản lý hiển thị phân hệ Bài tập theo cấp bậc Kỹ năng -> Part
         if (!exerciseSkill) {
           return (
             <div>
@@ -328,11 +363,7 @@ export default function HomePage() {
               <p className="text-gray-500 text-sm mb-6">Chọn kỹ năng TOEIC bạn muốn rèn luyện.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
                 {EXERCISE_SKILLS.map((skill) => (
-                  <button
-                    key={skill.key}
-                    onClick={() => setExerciseSkill(skill.key)}
-                    className="flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white shadow-sm hover:border-green-300 hover:shadow-md transition duration-200 text-left"
-                  >
+                  <button key={skill.key} onClick={() => setExerciseSkill(skill.key)} className="flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white shadow-sm hover:border-green-300 hover:shadow-md transition duration-200 text-left">
                     <span className="text-2xl">{skill.icon}</span>
                     <span className="font-bold text-gray-800 text-sm">{skill.label}</span>
                     <span className="text-xs text-gray-400">Gồm các phần luyện tập chuyên sâu</span>
@@ -346,21 +377,60 @@ export default function HomePage() {
           return (
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <button
-                  onClick={() => setExerciseSkill(null)}
-                  className="text-xs text-gray-400 hover:text-green-600 transition"
-                >← Bài tập</button>
+                <button onClick={() => setExerciseSkill(null)} className="text-xs text-gray-400 hover:text-green-600 transition">← Bài tập</button>
                 <span className="text-xs text-gray-300">/</span>
                 <span className="text-xs font-semibold" style={{ color: BRAND }}>{skillInfo?.label}</span>
               </div>
-              <h2 className="text-xl font-extrabold text-gray-800 mb-1">
-                {skillInfo?.icon} {skillInfo?.label}
-              </h2>
+              <h2 className="text-xl font-extrabold text-gray-800 mb-1">{skillInfo?.icon} {skillInfo?.label}</h2>
               <p className="text-gray-500 text-sm mb-4">Chọn Part tiêu điểm để bắt đầu quá trình nạp kiến thức.</p>
               {renderExercisePartCards(exerciseSkill)}
             </div>
           );
         }
+
+      case 'Luyện đề':
+        // 🌟 THÊM MỚI: Logic render phân hệ Luyện đề
+        if (!examBook) {
+          return (
+            <div>
+              <h2 className="text-xl font-extrabold text-gray-800 mb-2">Full-Test (Luyện đề thi thử)</h2>
+              <p className="text-gray-500 text-sm mb-6">Chọn giáo trình đề thi thử định dạng chuẩn IIG.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {EXAM_BOOKS.map((book) => (
+                  <button
+                    key={book.key}
+                    onClick={() => setExamBook(book.key)}
+                    className="flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white shadow-sm hover:border-green-300 hover:shadow-md transition duration-200 text-left"
+                  >
+                    <span className="text-2xl">{book.icon}</span>
+                    <span className="font-bold text-gray-800 text-sm">{book.label}</span>
+                    <span className="text-xs text-gray-400">Trọn bộ 10 bài thi mẫu</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        } else {
+          const bookInfo = EXAM_BOOKS.find(b => b.key === examBook);
+          return (
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <button
+                  onClick={() => setExamBook(null)}
+                  className="text-xs text-gray-400 hover:text-green-600 transition"
+                >← Luyện đề</button>
+                <span className="text-xs text-gray-300">/</span>
+                <span className="text-xs font-semibold" style={{ color: BRAND }}>{bookInfo?.label}</span>
+              </div>
+              <h2 className="text-xl font-extrabold text-gray-800 mb-1">
+                {bookInfo?.icon} Bộ đề {bookInfo?.label}
+              </h2>
+              <p className="text-gray-500 text-sm mb-4">Chọn đề thi thử để bắt đầu làm bài tính thời gian (120 phút).</p>
+              {renderExamTestCards(examBook)}
+            </div>
+          );
+        }
+
       default:
         return <p className="text-gray-500">Đang tải dữ liệu...</p>;
     }
@@ -415,48 +485,45 @@ export default function HomePage() {
                 </div>
               )}
 
-              {/* 🌟 THÊM MỚI: Submenu Cấp 2 cho BÀI TẬP (Kỹ năng Nghe / Kỹ năng Đọc) */}
+              {/* Submenu Bài tập */}
               {item === 'Bài tập' && activeMenu === 'Bài tập' && (
                 <div className="mt-1 ml-2 flex flex-col gap-0.5">
                   {EXERCISE_SKILLS.map((skill) => (
                     <div key={skill.key} className="flex flex-col">
-                      <button
-                        onClick={() => {
-                          setExerciseSkill(skill.key);
-                          setExercisePart(null); // Clear part selection
-                        }}
-                        className={`text-left w-full px-3 py-2 rounded-lg text-xs font-medium transition duration-150 flex items-center gap-1.5
-                          ${exerciseSkill === skill.key
-                            ? 'bg-white/90 text-green-800 font-bold shadow-sm'
-                            : 'text-white/90 hover:bg-white/20'
-                          }`}
-                      >
+                      <button onClick={() => { setExerciseSkill(skill.key); setExercisePart(null); }} className={`text-left w-full px-3 py-2 rounded-lg text-xs font-medium transition duration-150 flex items-center gap-1.5 ${exerciseSkill === skill.key ? 'bg-white/90 text-green-800 font-bold shadow-sm' : 'text-white/90 hover:bg-white/20'}`}>
                         <span>{skill.icon}</span>
                         <span>{skill.label}</span>
                       </button>
-
-                      {/* 🌟 THÊM MỚI: Submenu Cấp 3 (Hiển thị các Part của kỹ năng đó trực tiếp dưới sidebar) */}
                       {exerciseSkill === skill.key && (
                         <div className="mt-0.5 ml-3 pl-1.5 border-l border-white/40 flex flex-col gap-0.5">
                           {EXERCISE_PARTS[skill.key].map((part) => (
-                            <button
-                              key={part.key}
-                              onClick={() => {
-                                setExercisePart(part.key);
-                                handleExerciseNavigation(part.key);
-                              }}
-                              className={`text-left w-full py-1.5 px-2 rounded-md text-[11px] transition duration-150 line-clamp-1
-                                ${exercisePart === part.key
-                                  ? 'bg-white/70 text-green-900 font-bold'
-                                  : 'text-white/80 hover:text-white hover:bg-white/10'
-                                }`}
-                            >
+                            <button key={part.key} onClick={() => { setExercisePart(part.key); handleExerciseNavigation(part.key); }} className={`text-left w-full py-1.5 px-2 rounded-md text-[11px] transition duration-150 line-clamp-1 ${exercisePart === part.key ? 'bg-white/70 text-green-900 font-bold' : 'text-white/80 hover:text-white hover:bg-white/10'}`}>
                               Part {part.key.split('_p')[1]?.toUpperCase() || part.key}
                             </button>
                           ))}
                         </div>
                       )}
                     </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 🌟 THÊM MỚI: Submenu hiển thị danh sách bộ giáo trình Luyện Đề trên Sidebar */}
+              {item === 'Luyện đề' && activeMenu === 'Luyện đề' && (
+                <div className="mt-1 ml-2 flex flex-col gap-0.5">
+                  {EXAM_BOOKS.map((book) => (
+                    <button
+                      key={book.key}
+                      onClick={() => setExamBook(book.key)}
+                      className={`text-left w-full px-3 py-2 rounded-lg text-xs font-medium transition duration-150 flex items-center gap-1.5
+                        ${examBook === book.key
+                          ? 'bg-white/90 text-green-800 font-bold shadow-sm'
+                          : 'text-white/90 hover:bg-white/20'
+                        }`}
+                    >
+                      <span>{book.icon}</span>
+                      <span>{book.label}</span>
+                    </button>
                   ))}
                 </div>
               )}
@@ -476,9 +543,12 @@ export default function HomePage() {
               {vocabSubMenu && activeMenu === 'Từ vựng' && (
                 <> / <span style={{ color: BRAND }} className="font-medium">{VOCAB_SUBMENU.find(s => s.key === vocabSubMenu)?.label}</span></>
               )}
-              {/* Breadcrumb động cho hệ thống bài tập */}
               {exerciseSkill && activeMenu === 'Bài tập' && (
                 <> / <span style={{ color: BRAND }} className="font-medium">{EXERCISE_SKILLS.find(s => s.key === exerciseSkill)?.label}</span></>
+              )}
+              {/* Breadcrumb động cho hệ thống luyện đề */}
+              {examBook && activeMenu === 'Luyện đề' && (
+                <> / <span style={{ color: BRAND }} className="font-medium">{EXAM_BOOKS.find(b => b.key === examBook)?.label}</span></>
               )}
             </p>
             <div className="mt-2">{renderContent()}</div>
