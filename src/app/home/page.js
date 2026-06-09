@@ -12,7 +12,7 @@ const roboto = Roboto({
   display: 'swap',
 });
 
-const BRAND = '#4ade80';
+const BRAND_COLOR = 'bg-green-400';
 
 const VOCAB_TOPICS = [
   { id: 1, title: 'Hợp đồng & Đàm phán', subtitle: 'Contracts' },
@@ -169,11 +169,64 @@ export default function HomePage() {
     router.push(`/exam?book=${bookKey}&test=${testId}`);
   };
 
+  // Hàm dựng data trạng thái chung cho hệ bài thi cũ
+  const rawExerciseData = Array.from({ length: 10 }, (_, i) => ({ id: i + 1, title: `Đề Luyện tập số ${i + 1}` }));
+  const buildDisplayData = (rawData, prefixType) => {
+    return rawData.map(item => {
+      const targetLessonId = `${prefixType}_${item.id}`;
+      const progress = userProgress[targetLessonId];
+      let status = 'Chưa làm';
+      let scoreText = '0/10';
+      if (progress) {
+        if (progress.status === 'completed') {
+          status = 'Đã làm';
+          scoreText = `${progress.score}/${progress.totalQuestions || 10}`;
+        } else if (progress.status === 'in_progress') {
+          status = 'Đang làm';
+          scoreText = `0/${progress.totalQuestions || 10}`;
+        }
+      }
+      return { ...item, status, score: scoreText };
+    });
+  };
+
+  // Render các loại card cũ (Được tối ưu Responsive tự co giãn w-full thay vì kích thước cứng)
+  const renderCards = (rawDataList, type) => {
+    if (!rawDataList || !Array.isArray(rawDataList)) return <p className="text-gray-400 text-xs mt-4">Không tìm thấy danh sách.</p>;
+    if (loadingProgress) return <p className="text-gray-400 text-xs mt-4">Đang tải tiến trình...</p>;
+    const dataList = buildDisplayData(rawDataList, type);
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-4 w-full">
+        {dataList.map((item) => (
+          <div key={item.id} className="w-full h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
+            <div className="flex justify-between items-start gap-2">
+              <h3 className="font-bold text-gray-800 text-sm line-clamp-1 flex-1">{item.title}</h3>
+              <span className="text-xs font-semibold px-2 py-0.5 bg-gray-100 text-gray-600 rounded">Điểm: {item.score}</span>
+            </div>
+            <div className="flex justify-between items-center mt-2">
+              <span className={`text-xs font-bold px-2 py-1 rounded-md ${item.status === 'Đã làm' ? 'bg-green-100 text-green-700' : item.status === 'Đang làm' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>{item.status}</span>
+              <div className="flex items-center gap-2">
+                {item.status === 'Chưa làm' && <button onClick={() => handleNavigation(type, item.id)} className="bg-green-400 text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:opacity-90 transition">Làm bài</button>}
+                {item.status === 'Đang làm' && <button onClick={() => handleNavigation(type, item.id)} className="bg-green-400 text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:opacity-90 transition whitespace-nowrap">Tiếp tục làm bài</button>}
+                {item.status === 'Đã làm' && (
+                  <>
+                    <button onClick={() => handleNavigation(type, item.id)} className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-transparent border border-green-400 text-green-400 hover:bg-green-50 transition whitespace-nowrap">Xem lại</button>
+                    <button onClick={() => handleNavigation(type, item.id)} className="bg-green-400 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg hover:opacity-90 transition whitespace-nowrap">Làm lại</button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const renderVocabTopicCards = (mode) => {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4 justify-items-start">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-4 w-full">
         {VOCAB_TOPICS.map((topic) => (
-          <div key={topic.id} className="w-[378px] h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
+          <div key={topic.id} className="w-full h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
             <div className="flex justify-between items-start gap-2">
               <div className="flex-1">
                 <h3 className="font-bold text-gray-800 text-sm line-clamp-1">{topic.title}</h3>
@@ -183,7 +236,7 @@ export default function HomePage() {
             </div>
             <div className="flex justify-between items-center mt-2">
               <span className="text-xs font-bold px-2 py-1 rounded-md bg-gray-100 text-gray-500">Chưa học</span>
-              <button onClick={() => handleVocabTopicNavigation(mode, topic.id)} style={{ backgroundColor: BRAND }} className="text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:opacity-90 transition duration-150">Bắt đầu</button>
+              <button onClick={() => handleVocabTopicNavigation(mode, topic.id)} className="bg-green-400 text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:opacity-90 transition">Bắt đầu</button>
             </div>
           </div>
         ))}
@@ -193,9 +246,9 @@ export default function HomePage() {
 
   const renderGrammarTopicCards = (mode) => {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4 justify-items-start">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-4 w-full">
         {GRAMMAR_TOPICS.map((topic) => (
-          <div key={topic.id} className="w-[378px] h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
+          <div key={topic.id} className="w-full h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
             <div className="flex justify-between items-start gap-2">
               <div className="flex-1">
                 <h3 className="font-bold text-gray-800 text-sm line-clamp-1">{topic.title}</h3>
@@ -205,7 +258,7 @@ export default function HomePage() {
             </div>
             <div className="flex justify-between items-center mt-2">
               <span className="text-xs font-bold px-2 py-1 rounded-md bg-gray-100 text-gray-500">Chưa học</span>
-              <button onClick={() => handleGrammarTopicNavigation(mode, topic.id)} style={{ backgroundColor: BRAND }} className="text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:opacity-90 transition duration-150">Xem ngay</button>
+              <button onClick={() => handleGrammarTopicNavigation(mode, topic.id)} className="bg-green-400 text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:opacity-90 transition">Xem ngay</button>
             </div>
           </div>
         ))}
@@ -216,9 +269,9 @@ export default function HomePage() {
   const renderExercisePartCards = (skillKey) => {
     const parts = EXERCISE_PARTS[skillKey] || [];
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4 justify-items-start">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-4 w-full">
         {parts.map((part) => (
-          <div key={part.key} className="w-[378px] h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
+          <div key={part.key} className="w-full h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
             <div className="flex justify-between items-start gap-2">
               <div className="flex-1">
                 <h3 className="font-bold text-gray-800 text-sm line-clamp-1">{part.label}</h3>
@@ -227,7 +280,7 @@ export default function HomePage() {
             </div>
             <div className="flex justify-between items-center mt-2">
               <span className="text-xs font-bold px-2 py-1 rounded-md bg-gray-100 text-gray-500">Chưa làm</span>
-              <button onClick={() => handleExerciseNavigation(part.key)} style={{ backgroundColor: BRAND }} className="text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:opacity-90 transition duration-150">Vào luyện tập</button>
+              <button onClick={() => handleExerciseNavigation(part.key)} className="bg-green-400 text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:opacity-90 transition">Vào luyện tập</button>
             </div>
           </div>
         ))}
@@ -238,30 +291,19 @@ export default function HomePage() {
   const renderExamTestCards = (bookKey) => {
     const tests = Array.from({ length: 10 }, (_, i) => i + 1);
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4 justify-items-start">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-4 w-full">
         {tests.map((testNum) => (
-          <div
-            key={testNum}
-            className="w-[378px] h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200"
-          >
+          <div key={testNum} className="w-full h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
             <div className="flex justify-between items-start gap-2">
               <div className="flex-1">
                 <h3 className="font-bold text-gray-800 text-sm">Đề khảo sát số {testNum}</h3>
                 <p className="text-xs text-gray-400 mt-0.5">Mã đề: {bookKey.toUpperCase()} _ TEST {testNum}</p>
               </div>
-              <span className="text-xs font-semibold px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded border border-emerald-100">
-                200 Câu hỏi
-              </span>
+              <span className="text-xs font-semibold px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded border border-emerald-100">200 Câu</span>
             </div>
             <div className="flex justify-between items-center mt-2">
               <span className="text-xs font-bold px-2 py-1 rounded-md bg-gray-100 text-gray-500">Chưa thi</span>
-              <button
-                onClick={() => handleExamNavigation(bookKey, testNum)}
-                style={{ backgroundColor: BRAND }}
-                className="text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:opacity-90 transition duration-150"
-              >
-                Bắt đầu làm
-              </button>
+              <button onClick={() => handleExamNavigation(bookKey, testNum)} className="bg-green-400 text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:opacity-90 transition">Bắt đầu làm</button>
             </div>
           </div>
         ))}
@@ -271,7 +313,6 @@ export default function HomePage() {
 
   const renderContent = () => {
     switch (activeMenu) {
-      // 🌟 PHÁT TRIỂN MỚI: Cấu trúc giao diện Tổng quan nâng cao, cuốn hút hơn
       case 'Tổng quan':
         const completedLessons = Object.values(userProgress).filter(p => p.status === 'completed');
         const totalCompleted = completedLessons.length;
@@ -289,203 +330,89 @@ export default function HomePage() {
         const recentIncomplete = inProgressLessons[0];
 
         return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', padding: '4px' }}>
-            
-            {/* 1. WELCOME BANNER: Phối màu Gradient chiều sâu và bo góc mềm mại */}
-            <div style={{ 
-              background: `linear-gradient(135deg, ${BRAND} 0%, #22c55e 100%)`, 
-              borderRadius: '16px', 
-              padding: '26px 32px', 
-              color: '#fff', 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              flexWrap: 'wrap', 
-              gap: '20px',
-              boxShadow: '0 10px 25px -5px rgba(74, 222, 128, 0.25)',
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
-              {/* Vòng tròn decor chìm tinh tế */}
-              <div style={{ position: 'absolute', width: '180px', height: '180px', borderRadius: '50%', background: 'rgba(255,255,255,0.07)', top: '-40px', right: '-25px' }}></div>
-              
-              <div style={{ zIndex: 1 }}>
-                <h2 style={{ fontSize: '22px', fontWeight: '900', margin: '0', letterSpacing: '0.01em', textShadow: '0 2px 4px rgba(0,0,0,0.06)' }}>
+          <div className="flex flex-col gap-7">
+            {/* Banner Chào Mừng */}
+            <div className="bg-gradient-to-r from-green-400 to-emerald-500 rounded-2xl p-6 md:p-8 text-white flex flex-wrap justify-between items-center gap-5 shadow-lg shadow-green-400/10 relative overflow-hidden">
+              <div className="absolute w-44 h-44 rounded-full bg-white/5 -top-10 -right-5"></div>
+              <div className="z-10">
+                <h2 className="text-xl md:text-2xl font-black tracking-wide">
                   XIN CHÀO, {CURRENT_USER_ID ? String(CURRENT_USER_ID).toUpperCase() : 'HỌC VIÊN'}! 👋
                 </h2>
-                <p style={{ fontSize: '14px', margin: '6px 0 0 0', color: 'rgba(255,255,255,0.95)', fontWeight: '500', maxWidth: '520px', lineHeight: '1.5' }}>
+                <p className="text-sm mt-1.5 color-white/90 font-medium max-w-xl leading-relaxed">
                   "Đường chạy chinh phục chứng chỉ TOEIC cùng Thầy Băng đã kích hoạt. Hôm nay hãy tiếp tục bứt phá giới hạn nhé!"
                 </p>
               </div>
-              <div style={{ 
-                background: 'rgba(255, 255, 255, 0.2)', 
-                backdropFilter: 'blur(4px)',
-                padding: '8px 16px', 
-                borderRadius: '20px', 
-                fontSize: '12px', 
-                fontWeight: '800',
-                border: '1px solid rgba(255,255,255,0.25)',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
-                zIndex: 1
-              }}>
+              <div className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-full text-xs font-extrabold border border-white/25 shadow-sm z-10">
                 🔥 Chuỗi học: 5 ngày liên tục
               </div>
             </div>
 
-            {/* 2. STATS CARDS: Bố cục Grid co giãn tự động kèm hiệu ứng nổi khối Card */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '24px' }}>
-              
-              {/* Thẻ 1: Số bài tập */}
-              <div className="hover:-translate-y-0.5 hover:border-green-200 transition-all duration-200" style={{ border: '1px solid #f1f5f9', borderRadius: '16px', background: '#fff', padding: '24px', display: 'flex', flexDirection: 'column', gap: '10px', boxShadow: '0 4px 15px rgba(0,0,0,0.02)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '18px' }}>🎯</span>
-                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Nhiệm vụ đã hoàn thành</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                  <span style={{ fontSize: '34px', fontWeight: '900', color: '#1e293b' }}>{totalCompleted}</span>
-                  <span style={{ fontSize: '13px', color: '#94a3b8', fontWeight: '600' }}>chủ đề</span>
-                </div>
+            {/* Các thẻ thống kê */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              <div className="border border-gray-100 bg-white rounded-2xl p-5 flex flex-col gap-2.5 shadow-sm">
+                <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-wider"><span>🎯</span> Bài tập đã xong</div>
+                <div className="flex items-baseline gap-1.5"><span className="text-3xl font-black text-gray-800">{totalCompleted}</span><span className="text-xs text-gray-400 font-semibold">chủ đề</span></div>
               </div>
-
-              {/* Thẻ 2: Điểm số */}
-              <div className="hover:-translate-y-0.5 hover:border-green-200 transition-all duration-200" style={{ border: '1px solid #f1f5f9', borderRadius: '16px', background: '#fff', padding: '24px', display: 'flex', flexDirection: 'column', gap: '10px', boxShadow: '0 4px 15px rgba(0,0,0,0.02)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '18px' }}>⚡</span>
-                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tỷ lệ chính xác</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                  <span style={{ fontSize: '34px', fontWeight: '900', color: '#10b981' }}>{averageScorePct}%</span>
-                  <span style={{ fontSize: '13px', color: '#94a3b8', fontWeight: '600' }}>mục tiêu</span>
-                </div>
+              <div className="border border-gray-100 bg-white rounded-2xl p-5 flex flex-col gap-2.5 shadow-sm">
+                <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-wider"><span>📈</span> Độ chính xác</div>
+                <div className="flex items-baseline gap-1.5"><span className="text-3xl font-black text-green-500">{averageScorePct}%</span><span className="text-xs text-gray-400 font-semibold">trung bình</span></div>
               </div>
-
-              {/* Thẻ 3: Trạng thái */}
-              <div className="hover:-translate-y-0.5 hover:border-green-200 transition-all duration-200" style={{ border: '1px solid #f1f5f9', borderRadius: '16px', background: '#fff', padding: '24px', display: 'flex', flexDirection: 'column', gap: '10px', boxShadow: '0 4px 15px rgba(0,0,0,0.02)', justifyContent: 'center' }}>
-                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Trạng thái học tập</span>
-                <div style={{ marginTop: '2px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '800', padding: '6px 14px', background: '#ecfdf5', color: '#047857', borderRadius: '30px', border: '1px solid #a7f3d0', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span>
-                    Tài khoản hoạt động
-                  </span>
-                </div>
+              <div className="border border-gray-100 bg-white rounded-2xl p-5 flex flex-col justify-center shadow-sm">
+                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Học lực hiện tại</div>
+                <div><span className="text-xs font-extrabold px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full inline-flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Tài khoản Active</span></div>
               </div>
             </div>
 
-            {/* 3. LAYOUT CHI TIẾT: Phân tỷ lệ 2 cột cân đối giữa Bài đang làm dở và Bảng thành tích */}
-            <div style={{ display: 'flex', gap: '28px', flexWrap: 'wrap', marginTop: '4px' }}>
-              
-              {/* Cột Trái: Trình trạng bài làm dở */}
-              <div style={{ flex: '1.8', minWidth: '320px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <h3 style={{ fontSize: '13px', fontWeight: '800', color: '#64748b', margin: '0', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  📌 Lịch trình ôn luyện
-                </h3>
-                
+            {/* Khung Chi tiết */}
+            <div className="flex flex-col lg:flex-row gap-6">
+              <div className="flex-1 flex flex-col gap-4">
+                <h3 className="text-xs font-black text-gray-400 uppercase tracking-wider">📌 Lịch trình ôn luyện</h3>
                 {recentIncomplete ? (
-                  <div style={{ 
-                    padding: '20px', 
-                    borderRadius: '16px', 
-                    border: '1px solid #fef3c7', 
-                    background: 'linear-gradient(to right, #fffdf5, #ffffff)', 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center', 
-                    gap: '16px',
-                    boxShadow: '0 8px 20px rgba(245, 158, 11, 0.04)'
-                  }}>
+                  <div className="p-5 rounded-2xl border border-amber-200 bg-amber-50/20 flex flex-wrap justify-between items-center gap-4">
                     <div>
-                      <span style={{ fontSize: '10px', fontWeight: '800', background: '#fff7ed', color: '#c2410c', padding: '3px 8px', borderRadius: '6px', border: '0.5px solid #ffedd5' }}>HỌC DỞ GẦN NHẤT</span>
-                      <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#1e293b', margin: '10px 0 4px 0', lineClamp: '1' }}>
-                        {recentIncomplete[0].replace('_', ' ').toUpperCase()}
-                      </h4>
-                      <p style={{ fontSize: '12px', color: '#64748b', margin: '0' }}>Hệ thống đã lưu tiến trình cũ, bấm vào để tiếp tục tích lũy kiến thức.</p>
+                      <span className="text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 rounded">HỌC DỞ GẦN NHẤT</span>
+                      <h4 className="font-extrabold text-gray-800 text-sm mt-2">{recentIncomplete[0].replace('_', ' ').toUpperCase()}</h4>
+                      <p className="text-xs text-gray-500 mt-0.5">Bấm nút để tiếp tục lưu và nạp điểm bài tập này.</p>
                     </div>
-                    <button 
-                      onClick={() => {
-                        const [type, id] = recentIncomplete[0].split('_');
-                        router.push(`/lesson?type=${type}&id=${id}`);
-                      }}
-                      style={{ 
-                        backgroundColor: '#f59e0b', 
-                        color: '#fff', 
-                        border: 'none', 
-                        padding: '10px 18px', 
-                        fontSize: '12px', 
-                        fontWeight: '700', 
-                        borderRadius: '10px', 
-                        cursor: 'pointer', 
-                        whiteSpace: 'nowrap',
-                        boxShadow: '0 4px 12px rgba(245, 158, 11, 0.2)'
-                      }}
-                    >
-                      Làm tiếp →
-                    </button>
+                    <button onClick={() => { const [type, id] = recentIncomplete[0].split('_'); router.push(`/lesson?type=${type}&id=${id}`); }} className="bg-amber-500 shadow-sm shadow-amber-500/10 text-white font-bold text-xs px-4 py-2.5 rounded-xl hover:opacity-95 transition">Làm tiếp bài →</button>
                   </div>
                 ) : (
-                  <div style={{ padding: '36px 24px', borderRadius: '16px', border: '2px dashed #e2e8f0', background: '#fff', color: '#94a3b8', fontSize: '13px', textAlign: 'center', fontWeight: '500' }}>
-                    ✨ Thật tuyệt vời! Bạn đã hoàn thành xuất sắc tất cả các mục tiêu gần đây.
-                  </div>
+                  <div className="p-8 rounded-2xl border-2 border-dashed border-gray-200 text-center text-gray-400 text-xs font-semibold bg-white">🎉 Thật tuyệt vời! Bạn không bỏ dở bài tập nào. Hãy chọn mục mới để học.</div>
                 )}
-                
-                {/* Các nút truy cập nhanh phong cách Card tối giản */}
-                <div style={{ display: 'flex', gap: '14px', marginTop: '4px' }}>
-                  <button onClick={() => handleMenuClick('Từ vựng')} style={{ flex: 1, padding: '16px', background: '#fff', border: '1px solid #f1f5f9', borderRadius: '12px', cursor: 'pointer', textAlign: 'left', boxShadow: '0 2px 8px rgba(0,0,0,0.01)' }} className="hover:border-green-300 hover:shadow-xs transition-all">
-                    <span style={{ fontSize: '20px' }}>📖</span>
-                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#334155', marginTop: '6px' }}>Ôn tập Từ vựng nhanh</div>
+                <div className="grid grid-cols-2 gap-4">
+                  <button onClick={() => handleMenuClick('Từ vựng')} className="p-4 text-left border border-gray-100 bg-white hover:border-green-300 rounded-2xl shadow-sm transition group">
+                    <span className="text-xl">📖</span>
+                    <div className="font-bold text-gray-700 text-xs mt-2 group-hover:text-green-500 transition">Học Từ Vựng nhanh</div>
                   </button>
-                  <button onClick={() => handleMenuClick('Luyện đề')} style={{ flex: 1, padding: '16px', background: '#fff', border: '1px solid #f1f5f9', borderRadius: '12px', cursor: 'pointer', textAlign: 'left', boxShadow: '0 2px 8px rgba(0,0,0,0.01)' }} className="hover:border-green-300 hover:shadow-xs transition-all">
-                    <span style={{ fontSize: '20px' }}>⏱️</span>
-                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#334155', marginTop: '6px' }}>Thử sức Full-Test</div>
+                  <button onClick={() => handleMenuClick('Luyện đề')} className="p-4 text-left border border-gray-100 bg-white hover:border-green-300 rounded-2xl shadow-sm transition group">
+                    <span className="text-xl">⏱️</span>
+                    <div className="font-bold text-gray-700 text-xs mt-2 group-hover:text-green-500 transition">Luyện đề Full-Test</div>
                   </button>
                 </div>
               </div>
 
-              {/* Cột Phải: Bảng xếp hạng vinh danh cao cấp */}
-              <div style={{ width: '320px', border: '1px solid #f1f5f9', borderRadius: '16px', background: '#fff', padding: '20px', boxShadow: '0 4px 15px rgba(0,0,0,0.01)' }}>
-                <h3 style={{ fontSize: '14px', fontWeight: '800', color: '#1e293b', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  👑 Top Học Viên Xuất Sắc
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {/* Bảng vinh danh học viên */}
+              <div className="w-full lg:w-80 border border-gray-100 bg-white rounded-2xl p-5 shadow-sm">
+                <h3 className="text-xs font-black text-gray-800 uppercase tracking-wider mb-4">🏆 Top Học Viên Tuần</h3>
+                <div className="flex flex-col gap-3">
                   {[
-                    { rank: 1, name: 'Hồng Nhung', score: '985 TOEIC', badge: '🥇' },
-                    { rank: 2, name: 'Minh Quân', score: '945 TOEIC', badge: '🥈' },
-                    { rank: 3, name: 'Thanh Hải', score: '910 TOEIC', badge: '🥉' },
+                    { rank: 1, name: 'Hồng Nhung', score: '985 TOEIC', icon: '🥇' },
+                    { rank: 2, name: 'Minh Quân', score: '945 TOEIC', icon: '🥈' },
+                    { rank: 3, name: 'Thanh Hải', score: '910 TOEIC', icon: '🥉' },
                   ].map((student, index) => (
-                    <div key={index} style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'space-between', 
-                      fontSize: '13px', 
-                      borderBottom: index !== 2 ? '1px solid #f8fafc' : 'none', 
-                      paddingBottom: '10px' 
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ 
-                          width: '24px', 
-                          height: '24px', 
-                          borderRadius: '50%', 
-                          background: index === 0 ? '#fef3c7' : index === 1 ? '#f1f5f9' : '#fff7ed', 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          justifyContent: 'center', 
-                          fontSize: '11px', 
-                          fontWeight: '800' 
-                        }}>
-                          {student.rank}
-                        </span>
-                        <span style={{ color: '#475569', fontWeight: '600' }}>{student.name}</span>
+                    <div key={index} className="flex items-center justify-between text-xs border-b border-gray-50 pb-2.5 last:border-0 last:pb-0">
+                      <div className="flex items-center gap-3">
+                        <span className={`w-6 h-6 rounded-full font-bold flex items-center justify-center text-[11px] ${index === 0 ? 'bg-amber-100 text-amber-800' : index === 1 ? 'bg-slate-100 text-slate-700' : 'bg-orange-50 text-orange-800'}`}>{student.rank}</span>
+                        <span className="font-semibold text-gray-600">{student.name}</span>
                       </div>
-                      <span style={{ fontWeight: '800', color: '#334155', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        {student.score} {student.badge}
-                      </span>
+                      <span className="font-extrabold text-gray-700 flex items-center gap-1">{student.score} {student.icon}</span>
                     </div>
                   ))}
                 </div>
               </div>
-
             </div>
           </div>
         );
-
       case 'Khóa học':
         return (
           <div>
@@ -517,7 +444,7 @@ export default function HomePage() {
               <div className="flex items-center gap-2 mb-1">
                 <button onClick={() => setGrammarSubMenu(null)} className="text-xs text-gray-400 hover:text-green-600 transition">← Ngữ pháp</button>
                 <span className="text-xs text-gray-300">/</span>
-                <span className="text-xs font-semibold" style={{ color: BRAND }}>{subInfo?.label}</span>
+                <span className="text-xs font-semibold text-green-400">{subInfo?.label}</span>
               </div>
               <h2 className="text-xl font-extrabold text-gray-800 mb-1">{subInfo?.icon} {subInfo?.label}</h2>
               <p className="text-gray-500 text-sm mb-4">Chọn bài học ngữ pháp bạn muốn học.</p>
@@ -549,7 +476,7 @@ export default function HomePage() {
               <div className="flex items-center gap-2 mb-1">
                 <button onClick={() => setVocabSubMenu(null)} className="text-xs text-gray-400 hover:text-green-600 transition">← Từ vựng</button>
                 <span className="text-xs text-gray-300">/</span>
-                <span className="text-xs font-semibold" style={{ color: BRAND }}>{subInfo?.label}</span>
+                <span className="text-xs font-semibold text-green-400">{subInfo?.label}</span>
               </div>
               <h2 className="text-xl font-extrabold text-gray-800 mb-1">{subInfo?.icon} {subInfo?.label}</h2>
               <p className="text-gray-500 text-sm mb-4">Chọn chủ đề từ vựng bạn muốn luyện tập.</p>
@@ -581,7 +508,7 @@ export default function HomePage() {
               <div className="flex items-center gap-2 mb-1">
                 <button onClick={() => setExerciseSkill(null)} className="text-xs text-gray-400 hover:text-green-600 transition">← Bài tập</button>
                 <span className="text-xs text-gray-300">/</span>
-                <span className="text-xs font-semibold" style={{ color: BRAND }}>{skillInfo?.label}</span>
+                <span className="text-xs font-semibold text-green-400">{skillInfo?.label}</span>
               </div>
               <h2 className="text-xl font-extrabold text-gray-800 mb-1">{skillInfo?.icon} {skillInfo?.label}</h2>
               <p className="text-gray-500 text-sm mb-4">Chọn Part tiêu điểm để bắt đầu quá trình nạp kiến thức.</p>
@@ -589,7 +516,6 @@ export default function HomePage() {
             </div>
           );
         }
-
       case 'Luyện đề':
         if (!examBook) {
           return (
@@ -598,11 +524,7 @@ export default function HomePage() {
               <p className="text-gray-500 text-sm mb-6">Chọn giáo trình đề thi thử định dạng chuẩn IIG.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {EXAM_BOOKS.map((book) => (
-                  <button
-                    key={book.key}
-                    onClick={() => setExamBook(book.key)}
-                    className="flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white shadow-sm hover:border-green-300 hover:shadow-md transition duration-200 text-left"
-                  >
+                  <button key={book.key} onClick={() => setExamBook(book.key)} className="flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white shadow-sm hover:border-green-300 hover:shadow-md transition duration-200 text-left">
                     <span className="text-2xl">{book.icon}</span>
                     <span className="font-bold text-gray-800 text-sm">{book.label}</span>
                     <span className="text-xs text-gray-400">Trọn bộ 10 bài thi mẫu</span>
@@ -616,22 +538,16 @@ export default function HomePage() {
           return (
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <button
-                  onClick={() => setExamBook(null)}
-                  className="text-xs text-gray-400 hover:text-green-600 transition"
-                >← Luyện đề</button>
+                <button onClick={() => setExamBook(null)} className="text-xs text-gray-400 hover:text-green-600 transition">← Luyện đề</button>
                 <span className="text-xs text-gray-300">/</span>
-                <span className="text-xs font-semibold" style={{ color: BRAND }}>{bookInfo?.label}</span>
+                <span className="text-xs font-semibold text-green-400">{bookInfo?.label}</span>
               </div>
-              <h2 className="text-xl font-extrabold text-gray-800 mb-1">
-                {bookInfo?.icon} Bộ đề {bookInfo?.label}
-              </h2>
+              <h2 className="text-xl font-extrabold text-gray-800 mb-1">{bookInfo?.icon} Bộ đề {bookInfo?.label}</h2>
               <p className="text-gray-500 text-sm mb-4">Chọn đề thi thử để bắt đầu làm bài tính thời gian (120 phút).</p>
               {renderExamTestCards(examBook)}
             </div>
           );
         }
-
       default:
         return <p className="text-gray-500">Đang tải dữ liệu...</p>;
     }
@@ -640,67 +556,52 @@ export default function HomePage() {
   return (
     <div className={`min-h-screen bg-gray-50 flex flex-col ${roboto.className}`}>
       {/* HEADER */}
-      <header style={{ backgroundColor: BRAND }} className="shadow-md px-6 py-3 flex items-center justify-between fixed top-0 left-0 right-0 z-50">
+      <header className="shadow-md px-6 py-3 flex items-center justify-between fixed top-0 left-0 right-0 z-50 bg-green-400">
         <span className="text-white font-bold text-xl tracking-wide">TOEIC Thầy Băng</span>
         <div className="flex items-center gap-4">
           <span className="text-white text-sm font-medium">Xin chào, {CURRENT_USER_ID}!</span>
-          <button onClick={handleLogout} style={{ color: BRAND }} className="bg-white font-semibold text-sm px-4 py-1.5 rounded-lg hover:bg-green-50 transition duration-200 shadow-sm">Đăng xuất</button>
+          <button onClick={handleLogout} className="bg-white font-semibold text-sm px-4 py-1.5 rounded-lg text-green-400 hover:bg-green-50 transition duration-200 shadow-sm">Đăng xuất</button>
         </div>
       </header>
 
       <div className="flex flex-1 pt-14">
-        {/* SIDEBAR */}
-        <aside style={{ backgroundColor: BRAND }} className="w-48 shadow-lg flex flex-col py-6 px-3 gap-1 fixed left-0 top-14 bottom-0 overflow-y-auto">
+        {/* SIDEBAR (Ẩn trên điện thoại, tự hiện từ kích thước md trở lên) */}
+        <aside className="w-48 shadow-lg flex flex-col py-6 px-3 gap-1 fixed left-0 top-14 bottom-0 overflow-y-auto bg-green-400 hidden md:flex">
           {menuItems.map((item) => (
             <div key={item}>
-              <button
-                onClick={() => handleMenuClick(item)}
-                style={activeMenu === item ? { color: BRAND } : {}}
-                className={`text-left w-full px-4 py-3 rounded-lg text-sm font-semibold transition duration-150
-                  ${activeMenu === item ? 'bg-white shadow-sm' : 'text-white hover:bg-white/20'}`}
-              >
-                {item}
-              </button>
-
-              {/* Submenu Ngữ pháp */}
+              <button onClick={() => handleMenuClick(item)} className={`text-left w-full px-4 py-3 rounded-lg text-sm font-semibold transition duration-150 ${activeMenu === item ? 'bg-white text-green-400 shadow-sm' : 'text-white hover:bg-white/20'}`}>{item}</button>
+              
               {item === 'Ngữ pháp' && activeMenu === 'Ngữ pháp' && (
                 <div className="mt-1 ml-2 flex flex-col gap-0.5">
                   {GRAMMAR_SUBMENU.map((sub) => (
                     <button key={sub.key} onClick={() => setGrammarSubMenu(sub.key)} className={`text-left w-full px-3 py-2 rounded-lg text-xs font-medium transition duration-150 flex items-center gap-1.5 ${grammarSubMenu === sub.key ? 'bg-white/90 text-green-800 font-bold shadow-sm' : 'text-white/90 hover:bg-white/20'}`}>
-                      <span>{sub.icon}</span>
-                      <span>{sub.label}</span>
+                      <span>{sub.icon}</span><span>{sub.label}</span>
                     </button>
                   ))}
                 </div>
               )}
 
-              {/* Submenu Từ vựng */}
               {item === 'Từ vựng' && activeMenu === 'Từ vựng' && (
                 <div className="mt-1 ml-2 flex flex-col gap-0.5">
                   {VOCAB_SUBMENU.map((sub) => (
                     <button key={sub.key} onClick={() => setVocabSubMenu(sub.key)} className={`text-left w-full px-3 py-2 rounded-lg text-xs font-medium transition duration-150 flex items-center gap-1.5 ${vocabSubMenu === sub.key ? 'bg-white/90 text-green-800 font-bold shadow-sm' : 'text-white/90 hover:bg-white/20'}`}>
-                      <span>{sub.icon}</span>
-                      <span>{sub.label}</span>
+                      <span>{sub.icon}</span><span>{sub.label}</span>
                     </button>
                   ))}
                 </div>
               )}
 
-              {/* Submenu Bài tập */}
               {item === 'Bài tập' && activeMenu === 'Bài tập' && (
                 <div className="mt-1 ml-2 flex flex-col gap-0.5">
                   {EXERCISE_SKILLS.map((skill) => (
                     <div key={skill.key} className="flex flex-col">
                       <button onClick={() => { setExerciseSkill(skill.key); setExercisePart(null); }} className={`text-left w-full px-3 py-2 rounded-lg text-xs font-medium transition duration-150 flex items-center gap-1.5 ${exerciseSkill === skill.key ? 'bg-white/90 text-green-800 font-bold shadow-sm' : 'text-white/90 hover:bg-white/20'}`}>
-                        <span>{skill.icon}</span>
-                        <span>{skill.label}</span>
+                        <span>{skill.icon}</span><span>{skill.label}</span>
                       </button>
                       {exerciseSkill === skill.key && (
                         <div className="mt-0.5 ml-3 pl-1.5 border-l border-white/40 flex flex-col gap-0.5">
                           {EXERCISE_PARTS[skill.key].map((part) => (
-                            <button key={part.key} onClick={() => { setExercisePart(part.key); handleExerciseNavigation(part.key); }} className={`text-left w-full py-1.5 px-2 rounded-md text-[11px] transition duration-150 line-clamp-1 ${exercisePart === part.key ? 'bg-white/70 text-green-900 font-bold' : 'text-white/80 hover:text-white hover:bg-white/10'}`}>
-                              Part {part.key.split('_p')[1]?.toUpperCase() || part.key}
-                            </button>
+                            <button key={part.key} onClick={() => { setExercisePart(part.key); handleExerciseNavigation(part.key); }} className={`text-left w-full py-1.5 px-2 rounded-md text-[11px] transition duration-150 line-clamp-1 ${exercisePart === part.key ? 'bg-white/70 text-green-900 font-bold' : 'text-white/80 hover:text-white hover:bg-white/10'}`}>Part {part.key.split('_p')[1]?.toUpperCase()}</button>
                           ))}
                         </div>
                       )}
@@ -709,47 +610,28 @@ export default function HomePage() {
                 </div>
               )}
 
-              {/* Submenu Luyện đề */}
               {item === 'Luyện đề' && activeMenu === 'Luyện đề' && (
                 <div className="mt-1 ml-2 flex flex-col gap-0.5">
                   {EXAM_BOOKS.map((book) => (
-                    <button
-                      key={book.key}
-                      onClick={() => setExamBook(book.key)}
-                      className={`text-left w-full px-3 py-2 rounded-lg text-xs font-medium transition duration-150 flex items-center gap-1.5
-                        ${examBook === book.key
-                          ? 'bg-white/90 text-green-800 font-bold shadow-sm'
-                          : 'text-white/90 hover:bg-white/20'
-                        }`}
-                    >
-                      <span>{book.icon}</span>
-                      <span>{book.label}</span>
+                    <button key={book.key} onClick={() => setExamBook(book.key)} className={`text-left w-full px-3 py-2 rounded-lg text-xs font-medium transition duration-150 flex items-center gap-1.5 ${examBook === book.key ? 'bg-white/90 text-green-800 font-bold shadow-sm' : 'text-white/90 hover:bg-white/20'}`}>
+                      <span>{book.icon}</span><span>{book.label}</span>
                     </button>
                   ))}
                 </div>
               )}
-
             </div>
           ))}
         </aside>
 
-        {/* MAIN CONTENT */}
-        <main className="flex-1 p-8 ml-48">
-          <div className="max-w-5xl mx-auto rounded-xl bg-white p-6 shadow-sm border border-gray-100">
+        {/* MAIN CONTENT (Tự co giãn lề trái linh hoạt trên Mobile / Desktop) */}
+        <main className="flex-1 p-4 md:p-8 ml-0 md:ml-48 w-full overflow-x-hidden">
+          <div className="max-w-5xl mx-auto rounded-xl bg-white p-4 md:p-6 shadow-sm border border-gray-100">
             <p className="text-xs text-gray-400 mb-4">
-              Trang chủ / <span style={{ color: BRAND }} className="font-medium">{activeMenu}</span>
-              {grammarSubMenu && activeMenu === 'Ngữ pháp' && (
-                <> / <span style={{ color: BRAND }} className="font-medium">{GRAMMAR_SUBMENU.find(s => s.key === grammarSubMenu)?.label}</span></>
-              )}
-              {vocabSubMenu && activeMenu === 'Từ vựng' && (
-                <> / <span style={{ color: BRAND }} className="font-medium">{VOCAB_SUBMENU.find(s => s.key === vocabSubMenu)?.label}</span></>
-              )}
-              {exerciseSkill && activeMenu === 'Bài tập' && (
-                <> / <span style={{ color: BRAND }} className="font-medium">{EXERCISE_SKILLS.find(s => s.key === exerciseSkill)?.label}</span></>
-              )}
-              {examBook && activeMenu === 'Luyện đề' && (
-                <> / <span style={{ color: BRAND }} className="font-medium">{EXAM_BOOKS.find(b => b.key === examBook)?.label}</span></>
-              )}
+              Trang chủ / <span className="font-medium text-green-400">{activeMenu}</span>
+              {grammarSubMenu && activeMenu === 'Ngữ pháp' && <> / <span className="font-medium text-green-400">{GRAMMAR_SUBMENU.find(s => s.key === grammarSubMenu)?.label}</span></>}
+              {vocabSubMenu && activeMenu === 'Từ vựng' && <> / <span className="font-medium text-green-400">{VOCAB_SUBMENU.find(s => s.key === vocabSubMenu)?.label}</span></>}
+              {exerciseSkill && activeMenu === 'Bài tập' && <> / <span className="font-medium text-green-400">{EXERCISE_SKILLS.find(s => s.key === exerciseSkill)?.label}</span></>}
+              {examBook && activeMenu === 'Luyện đề' && <> / <span className="font-medium text-green-400">{EXAM_BOOKS.find(b => b.key === examBook)?.label}</span></>}
             </p>
             <div className="mt-2">{renderContent()}</div>
           </div>

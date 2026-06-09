@@ -13,13 +13,8 @@ const roboto = Roboto({
   display: 'swap',
 });
 
-const BRAND = '#4ade80';
-const BRAND_DARK = '#14532d';
-const BRAND_LIGHT = '#f0fdf4';
-
 const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') || 'hoc_vien_01' : 'hoc_vien_01';
 
-// ─── XỬ LÝ PARSE EXCEL (ĐÃ ĐỒNG BỘ TÊN CỘT CORRECT ANSWER) ────────────────────
 function parseExcel(arrayBuffer) {
   const workbook = XLSX.read(arrayBuffer, { type: 'array' });
   const firstSheetName = workbook.SheetNames[0];
@@ -41,10 +36,7 @@ function parseExcel(arrayBuffer) {
       };
     }
 
-    // 🌟 KHẮC PHỤC CHÍNH XÁC: Đọc cột "correct answer" từ file Excel của bạn
     const sourceAnswer = q['correct answer'] !== undefined ? q['correct answer'] : q.answer;
-    
-    // Chuẩn hóa đáp án tuyệt đối (xử lý khoảng trắng, viết hoa, số 1,2,3,4)
     let rawAns = String(sourceAnswer).toUpperCase().trim();
     if (rawAns === '1') rawAns = 'A';
     if (rawAns === '2') rawAns = 'B';
@@ -54,23 +46,15 @@ function parseExcel(arrayBuffer) {
     groupMap[gid].questions.push({
       question_id: q.question_id,
       question: q.question,
-      A: q.A, 
-      B: q.B, 
-      C: q.C, 
-      D: q.D,
+      A: q.A, B: q.B, C: q.C, D: q.D,
       answer: rawAns,
       explanation: q.explanation || '',
     });
   });
 
-  return {
-    config: {}, 
-    groups: Object.values(groupMap),
-    totalQuestions: questions.length,
-  };
+  return { config: {}, groups: Object.values(groupMap), totalQuestions: questions.length };
 }
 
-// ─── AUDIO PLAYER ─────────────────────────────────────────────────────────────
 function AudioPlayer({ url }) {
   const audioRef = useRef(null);
   const [playing, setPlaying] = useState(false);
@@ -87,7 +71,7 @@ function AudioPlayer({ url }) {
   };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#f8fafc', border: '0.5px solid #e2e8f0', borderRadius: 8, padding: '8px 12px' }}>
+    <div className="flex items-center gap-3 bg-gray-50 border border-gray-100 rounded-xl p-2.5 w-full">
       <audio
         ref={audioRef}
         src={url}
@@ -99,68 +83,55 @@ function AudioPlayer({ url }) {
         onLoadedMetadata={(e) => setDuration(fmt(e.target.duration))}
         onEnded={() => setPlaying(false)}
       />
-      <button onClick={toggle} style={{ width: 32, height: 32, borderRadius: '50%', background: BRAND, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      <button onClick={toggle} className="w-8 h-8 rounded-full bg-green-400 border-none cursor-pointer flex items-center justify-center flex-shrink-0 active:scale-95 transition">
         {playing
-          ? <svg width="12" height="12" viewBox="0 0 12 12" fill={BRAND_DARK}><rect x="1" y="1" width="3.5" height="10" rx="1"/><rect x="7.5" y="1" width="3.5" height="10" rx="1"/></svg>
-          : <svg width="12" height="12" viewBox="0 0 12 12" fill={BRAND_DARK}><polygon points="2,1 11,6 2,11"/></svg>
+          ? <svg width="12" height="12" viewBox="0 0 12 12" fill="#14532d"><rect x="1" y="1" width="3.5" height="10" rx="1"/><rect x="7.5" y="1" width="3.5" height="10" rx="1"/></svg>
+          : <svg width="12" height="12" viewBox="0 0 12 12" fill="#14532d"><polygon points="2,1 11,6 2,11"/></svg>
         }
       </button>
-      <div style={{ flex: 1, height: 4, background: '#e2e8f0', borderRadius: 2, cursor: 'pointer' }}
+      <div className="flex-1 h-1 bg-gray-200 rounded-full cursor-pointer relative"
         onClick={(e) => {
           if (!audioRef.current?.duration) return;
           const rect = e.currentTarget.getBoundingClientRect();
           audioRef.current.currentTime = ((e.clientX - rect.left) / rect.width) * audioRef.current.duration;
         }}
       >
-        <div style={{ width: `${progress}%`, height: 4, background: BRAND, borderRadius: 2, transition: 'width 0.1s linear' }} />
+        <div className="absolute top-0 left-0 h-full bg-green-400 rounded-full" style={{ width: `${progress}%` }} />
       </div>
-      <span style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap' }}>{currentTime} / {duration}</span>
+      <span className="text-[11px] font-bold text-gray-400 whitespace-nowrap">{currentTime} / {duration}</span>
     </div>
   );
 }
 
-// ─── CONTENT ZONE (ZONE B) ────────────────────────────────────────────────────
-const blockStyle = { border: '0.5px solid #e2e8f0', borderRadius: 8, overflow: 'hidden', background: '#fff' };
-const blockLabelStyle = { fontSize: 11, color: '#64748b', padding: '5px 12px', background: '#f8fafc', borderBottom: '0.5px solid #e2e8f0', fontWeight: 500 };
-
 function ContentZone({ group }) {
-  const hasImage = !!group.image_url;
-  const hasAudio = !!group.audio_url;
-  const hasPassage = !!group.passage;
-
-  if (!hasImage && !hasAudio && !hasPassage) {
-    return <div style={{ padding: 20, color: '#94a3b8', fontSize: 13, textAlign: 'center' }}>Câu hỏi độc lập — không có nội dung đính kèm.</div>;
+  if (!group.image_url && !group.audio_url && !group.passage) {
+    return <div className="p-5 text-gray-400 text-xs text-center font-medium">Câu hỏi độc lập — Không có dữ liệu đính kèm.</div>;
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {hasImage && (
-        <div style={blockStyle}>
-          <div style={blockLabelStyle}>🖼 Hình ảnh</div>
-          <div style={{ padding: 10 }}>
-            <img src={group.image_url} alt="Nội dung" style={{ width: '100%', borderRadius: 6, objectFit: 'contain', maxHeight: 240 }} />
-          </div>
+    <div className="flex flex-col gap-3">
+      {group.image_url && (
+        <div className="border border-gray-100 rounded-xl overflow-hidden bg-white">
+          <div className="text-[10px] font-bold text-gray-400 px-3 py-1 bg-gray-50 border-b border-gray-100">🖼️ HÌNH ẢNH MINH HỌA</div>
+          <div className="p-2 flex justify-center"><img src={group.image_url} alt="Nội dung đề bài" className="w-full max-h-60 object-contain rounded-lg" /></div>
         </div>
       )}
-      {hasAudio && (
-        <div style={blockStyle}>
-          <div style={blockLabelStyle}>🎵 Audio</div>
-          <div style={{ padding: 10 }}><AudioPlayer url={group.audio_url} /></div>
+      {group.audio_url && (
+        <div className="border border-gray-100 rounded-xl overflow-hidden bg-white">
+          <div className="text-[10px] font-bold text-gray-400 px-3 py-1 bg-gray-50 border-b border-gray-100">🎵 FILE NGHE AUDIO</div>
+          <div className="p-2"><AudioPlayer url={group.audio_url} /></div>
         </div>
       )}
-      {hasPassage && (
-        <div style={blockStyle}>
-          <div style={blockLabelStyle}>📄 Đoạn văn</div>
-          <div style={{ padding: '10px 14px' }}>
-            <p style={{ fontSize: 13, lineHeight: 1.9, color: '#334155', whiteSpace: 'pre-line', margin: 0 }}>{group.passage}</p>
-          </div>
+      {group.passage && (
+        <div className="border border-gray-100 rounded-xl overflow-hidden bg-white">
+          <div className="text-[10px] font-bold text-gray-400 px-3 py-1 bg-gray-50 border-b border-gray-100">📄 ĐOẠN VĂN NGỮ CẢNH</div>
+          <div className="p-4"><p className="text-sm leading-relaxed text-gray-700 whitespace-pre-line m-0 font-medium">{group.passage}</p></div>
         </div>
       )}
     </div>
   );
 }
 
-// ─── MAIN LESSON CONTENT ──────────────────────────────────────────────────────
 function LessonContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -190,7 +161,7 @@ function LessonContent() {
         if (!meta.fileUrl) throw new Error('Bài học chưa được cấu hình đường dẫn fileUrl.');
 
         const res = await fetch(meta.fileUrl);
-        if (!res.ok) throw new Error('Không thể tải tệp dữ liệu bài học. Vui lòng kiểm tra lại quyền chia sẻ liên kết.');
+        if (!res.ok) throw new Error('Không thể tải tệp dữ liệu bài học.');
         const buffer = await res.arrayBuffer();
 
         const { groups, totalQuestions: total } = parseExcel(buffer);
@@ -202,9 +173,7 @@ function LessonContent() {
         });
         setAllQuestions(flat);
 
-        const progressSnap = await getDoc(
-          doc(db, 'users', CURRENT_USER_ID, 'progress', lessonId)
-        );
+        const progressSnap = await getDoc(doc(db, 'users', CURRENT_USER_ID, 'progress', lessonId));
         if (progressSnap.exists()) {
           const progressData = progressSnap.data();
           setAnswers(progressData.answers || {});
@@ -215,7 +184,7 @@ function LessonContent() {
           }
         }
       } catch (err) {
-        setError(err.message || 'Đã xảy ra lỗi hệ thống.');
+        setError(err.message || 'Đã xảy ra lỗi.');
       } finally {
         setLoading(false);
       }
@@ -227,7 +196,6 @@ function LessonContent() {
 
   const handleSelect = async (qid, option) => {
     if (submitted) return;
-    
     const updatedAnswers = { ...answers, [qid]: option };
     setAnswers(updatedAnswers);
 
@@ -240,15 +208,13 @@ function LessonContent() {
         updatedAt: serverTimestamp()
       }, { merge: true });
     } catch (e) {
-      console.error("Lỗi đồng bộ tiến trình học: ", e);
+      console.error(e);
     }
   };
 
   const handleSubmit = async () => {
     let correct = 0;
-    allQuestions.forEach((q) => { 
-      if (answers[q.question_id] === q.answer) correct++; 
-    });
+    allQuestions.forEach((q) => { if (answers[q.question_id] === q.answer) correct++; });
     
     setScore(correct);
     setSubmitted(true);
@@ -263,74 +229,27 @@ function LessonContent() {
         updatedAt: serverTimestamp()
       }, { merge: true });
     } catch (e) {
-      console.error("Lỗi ghi điểm nộp bài: ", e);
+      console.error(e);
     }
   };
 
   const currentQ = allQuestions[currentQIndex];
   const currentGroup = currentQ?.groupRef;
 
-  const getOptionStyle = (qid, option) => {
-    const selected = answers[qid] === option;
-    const targetQ = allQuestions.find(q => q.question_id === qid);
-    const correctAnswer = targetQ ? targetQ.answer : '';
-    const isCorrect = option === correctAnswer;
-
-    if (!submitted) {
-      return { 
-        border: selected ? `1.5px solid ${BRAND}` : '0.5px solid #e2e8f0', 
-        background: selected ? BRAND_LIGHT : '#fff', 
-        color: selected ? '#166534' : '#334155' 
-      };
-    }
-    
-    if (isCorrect) {
-      return { border: '1.5px solid #4ade80', background: '#f0fdf4', color: '#166534' };
-    }
-    if (selected && !isCorrect) {
-      return { border: '1.5px solid #f87171', background: '#fef2f2', color: '#991b1b' };
-    }
-    return { border: '0.5px solid #e2e8f0', background: '#fff', color: '#cbd5e1' };
-  };
-
-  const getKeyStyle = (qid, option) => {
-    const selected = answers[qid] === option;
-    const targetQ = allQuestions.find(q => q.question_id === qid);
-    const correctAnswer = targetQ ? targetQ.answer : '';
-    const isCorrect = option === correctAnswer;
-
-    if (!submitted) {
-      return { 
-        background: selected ? BRAND : 'transparent', 
-        color: selected ? BRAND_DARK : '#94a3b8', 
-        border: selected ? `1px solid ${BRAND}` : '0.5px solid #e2e8f0' 
-      };
-    }
-    
-    if (isCorrect) {
-      return { background: '#4ade80', color: BRAND_DARK, border: '1px solid #4ade80' };
-    }
-    if (selected && !isCorrect) {
-      return { background: '#f87171', color: '#fff', border: '1px solid #f87171' };
-    }
-    return { background: 'transparent', color: '#cbd5e1', border: '0.5px solid #e2e8f0' };
-  };
-
   if (loading) {
     return (
-      <div className={roboto.className} style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', gap: 16 }}>
-        <div style={{ width: 40, height: 40, border: `3px solid ${BRAND}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-        <p style={{ color: '#64748b', fontSize: 14 }}>Đang nạp dữ liệu bài tập...</p>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <div className={`min-h-screen flex flex-col items-center justify-center bg-gray-50 gap-4 ${roboto.className}`}>
+        <div className="w-10 h-10 border-4 border-green-400 border-t-transparent rounded-full animate-spin" />
+        <p className="text-gray-400 text-sm font-semibold">Đang nạp dữ liệu bài tập chuyên sâu...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className={roboto.className} style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', gap: 12 }}>
-        <p style={{ color: '#ef4444', fontSize: 14, fontWeight: 500 }}>⚠️ {error}</p>
-        <button onClick={() => router.back()} style={{ background: BRAND, color: BRAND_DARK, border: 'none', borderRadius: 8, padding: '8px 20px', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>← Quay lại trang chủ</button>
+      <div className={`min-h-screen flex flex-col items-center justify-center bg-gray-50 gap-3 ${roboto.className}`}>
+        <p className="text-red-500 font-bold text-sm">⚠️ {error}</p>
+        <button onClick={() => router.back()} className="bg-green-400 text-white border-none rounded-xl px-5 py-2 text-xs font-bold cursor-pointer">← Quay về</button>
       </div>
     );
   }
@@ -338,44 +257,14 @@ function LessonContent() {
   if (submitted && score !== null && showResultCard) {
     const pct = Math.round((score / totalQuestions) * 100);
     return (
-      <div className={roboto.className} style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}>
-        <div style={{ background: '#fff', borderRadius: 16, border: '0.5px solid #e2e8f0', padding: '40px 48px', textAlign: 'center', maxWidth: 400, width: '100%' }}>
-          <div style={{ fontSize: 52, fontWeight: 900, color: BRAND, marginBottom: 4 }}>{pct}%</div>
-          <div style={{ fontSize: 15, color: '#475569', marginBottom: 4 }}>
-            Kết quả làm bài: <strong style={{ color: '#1e293b' }}>{score}/{totalQuestions}</strong> câu đúng
-          </div>
-          <div style={{ fontSize: 13, color: '#94a3b8', marginBottom: 28 }}>
-            {pct >= 80 ? '🎉 Xuất sắc! Kết quả học tập rất tuyệt vời.'
-              : pct >= 60 ? '👍 Khá tốt! Đọc thêm giải thích các câu sai nhé.'
-              : '💪 Hãy kiên trì luyện tập thêm để cải thiện phản xạ.'}
-          </div>
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-            <button
-              onClick={async () => { 
-                setSubmitted(false); setAnswers({}); setScore(null); setCurrentQIndex(0); setShowResultCard(false);
-                await setDoc(doc(db, 'users', CURRENT_USER_ID, 'progress', lessonId), {
-                  status: 'not_started',
-                  answers: {},
-                  score: 0,
-                  updatedAt: serverTimestamp()
-                }, { merge: true });
-              }}
-              style={{ border: `1px solid ${BRAND}`, color: '#166534', background: 'transparent', borderRadius: 8, padding: '8px 18px', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}
-            >
-              Làm lại bài
-            </button>
-            <button
-              onClick={() => setShowResultCard(false)}
-              style={{ background: '#f1f5f9', color: '#334155', border: 'none', borderRadius: 8, padding: '8px 18px', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}
-            >
-              Xem đáp án chi tiết
-            </button>
-            <button
-              onClick={() => router.back()}
-              style={{ background: BRAND, color: BRAND_DARK, border: 'none', borderRadius: 8, padding: '8px 18px', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}
-            >
-              Trang chủ
-            </button>
+      <div className={`min-h-screen flex items-center justify-center bg-gray-50 p-4 ${roboto.className}`}>
+        <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center max-w-sm w-full shadow-lg">
+          <div className="text-5xl font-black text-green-400 mb-1">{pct}%</div>
+          <div className="text-sm font-semibold text-gray-600 mb-2">Kết quả làm bài: <strong className="text-gray-800">{score}/{totalQuestions}</strong> câu đúng</div>
+          <div className="text-xs text-gray-400 mb-6 font-medium">{pct >= 80 ? '🎉 Xuất sắc! Học lực của bạn rất tuyệt vời.' : pct >= 60 ? '👍 Khá tốt! Đọc kỹ giải thích các câu sai.' : '💪 Kiên trì luyện tập thêm để cải thiện phản xạ.'}</div>
+          <div className="flex flex-col gap-2">
+            <button onClick={() => setShowResultCard(false)} className="w-full bg-green-400 text-white border-none rounded-xl py-2.5 text-xs font-bold cursor-pointer transition hover:opacity-95">Xem đáp án chi tiết</button>
+            <button onClick={() => router.back()} className="w-full bg-gray-100 text-gray-600 border-none rounded-xl py-2.5 text-xs font-bold cursor-pointer transition hover:bg-gray-200">Trang chủ</button>
           </div>
         </div>
       </div>
@@ -383,39 +272,33 @@ function LessonContent() {
   }
 
   return (
-    <div className={roboto.className} style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#f8fafc', overflow: 'hidden' }}>
-      <header style={{ background: BRAND, padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-        <button onClick={() => router.back()} style={{ background: 'rgba(255,255,255,0.25)', border: 'none', borderRadius: 6, padding: '4px 10px', color: BRAND_DARK, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>← Thoát</button>
-        <span style={{ background: BRAND, color: BRAND_DARK, fontWeight: 700, fontSize: 14 }}>{lessonMeta?.title || 'Bài làm'} {submitted && "(Chế độ xem lại đáp án)"}</span>
-        <span style={{ color: BRAND_DARK, fontSize: 12, fontWeight: 500 }}>Đã chọn: {currentLessonAnswerCount}/{totalQuestions} câu</span>
+    <div className={`h-screen flex flex-col bg-gray-50 overflow-hidden antialiased ${roboto.className}`}>
+      {/* HEADER */}
+      <header className="bg-green-400 p-3 px-4 flex items-center justify-between flex-shrink-0 shadow-md z-10">
+        <button onClick={() => router.back()} className="bg-white/20 border-none rounded-lg p-1.5 px-3 text-white text-xs font-bold cursor-pointer transition hover:bg-white/30">← Thoát</button>
+        <span className="text-white font-black text-sm">{lessonMeta?.title || 'Bài làm'} {submitted && "(Xem lại đáp án)"}</span>
+        <span className="text-white/90 text-xs font-bold">Đã chọn: {currentLessonAnswerCount}/{totalQuestions}</span>
       </header>
 
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <aside style={{ width: 72, flexShrink: 0, background: '#fff', borderRight: '0.5px solid #e2e8f0', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textAlign: 'center', padding: '8px 4px 6px', borderBottom: '0.5px solid #e2e8f0', letterSpacing: '0.05em' }}>MỤC LỤC</div>
-          <div style={{ overflowY: 'auto', flex: 1, padding: '8px 6px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {/* CORE WORKSPACE */}
+      <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
+        
+        {/* CỘT A: MỤC LỤC SỐ CÂU */}
+        <aside className="w-full md:w-20 flex-shrink-0 bg-white border-b md:border-b-0 md:border-r border-gray-100 flex flex-col max-h-32 md:max-h-none overflow-hidden">
+          <div className="text-[10px] font-black text-gray-400 text-center py-2 border-b border-gray-50 hidden md:block tracking-wider">MỤC LỤC</div>
+          <div className="overflow-y-auto flex-1 p-2 flex flex-row md:flex-col gap-1.5 overflow-x-auto md:overflow-x-hidden">
             {allQuestions.map((q, idx) => {
               const isActive = idx === currentQIndex;
               const isDone = answers[q.question_id] !== undefined;
               const isCorrect = answers[q.question_id] === q.answer;
 
-              let btnBg = '#f1f5f9';
-              let btnColor = '#64748b';
-              if (isActive) {
-                btnBg = BRAND;
-                btnColor = BRAND_DARK;
-              } else if (isDone) {
-                if (submitted) {
-                  btnBg = isCorrect ? '#dcfce7' : '#fee2e2'; 
-                  btnColor = isCorrect ? '#166534' : '#991b1b';
-                } else {
-                  btnBg = '#dcfce7';
-                  btnColor = '#166534';
-                }
-              }
-
               return (
-                <button key={q.question_id} onClick={() => setCurrentQIndex(idx)} style={{ width: '100%', padding: '6px 0', textAlign: 'center', fontSize: 12, fontWeight: 600, borderRadius: 6, cursor: 'pointer', border: 'none', background: btnBg, color: btnColor, transition: 'all 0.15s' }}>
+                <button 
+                  key={q.question_id} 
+                  onClick={() => setCurrentQIndex(idx)} 
+                  className={`min-w-9 h-9 md:w-full md:h-auto py-2 text-center text-xs font-bold rounded-lg border-none cursor-pointer transition flex-shrink-0
+                    ${isActive ? 'bg-green-400 text-white' : isDone ? (submitted ? (isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700') : 'bg-green-50 text-green-700') : 'bg-gray-100 text-gray-400'}`}
+                >
                   {idx + 1}
                 </button>
               );
@@ -423,36 +306,61 @@ function LessonContent() {
           </div>
         </aside>
 
-        <section style={{ flex: 1.1, background: '#fff', borderRight: '0.5px solid #e2e8f0', display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', padding: '7px 14px', background: '#f8fafc', borderBottom: '0.5px solid #e2e8f0', letterSpacing: '0.04em' }}>NGỮ CẢNH ĐỀ BÀI</div>
-          <div style={{ overflowY: 'auto', flex: 1, padding: 14 }}>
+        {/* CỘT B: NGỮ CẢNH ĐỀ BÀI */}
+        <section className="flex-1 md:flex-[1.2] bg-white border-b md:border-b-0 md:border-r border-gray-100 flex flex-col overflow-hidden">
+          <div className="text-[10px] font-black text-gray-400 p-2 px-4 bg-gray-50 border-b border-gray-100 tracking-wider">NGỮ CẢNH ĐỀ BÀI</div>
+          <div className="overflow-y-auto flex-1 p-4">
             {currentGroup && <ContentZone group={currentGroup} />}
           </div>
         </section>
 
-        <section style={{ flex: 1, background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', padding: '7px 14px', background: '#f8fafc', borderBottom: '0.5px solid #e2e8f0', letterSpacing: '0.04em' }}>LỰA CHỌN ĐÁP ÁN</div>
-          <div style={{ overflowY: 'auto', flex: 1, padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {/* CỘT C: LỰA CHỌN ĐÁP ÁN ĐỀ BÀI */}
+        <section className="flex-1 bg-white flex flex-col overflow-hidden">
+          <div className="text-[10px] font-black text-gray-400 p-2 px-4 bg-gray-50 border-b border-gray-100 tracking-wider">LỰA CHỌN ĐÁP ÁN</div>
+          <div className="overflow-y-auto flex-1 p-4">
             {currentQ && (
-              <div style={{ border: '0.5px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
-                <div style={{ padding: '10px 14px', background: '#f8fafc', borderBottom: '0.5px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>Câu hỏi {currentQIndex + 1} trên {totalQuestions}</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#1e293b', lineHeight: 1.6 }}>{currentQ.question}</div>
+              <div className="border border-gray-100 rounded-xl overflow-hidden bg-white">
+                <div className="p-3.5 bg-gray-50/50 border-b border-gray-100">
+                  <div className="text-[10px] font-bold text-gray-400 mb-1">Câu hỏi {currentQIndex + 1} / {totalQuestions}</div>
+                  <div className="text-sm font-bold text-gray-800 leading-relaxed">{currentQ.question}</div>
                 </div>
-                <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 7 }}>
-                  {['A', 'B', 'C', 'D'].map((opt) => (
-                    <button key={opt} onClick={() => handleSelect(currentQ.question_id, opt)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, cursor: submitted ? 'default' : 'pointer', textAlign: 'left', width: '100%', transition: 'all 0.15s', ...getOptionStyle(currentQ.question_id, opt) }}>
-                      <span style={{ width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, transition: 'all 0.15s', ...getKeyStyle(currentQ.question_id, opt) }}>{opt}</span>
-                      <span style={{ fontSize: 13, lineHeight: 1.5 }}>{currentQ[opt]}</span>
-                    </button>
-                  ))}
+                
+                <div className="p-3 flex flex-col gap-2">
+                  {['A', 'B', 'C', 'D'].map((opt) => {
+                    const selected = answers[currentQ.question_id] === opt;
+                    const isCorrect = opt === currentQ.answer;
+                    
+                    let cardStyle = "border-gray-200 bg-white text-gray-700";
+                    let badgeStyle = "bg-gray-100 text-gray-400 border border-gray-200";
+
+                    if (!submitted && selected) {
+                      cardStyle = "border-green-400 bg-green-50/30 text-green-800";
+                      badgeStyle = "bg-green-400 text-white";
+                    } else if (submitted) {
+                      if (isCorrect) {
+                        cardStyle = "border-green-400 bg-green-50/40 text-green-800";
+                        badgeStyle = "bg-green-400 text-white";
+                      } else if (selected && !isCorrect) {
+                        cardStyle = "border-red-400 bg-red-50/40 text-red-800";
+                        badgeStyle = "bg-red-400 text-white";
+                      } else {
+                        cardStyle = "border-gray-100 bg-white text-gray-300 opacity-60";
+                      }
+                    }
+
+                    return (
+                      <button key={opt} onClick={() => handleSelect(currentQ.question_id, opt)} disabled={submitted} className={`flex items-center gap-3 p-3 rounded-xl text-left w-full border transition duration-150 ${submitted ? 'cursor-default' : 'cursor-pointer hover:border-green-300'} ${cardStyle}`}>
+                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0 transition ${badgeStyle}`}>{opt}</span>
+                        <span className="text-xs font-semibold leading-relaxed">{currentQ[opt]}</span>
+                      </button>
+                    );
+                  })}
                 </div>
+
                 {submitted && (
-                  <div style={{ margin: '0 12px 12px', padding: '10px 12px', background: '#f0fdf4', borderRadius: 8, border: '0.5px solid #86efac' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#166534', marginBottom: 4 }}>💡 Phân tích & Giải thích chi tiết</div>
-                    <p style={{ fontSize: 12, color: '#166534', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-line' }}>
-                      {currentQ.explanation ? currentQ.explanation : "Câu hỏi này hiện chưa cập nhật văn bản giải thích chi tiết."}
-                    </p>
+                  <div className="m-3 mt-1 p-3.5 bg-green-50/60 border border-green-200/60 rounded-xl">
+                    <div className="text-[11px] font-black text-green-800 mb-1">💡 GIẢI THÍCH CHI TIẾT</div>
+                    <p className="text-xs text-green-800 font-medium leading-relaxed whitespace-pre-line m-0">{currentQ.explanation || "Câu hỏi này chưa cập nhật văn bản giải thích."}</p>
                   </div>
                 )}
               </div>
@@ -461,22 +369,17 @@ function LessonContent() {
         </section>
       </div>
 
-      <footer style={{ background: '#fff', borderTop: '0.5px solid #e2e8f0', padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => setCurrentQIndex((i) => Math.max(0, i - 1))} disabled={currentQIndex === 0} style={{ border: '0.5px solid #e2e8f0', borderRadius: 7, padding: '6px 14px', fontSize: 12, fontWeight: 600, background: 'transparent', color: currentQIndex === 0 ? '#cbd5e1' : '#475569', cursor: currentQIndex === 0 ? 'not-allowed' : 'pointer' }}>← Câu trước</button>
-          <button onClick={() => setCurrentQIndex((i) => Math.min(allQuestions.length - 1, i + 1))} disabled={currentQIndex === allQuestions.length - 1} style={{ border: '0.5px solid #e2e8f0', borderRadius: 7, padding: '6px 14px', fontSize: 12, fontWeight: 600, background: 'transparent', color: currentQIndex === allQuestions.length - 1 ? '#cbd5e1' : '#475569', cursor: currentQIndex === allQuestions.length - 1 ? 'not-allowed' : 'pointer' }}>Câu sau →</button>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 100, height: 4, background: '#e2e8f0', borderRadius: 2 }}>
-            <div style={{ width: `${totalQuestions > 0 ? (currentLessonAnswerCount / totalQuestions) * 100 : 0}%`, height: 4, background: BRAND, borderRadius: 2, transition: 'width 0.3s ease' }} />
-          </div>
-          <span style={{ fontSize: 11, color: '#94a3b8' }}>{currentLessonAnswerCount}/{totalQuestions}</span>
+      {/* FOOTER */}
+      <footer className="bg-white border-t border-gray-100 p-3 px-4 flex items-center justify-between flex-shrink-0 gap-4">
+        <div className="flex gap-2">
+          <button onClick={() => setCurrentQIndex((i) => Math.max(0, i - 1))} disabled={currentQIndex === 0} className="border border-gray-200 rounded-lg p-2 px-3 text-xs font-bold text-gray-600 bg-white disabled:opacity-40 disabled:cursor-not-allowed">← Trước</button>
+          <button onClick={() => setCurrentQIndex((i) => Math.min(allQuestions.length - 1, i + 1))} disabled={currentQIndex === allQuestions.length - 1} className="border border-gray-200 rounded-lg p-2 px-3 text-xs font-bold text-gray-600 bg-white disabled:opacity-40 disabled:cursor-not-allowed">Sau →</button>
         </div>
         
         {submitted ? (
-          <button onClick={() => setShowResultCard(true)} style={{ background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 7, padding: '7px 20px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Xem điểm số 📊</button>
+          <button onClick={() => setShowResultCard(true)} className="bg-blue-500 text-white border-none rounded-lg p-2 px-4 text-xs font-bold cursor-pointer transition hover:opacity-95">Xem điểm số 📊</button>
         ) : (
-          <button onClick={handleSubmit} style={{ background: BRAND, color: BRAND_DARK, border: 'none', borderRadius: 7, padding: '7px 20px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Nộp bài hoàn thành ✓</button>
+          <button onClick={handleSubmit} className="bg-green-400 text-white border-none rounded-lg p-2 px-4 text-xs font-bold cursor-pointer transition hover:opacity-95">Nộp bài hoàn thành ✓</button>
         )}
       </footer>
     </div>
@@ -485,7 +388,7 @@ function LessonContent() {
 
 export default function LessonPage() {
   return (
-    <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 14 }}>Đang tải đề bài...</div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-gray-400 text-sm font-semibold">Đang nạp bộ đề đề...</div>}>
       <LessonContent />
     </Suspense>
   );

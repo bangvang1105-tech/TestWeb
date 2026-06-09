@@ -18,9 +18,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Loại bỏ khoảng trắng thừa nếu học viên lỡ tay bấm nhầm
       const loginKey = email.trim(); 
-      
       const userRef = doc(db, 'users', loginKey);
       const userSnap = await getDoc(userRef);
 
@@ -38,10 +36,7 @@ export default function LoginPage() {
         return;
       }
 
-      // ĐỒNG BỘ: Lưu lại mã User ID thực tế của học viên vào trình duyệt
       localStorage.setItem('userId', loginKey);
-
-      // Chuyển hướng vào trang chủ học tập
       router.push('/home');
     } catch (err) {
       setError('Đã có lỗi xảy ra, vui lòng thử lại.');
@@ -52,31 +47,30 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100 px-4 py-12">
-
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4 py-12 antialiased">
       {/* Thanh thông báo */}
-      <div className="mb-4 w-full max-w-md p-3 text-center text-sm font-medium rounded-xl border shadow-sm bg-green-50 border-green-200 text-green-600">
+      <div className="mb-4 w-full max-w-md p-3.5 text-center text-sm font-semibold rounded-xl border shadow-sm bg-green-50 border-green-200 text-green-600">
         Bạn đã sẵn sàng đạt 990 TOEIC cùng khầy Băng rồi chứ =)
       </div>
 
       {/* Khung Form Đăng nhập */}
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
-        <h2 className="mb-2 text-center text-3xl font-bold tracking-tight text-gray-800">
+      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-md border border-gray-100">
+        <h2 className="mb-2 text-center text-3xl font-black tracking-tight text-gray-800">
           Đăng Nhập
         </h2>
-        <p className="mb-6 text-center text-sm text-gray-500">
-          Nhập tài khoản và mật khẩu để tiếp tục
+        <p className="mb-6 text-center text-sm text-gray-400 font-medium">
+          Nhập tài khoản và mật khẩu để tiếp tục hành trình
         </p>
 
         {error && (
-          <div className="mb-5 rounded-lg bg-red-50 p-3 text-center text-sm font-medium text-red-600 border border-red-200">
-            {error}
+          <div className="mb-5 rounded-xl bg-red-50 p-3 text-center text-sm font-semibold text-red-600 border border-red-200">
+            ⚠️ {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">
+            <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-500">
               Tài khoản
             </label>
             <input
@@ -85,15 +79,12 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Nhập tên tài khoản của bạn"
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2"
-              style={{ '--tw-ring-color': '#4ade80' }}
-              onFocus={(e) => { e.target.style.borderColor = '#4ade80'; e.target.style.boxShadow = '0 0 0 2px #4ade8040'; }}
-              onBlur={(e) => { e.target.style.borderColor = '#d1d5db'; e.target.style.boxShadow = 'none'; }}
+              className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 transition focus:bg-white focus:outline-none focus:border-green-400 focus:ring-4 focus:ring-green-400/10"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">
+            <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-500">
               Mật khẩu
             </label>
             <input
@@ -102,18 +93,16 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2"
-              onFocus={(e) => { e.target.style.borderColor = '#4ade80'; e.target.style.boxShadow = '0 0 0 2px #4ade8040'; }}
-              onBlur={(e) => { e.target.style.borderColor = '#d1d5db'; e.target.style.boxShadow = 'none'; }}
+              className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 transition focus:bg-white focus:outline-none focus:border-green-400 focus:ring-4 focus:ring-green-400/10"
             />
           </div>
 
-          <div className="flex items-center justify-between text-sm">
-            <label className="flex items-center text-gray-600">
-              <input type="checkbox" className="mr-2 rounded border-gray-300" />
+          <div className="flex items-center justify-between text-xs font-semibold">
+            <label className="flex items-center text-gray-500 cursor-pointer select-none">
+              <input type="checkbox" className="mr-2 rounded border-gray-300 text-green-400 focus:ring-green-400/20" />
               Ghi nhớ đăng nhập
             </label>
-            <a href="#" className="font-medium hover:underline text-green-500">
+            <a href="#" className="hover:underline text-green-500">
               Quên mật khẩu?
             </a>
           </div>
@@ -121,17 +110,16 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            style={{ backgroundColor: '#4ade80' }}
-            className="w-full rounded-lg px-4 py-3 text-sm font-semibold text-white transition duration-200 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full rounded-xl bg-green-400 py-3.5 text-sm font-bold text-white shadow-sm shadow-green-400/20 transition hover:opacity-95 focus:outline-none focus:ring-4 focus:ring-green-400/20 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+            {loading ? 'Đang xác thực thông tin...' : 'Đăng nhập ngay'}
           </button>
         </form>
 
-        <p className="mt-8 text-center text-sm text-gray-600">
-          Chưa có tài khoản?{' '}
-          <a href="#" className="font-medium hover:underline text-green-500">
-            Đăng ký ngay
+        <p className="mt-8 text-center text-xs font-medium text-gray-500">
+          Chưa có tài khoản học viên?{' '}
+          <a href="#" className="font-bold hover:underline text-green-500">
+            Đăng ký tham gia ngay
           </a>
         </p>
       </div>
