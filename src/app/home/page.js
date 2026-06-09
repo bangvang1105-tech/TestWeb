@@ -38,10 +38,33 @@ const VOCAB_SUBMENU = [
   { key: 'listen', label: 'Nghe từ vựng', icon: '🎧' },
 ];
 
+// 🌟 THÊM MỚI: Cấu hình Submenu cho Ngữ pháp
+const GRAMMAR_SUBMENU = [
+  { key: 'video', label: 'Video bài giảng', icon: '📺' },
+  { key: 'slide', label: 'Slide bài giảng', icon: '📊' },
+];
+
+// 🌟 THÊM MỚI: 12 Chủ đề ngữ pháp thực tế của bạn
+const GRAMMAR_TOPICS = [
+  { id: 1, title: 'Từ loại', subtitle: 'Parts of Speech' },
+  { id: 2, title: 'Từ hạn định & Mạo từ', subtitle: 'Determiners & Articles' },
+  { id: 3, title: 'Các Thì', subtitle: 'Tenses' },
+  { id: 4, title: 'Đại từ', subtitle: 'Pronouns' },
+  { id: 5, title: 'Câu bị động', subtitle: 'Passive Voice' },
+  { id: 6, title: 'Câu tường thuật', subtitle: 'Reported Speech' },
+  { id: 7, title: 'Câu điều kiện', subtitle: 'Conditional Sentences' },
+  { id: 8, title: 'Mệnh đề quan hệ', subtitle: 'Relative Clauses' },
+  { id: 9, title: 'Giới từ', subtitle: 'Prepositions' },
+  { id: 10, title: 'Liên từ', subtitle: 'Conjunctions' },
+  { id: 11, title: 'Cấu tạo câu', subtitle: 'Sentence Structures' },
+  { id: 12, title: 'Hòa hợp chủ vị', subtitle: 'Subject-Verb Agreement' },
+];
+
 export default function HomePage() {
   const router = useRouter();
   const [activeMenu, setActiveMenu] = useState('Tổng quan');
-  const [vocabSubMenu, setVocabSubMenu] = useState(null); // null = chưa mở submenu từ vựng
+  const [vocabSubMenu, setVocabSubMenu] = useState(null); 
+  const [grammarSubMenu, setGrammarSubMenu] = useState(null); // 🌟 THÊM MỚI: Quản lý trạng thái submenu ngữ pháp
   const [userProgress, setUserProgress] = useState({});
   const [loadingProgress, setLoadingProgress] = useState(true);
 
@@ -84,33 +107,11 @@ export default function HomePage() {
 
   const handleMenuClick = (item) => {
     setActiveMenu(item);
-    if (item !== 'Từ vựng') {
-      setVocabSubMenu(null);
-    }
+    if (item !== 'Từ vựng') setVocabSubMenu(null);
+    if (item !== 'Ngữ pháp') setGrammarSubMenu(null); // 🌟 Reset menu ngữ pháp nếu bấm mục khác
   };
 
-  const handleVocabSubMenu = (key) => {
-    setVocabSubMenu(key);
-  };
-
-  const rawGrammarData = Array.from({ length: 10 }, (_, i) => ({
-    id: i + 1,
-    title: `Bài ${i + 1}: ${[
-      'Thì Hiện tại đơn', 'Thì Hiện tại tiếp diễn', 'Thì Quá khứ đơn',
-      'Thì Tương lai đơn', 'Mệnh đề quan hệ', 'Câu bị động',
-      'Câu điều kiện loại 1', 'Câu điều kiện loại 2', 'Động từ khuyết thiếu', 'Danh động từ'
-    ][i] || 'Chủ đề Ngữ pháp'}`
-  }));
-
-  const rawVocabularyData = Array.from({ length: 10 }, (_, i) => ({
-    id: i + 1,
-    title: `Chủ đề ${i + 1}: ${[
-      'Office (Văn phòng)', 'Travel (Du lịch)', 'Marketing (Quảng cáo)',
-      'Finance (Tài chính)', 'Technology (Công nghệ)', 'Health (Sức khỏe)',
-      'Shopping (Mua sắm)', 'Entertainment (Giải trí)', 'Transportation (Giao thông)', 'Personnel (Nhân sự)'
-    ][i] || 'Chủ đề Từ vựng'}`
-  }));
-
+  // Nộp data luyện tập (Giữ nguyên cho phân hệ 'Bài tập')
   const rawExerciseData = Array.from({ length: 10 }, (_, i) => ({
     id: i + 1,
     title: `Đề Luyện tập số ${i + 1}`
@@ -141,6 +142,11 @@ export default function HomePage() {
 
   const handleVocabTopicNavigation = (mode, topicId) => {
     router.push(`/vocabulary?mode=${mode}&topic=${topicId}`);
+  };
+
+  // 🌟 THÊM MỚI: Điều hướng sang trang chi tiết Ngữ pháp mới
+  const handleGrammarTopicNavigation = (mode, topicId) => {
+    router.push(`/grammar?mode=${mode}&topic=${topicId}`);
   };
 
   const renderCards = (rawDataList, type) => {
@@ -189,7 +195,7 @@ export default function HomePage() {
     );
   };
 
-  // Render vocab topic cards
+  // Render vocab topic cards (Giữ nguyên)
   const renderVocabTopicCards = (mode) => {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4 justify-items-start">
@@ -223,6 +229,40 @@ export default function HomePage() {
     );
   };
 
+  // 🌟 THÊM MỚI: Render danh sách 12 thẻ bài học Ngữ pháp
+  const renderGrammarTopicCards = (mode) => {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4 justify-items-start">
+        {GRAMMAR_TOPICS.map((topic) => (
+          <div
+            key={topic.id}
+            className="w-[378px] h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200"
+          >
+            <div className="flex justify-between items-start gap-2">
+              <div className="flex-1">
+                <h3 className="font-bold text-gray-800 text-sm line-clamp-1">{topic.title}</h3>
+                <p className="text-xs text-gray-400 mt-0.5">{topic.subtitle}</p>
+              </div>
+              <span className="text-xs font-semibold px-2 py-0.5 bg-green-50 text-green-600 rounded border border-green-100">
+                Bài {topic.id}
+              </span>
+            </div>
+            <div className="flex justify-between items-center mt-2">
+              <span className="text-xs font-bold px-2 py-1 rounded-md bg-gray-100 text-gray-500">Chưa học</span>
+              <button
+                onClick={() => handleGrammarTopicNavigation(mode, topic.id)}
+                style={{ backgroundColor: BRAND }}
+                className="text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:opacity-90 transition duration-150"
+              >
+                Xem ngay
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const renderContent = () => {
     switch (activeMenu) {
       case 'Tổng quan':
@@ -240,15 +280,49 @@ export default function HomePage() {
           </div>
         );
       case 'Ngữ pháp':
-        return (
-          <div>
-            <h2 className="text-xl font-extrabold text-gray-800 mb-4">Grammar (Ngữ pháp)</h2>
-            {renderCards(rawGrammarData, 'grammar')}
-          </div>
-        );
+        // 🌟 THÊM MỚI: Quản lý logic hiển thị phân hệ Ngữ Pháp
+        if (!grammarSubMenu) {
+          return (
+            <div>
+              <h2 className="text-xl font-extrabold text-gray-800 mb-2">Grammar (Ngữ pháp)</h2>
+              <p className="text-gray-500 text-sm mb-6">Chọn hình thức học ngữ pháp bạn muốn tiếp cận.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
+                {GRAMMAR_SUBMENU.map((sub) => (
+                  <button
+                    key={sub.key}
+                    onClick={() => setGrammarSubMenu(sub.key)}
+                    className="flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white shadow-sm hover:border-green-300 hover:shadow-md transition duration-200 text-left"
+                  >
+                    <span className="text-2xl">{sub.icon}</span>
+                    <span className="font-bold text-gray-800 text-sm">{sub.label}</span>
+                    <span className="text-xs text-gray-400">12 chủ đề trọng tâm</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        } else {
+          const subInfo = GRAMMAR_SUBMENU.find(s => s.key === grammarSubMenu);
+          return (
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <button
+                  onClick={() => setGrammarSubMenu(null)}
+                  className="text-xs text-gray-400 hover:text-green-600 transition"
+                >← Ngữ pháp</button>
+                <span className="text-xs text-gray-300">/</span>
+                <span className="text-xs font-semibold" style={{ color: BRAND }}>{subInfo?.label}</span>
+              </div>
+              <h2 className="text-xl font-extrabold text-gray-800 mb-1">
+                {subInfo?.icon} {subInfo?.label}
+              </h2>
+              <p className="text-gray-500 text-sm mb-4">Chọn bài học ngữ pháp bạn muốn học.</p>
+              {renderGrammarTopicCards(grammarSubMenu)}
+            </div>
+          );
+        }
       case 'Từ vựng':
         if (!vocabSubMenu) {
-          // Hiển thị trang chọn chế độ học
           return (
             <div>
               <h2 className="text-xl font-extrabold text-gray-800 mb-2">Vocabulary (Từ vựng)</h2>
@@ -257,7 +331,7 @@ export default function HomePage() {
                 {VOCAB_SUBMENU.map((sub) => (
                   <button
                     key={sub.key}
-                    onClick={() => handleVocabSubMenu(sub.key)}
+                    onClick={() => setVocabSubMenu(sub.key)}
                     className="flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white shadow-sm hover:border-green-300 hover:shadow-md transition duration-200 text-left"
                   >
                     <span className="text-2xl">{sub.icon}</span>
@@ -325,13 +399,33 @@ export default function HomePage() {
                 {item}
               </button>
 
+              {/* 🌟 THÊM MỚI: Submenu Ngữ pháp hiển thị trực tiếp ở sidebar khi active */}
+              {item === 'Ngữ pháp' && activeMenu === 'Ngữ pháp' && (
+                <div className="mt-1 ml-2 flex flex-col gap-0.5">
+                  {GRAMMAR_SUBMENU.map((sub) => (
+                    <button
+                      key={sub.key}
+                      onClick={() => setGrammarSubMenu(sub.key)}
+                      className={`text-left w-full px-3 py-2 rounded-lg text-xs font-medium transition duration-150 flex items-center gap-1.5
+                        ${grammarSubMenu === sub.key
+                          ? 'bg-white/90 text-green-800 font-bold shadow-sm'
+                          : 'text-white/90 hover:bg-white/20'
+                        }`}
+                    >
+                      <span>{sub.icon}</span>
+                      <span>{sub.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* Submenu Từ vựng */}
               {item === 'Từ vựng' && activeMenu === 'Từ vựng' && (
                 <div className="mt-1 ml-2 flex flex-col gap-0.5">
                   {VOCAB_SUBMENU.map((sub) => (
                     <button
                       key={sub.key}
-                      onClick={() => handleVocabSubMenu(sub.key)}
+                      onClick={() => setVocabSubMenu(sub.key)}
                       className={`text-left w-full px-3 py-2 rounded-lg text-xs font-medium transition duration-150 flex items-center gap-1.5
                         ${vocabSubMenu === sub.key
                           ? 'bg-white/90 text-green-800 font-bold shadow-sm'
@@ -353,6 +447,9 @@ export default function HomePage() {
           <div className="max-w-5xl mx-auto rounded-xl bg-white p-6 shadow-sm border border-gray-100">
             <p className="text-xs text-gray-400 mb-4">
               Trang chủ / <span style={{ color: BRAND }} className="font-medium">{activeMenu}</span>
+              {grammarSubMenu && activeMenu === 'Ngữ pháp' && (
+                <> / <span style={{ color: BRAND }} className="font-medium">{GRAMMAR_SUBMENU.find(s => s.key === grammarSubMenu)?.label}</span></>
+              )}
               {vocabSubMenu && activeMenu === 'Từ vựng' && (
                 <> / <span style={{ color: BRAND }} className="font-medium">{VOCAB_SUBMENU.find(s => s.key === vocabSubMenu)?.label}</span></>
               )}
