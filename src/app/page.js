@@ -47,7 +47,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100 px-4 py-12 antialiased">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100 px-4 py-12">
       {/* Thanh thông báo */}
       <div className="mb-4 w-full max-w-md p-3.5 text-center text-sm font-medium rounded-xl border shadow-sm bg-green-50 border-green-200 text-green-600">
         Bạn đã sẵn sàng đạt 990 TOEIC cùng khầy Băng rồi chứ =)
@@ -55,7 +55,7 @@ export default function LoginPage() {
 
       {/* Khung Form Đăng nhập */}
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg border border-gray-100">
-        <h2 className="mb-3 text-center text-3xl font-black text-gray-800">
+        <h2 className="mb-3 text-center text-3xl font-bold tracking-tight text-gray-800">
           Đăng Nhập
         </h2>
         <p className="mb-6 text-center text-sm text-gray-400 font-medium">
