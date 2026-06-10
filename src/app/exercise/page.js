@@ -15,6 +15,7 @@ function ExerciseContent() {
   const [loading, setLoading] = useState(true);
   const [userInput, setUserInput] = useState("");
   const [showResult, setShowResult] = useState(false);
+  const [audioUrl, setAudioUrl] = useState("");
 
   useEffect(() => {
     async function loadData() {
@@ -35,8 +36,23 @@ function ExerciseContent() {
     loadData();
   }, [partKey]);
 
-  if (loading) return <div className="text-center py-20 text-gray-500">Đang khởi tạo bài học...</div>;
-  if (!data.length) return <div className="text-center py-20 text-red-500">Dữ liệu trống hoặc lỗi kết nối.</div>;
+  // CƠ CHẾ TẢI AUDIO AN TOÀN (Fix lỗi 500)
+  useEffect(() => {
+    async function fetchAudio() {
+      if (data[currentIndex]?.audiourl) {
+        try {
+          const response = await fetch(data[currentIndex].audiourl);
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          setAudioUrl(url);
+        } catch (e) { console.error("Audio Load Error:", e); }
+      }
+    }
+    fetchAudio();
+  }, [currentIndex, data]);
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-white text-gray-500">Đang khởi tạo bài học...</div>;
+  if (!data.length) return <div className="text-center py-20 text-red-500">Dữ liệu trống! Hãy kiểm tra file CSV.</div>;
 
   const currentQ = data[currentIndex];
 
@@ -44,13 +60,12 @@ function ExerciseContent() {
     setUserInput("");
     setShowResult(false);
     if (currentIndex < data.length - 1) setCurrentIndex(currentIndex + 1);
-    else alert("Bạn đã hoàn thành bài tập!");
+    else alert("Chúc mừng! Bạn đã hoàn thành toàn bộ bài tập!");
   };
 
   return (
-    // THÊM min-h-screen VÀ bg-white ĐỂ XÓA MÀU ĐEN
     <div className="min-h-screen bg-white py-10 px-4">
-      <div className="max-w-xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-xl border border-gray-100">
+      <div className="max-w-xl mx-auto p-8 rounded-2xl shadow-xl border border-gray-100 bg-white">
         <header className="flex justify-between items-center mb-8">
           <button onClick={() => router.back()} className="text-sm text-gray-400 font-bold hover:text-gray-600">← Thoát</button>
           <div className="text-xs font-black text-green-500 uppercase tracking-widest">
@@ -58,16 +73,15 @@ function ExerciseContent() {
           </div>
         </header>
 
-        {/* PHẦN AUDIO ĐÃ SỬA LỖI NÚT PLAY MỜ */}
+        {/* Audio Player với cơ chế xử lý Blob */}
         <div className="mb-8">
-          <audio 
-            key={currentQ?.audiourl} 
-            controls 
-            className="w-full h-12 shadow-sm rounded-lg"
-          >
-            <source src={currentQ?.audiourl} type="audio/mpeg" />
-            Trình duyệt không hỗ trợ audio này.
-          </audio>
+          {audioUrl ? (
+            <audio key={audioUrl} controls className="w-full h-12">
+              <source src={audioUrl} type="audio/mpeg" />
+            </audio>
+          ) : (
+            <div className="p-4 bg-gray-100 text-center text-sm text-gray-400">Đang tải âm thanh...</div>
+          )}
         </div>
 
         <div className="mb-6 p-5 bg-gray-50 rounded-2xl border border-gray-100">
@@ -84,14 +98,9 @@ function ExerciseContent() {
         />
 
         {!showResult ? (
-          <button 
-            onClick={() => setShowResult(true)} 
-            className="w-full bg-green-500 text-white py-4 rounded-xl font-bold text-lg hover:bg-green-600 transition shadow-lg shadow-green-200"
-          >
-            Kiểm tra đáp án
-          </button>
+          <button onClick={() => setShowResult(true)} className="w-full bg-green-500 text-white py-4 rounded-xl font-bold text-lg hover:bg-green-600 transition shadow-lg">Kiểm tra đáp án</button>
         ) : (
-          <div className="space-y-4 animate-in fade-in duration-300">
+          <div className="space-y-4">
             <div className={`p-5 rounded-2xl ${userInput.trim().toLowerCase() === currentQ.correctanswer.trim().toLowerCase() ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
               <p className="font-bold">{userInput.trim().toLowerCase() === currentQ.correctanswer.trim().toLowerCase() ? "Chính xác! 🎉" : "Chưa đúng."}</p>
               <p className="text-sm mt-1">Đáp án: <span className="font-mono font-bold">{currentQ.correctanswer}</span></p>
