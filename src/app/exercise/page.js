@@ -18,30 +18,44 @@ function ExerciseContent() {
 
   useEffect(() => {
     async function loadData() {
-      const docSnap = await getDoc(doc(db, 'exercise_lessons', partKey));
-      if (docSnap.exists()) {
-        const response = await fetch(docSnap.data().exerciseUrl);
-        const csvText = await response.text();
-        Papa.parse(csvText, {
-          header: true,
-          skipEmptyLines: true,
-          complete: (results) => { setData(results.data); setLoading(false); }
-        });
+      setLoading(true);
+      try {
+        const docRef = doc(db, 'exercise_lessons', partKey);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const response = await fetch(docSnap.data().exerciseUrl);
+          const csvText = await response.text();
+          Papa.parse(csvText, {
+            header: true,
+            skipEmptyLines: true,
+            complete: (results) => { 
+              setData(results.data); 
+              setLoading(false); 
+            }
+          });
+        } else {
+          console.error("Không thấy dữ liệu trên Firebase");
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error("Lỗi fetch:", err);
+        setLoading(false);
       }
     }
     loadData();
   }, [partKey]);
 
-  if (loading) return <div className="text-center mt-20">Đang chuẩn bị bài học...</div>;
-  if (data.length === 0) return <div>Không có câu hỏi nào.</div>;
+  // CƠ CHẾ BẢO VỆ: Chỉ render khi data đã sẵn sàng
+  if (loading) return <div className="p-10 text-center">Đang nạp bài tập...</div>;
+  if (!data || data.length === 0) return <div className="p-10 text-center text-red-500">Dữ liệu trống, kiểm tra file CSV!</div>;
 
-  const currentQ = data[currentIndex];
+  const currentQ = data[currentIndex]; // Câu hỏi hiện tại
 
   const handleNext = () => {
     setUserInput("");
     setShowResult(false);
     if (currentIndex < data.length - 1) setCurrentIndex(currentIndex + 1);
-    else alert("Hoàn thành bài học!");
+    else alert("Đã hết bài tập!");
   };
 
   return (
@@ -49,15 +63,15 @@ function ExerciseContent() {
       <div className="max-w-xl mx-auto bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
         <header className="flex justify-between items-center mb-8">
           <button onClick={() => router.back()} className="text-sm text-gray-400 font-bold">← Thoát</button>
-          <div className="text-xs font-black text-green-500 uppercase">{partKey} | Câu {currentIndex + 1}/{data.length}</div>
+          <div className="text-xs font-black text-green-500 uppercase">{partKey}</div>
         </header>
 
-        <audio src={currentQ.audiourl} controls className="w-full mb-6" />
+        {/* Audio Player với khóa an toàn */}
+        {currentQ?.audiourl && <audio src={currentQ.audiourl} controls className="w-full mb-6" />}
 
-        {/* PHẦN ĐỤC LỖ DỰA VÀO MASKEDSENTENCE */}
         <div className="mb-6 p-4 bg-gray-50 rounded-xl">
-           <p className="text-gray-700 font-medium mb-2">{currentQ.maskedsentence || "Lắng nghe và chép lại toàn bộ câu:"}</p>
-           {currentQ.hint && <p className="text-xs text-green-600 italic">💡 Gợi ý: {currentQ.hint}</p>}
+           <p className="text-gray-700 font-medium">{currentQ?.maskedsentence || "Đang tải câu hỏi..."}</p>
+           {currentQ?.hint && <p className="text-xs text-green-600 mt-2 italic">💡 Gợi ý: {currentQ.hint}</p>}
         </div>
 
         <textarea
@@ -72,8 +86,8 @@ function ExerciseContent() {
           <button onClick={() => setShowResult(true)} className="w-full bg-green-500 text-white py-3 rounded-xl font-bold">Kiểm tra</button>
         ) : (
           <div className="space-y-4">
-            <div className={`p-4 rounded-xl ${userInput.toLowerCase() === currentQ.correctanswer.toLowerCase() ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-              <p className="font-bold">{userInput.toLowerCase() === currentQ.correctanswer.toLowerCase() ? "Chính xác! 🎉" : "Chưa đúng."}</p>
+            <div className={`p-4 rounded-xl ${userInput.trim().toLowerCase() === currentQ.correctanswer.trim().toLowerCase() ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+              <p className="font-bold">{userInput.trim().toLowerCase() === currentQ.correctanswer.trim().toLowerCase() ? "Chính xác! 🎉" : "Chưa đúng."}</p>
               <p className="text-sm mt-1">Đáp án: {currentQ.correctanswer}</p>
             </div>
             <button onClick={handleNext} className="w-full bg-gray-800 text-white py-3 rounded-xl font-bold">
@@ -84,4 +98,8 @@ function ExerciseContent() {
       </div>
     </div>
   );
+}
+
+export default function Page() {
+  return <Suspense fallback={<div>Loading...</div>}><ExerciseContent /></Suspense>;
 }
