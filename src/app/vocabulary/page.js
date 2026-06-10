@@ -85,6 +85,7 @@ function VocabularyContent() {
 
   const topic = VOCAB_TOPICS.find(t => String(t.id) === String(topicId));
 
+  // States dữ liệu tổng
   const [shuffledPool, setShuffledPool] = useState([]); 
   const [words, setWords] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -103,15 +104,23 @@ function VocabularyContent() {
   const [correctCards, setCorrectCards] = useState([]); 
   const [isChecking, setIsChecking] = useState(false);
 
-  // States PHÂN HỆ NGHE TỪ VỰNG (MỚI)
+  // States Nghe từ vựng
   const [listenIndex, setListenIndex] = useState(0);
   const [userAnswer, setUserAnswer] = useState('');
   const [listenChecked, setListenChecked] = useState(false);
-  const [listenResult, setListenResult] = useState(null); // 'correct' hoặc 'wrong'
-  const [voiceAccent, setVoiceAccent] = useState('en-US'); // en-US hoặc en-GB
+  const [listenResult, setListenResult] = useState(null); 
+  const [voiceAccent, setVoiceAccent] = useState('en-US'); 
+
+  // 🌟 States PHÂN HỆ TRẮC NGHIỆM TỪ VỰNG (MỚI)
+  const [quizQuestions, setQuizQuestions] = useState([]);
+  const [quizIndex, setQuizIndex] = useState(0);
+  const [selectedOption, setSelectedOption] = useState(null);
+  const [quizChecked, setQuizChecked] = useState(false);
+  const [quizScore, setQuizScore] = useState(0);
 
   const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
 
+  // FETCH VÀ KHỞI TẠO DỮ LIỆU TỔNG HỢP
   useEffect(() => {
     if (!topicId) return;
 
@@ -125,6 +134,12 @@ function VocabularyContent() {
         setUserAnswer('');
         setListenChecked(false);
         setListenResult(null);
+        
+        // Reset Quiz states
+        setQuizIndex(0);
+        setSelectedOption(null);
+        setQuizChecked(false);
+        setQuizScore(0);
 
         const docSnap = await getDoc(doc(db, 'vocab_lessons', String(topicId)));
         if (!docSnap.exists()) {
@@ -155,20 +170,45 @@ function VocabularyContent() {
 
         setWords(parsedData);
 
-        if (mode === 'match' || mode === 'listen') {
-          const randomizedPool = shuffleArray([...parsedData]);
-          setShuffledPool(randomizedPool);
-          
-          if (mode === 'match') {
-            const itemsPerRound = 10;
-            const roundWords = randomizedPool.slice(0, itemsPerRound);
-            let generatedCards = [];
-            roundWords.forEach((item, index) => {
-              generatedCards.push({ uniqueId: `w_1_${index}`, pairId: index, content: item.word, type: 'word' });
-              generatedCards.push({ uniqueId: `m_1_${index}`, pairId: index, content: item.meaning, type: 'meaning' });
-            });
-            setMatchCards(shuffleArray(generatedCards));
-          }
+        const randomizedPool = shuffleArray([...parsedData]);
+        setShuffledPool(randomizedPool);
+
+        // KHỞI TẠO ĐỢT 1 CHO TÌM CẶP
+        if (mode === 'match') {
+          const itemsPerRound = 10;
+          const roundWords = randomizedPool.slice(0, itemsPerRound);
+          let generatedCards = [];
+          roundWords.forEach((item, index) => {
+            generatedCards.push({ uniqueId: `w_1_${index}`, pairId: index, content: item.word, type: 'word' });
+            generatedCards.push({ uniqueId: `m_1_${index}`, pairId: index, content: item.meaning, type: 'meaning' });
+          });
+          setMatchCards(shuffleArray(generatedCards));
+        }
+
+        // 🌟 KHỞI TẠO BỘ CÂU HỎI TRẮC NGHIỆM THÔNG MINH (Lấy ngẫu nhiên 10 câu từ file Excel)
+        if (mode === 'quiz') {
+          const selectedSubset = randomizedPool.slice(0, 10);
+          const generatedQuestions = selectedSubset.map((item) => {
+            // Lấy 3 từ khác bất kỳ làm đáp án nhiễu (distractors)
+            const distractors = parsedData
+              .filter(w => w.word !== item.word)
+              .map(w => w.word);
+            const randomDistractors = shuffleArray(distractors).slice(0, 3);
+            
+            // Trộn đáp án đúng với 3 đáp án sai
+            const options = shuffleArray([item.word, ...randomDistractors]);
+            
+            return {
+              questionWord: item.word,
+              correctAnswer: item.word,
+              ipa: item.ipa,
+              meaning: item.meaning,
+              example: item.example,
+              maskedSentence: item.example.replace(new RegExp(`\\b${item.word}\\b`, 'gi'), '_____'),
+              options: options
+            };
+          });
+          setQuizQuestions(generatedQuestions);
         }
 
       } catch (err) {
@@ -182,24 +222,18 @@ function VocabularyContent() {
     fetchAndParseExcelData();
   }, [topicId, mode]);
 
-  // HÀM PHÁT ÂM THANH (TEXT TO SPEECH)
+  // LUỒNG SOUND CHO NGHE TỪ VỰNG
   const playAudio = (text, type = 'word') => {
     if (typeof window === 'undefined' || !window.speechSynthesis) return;
-    
-    // Hủy các giọng đọc đang chạy trước đó để không bị đè âm thanh
     window.speechSynthesis.cancel();
-    
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = voiceAccent; // Sử dụng giọng Mỹ (en-US) hoặc Anh (en-GB)
-    utterance.rate = type === 'word' ? 0.9 : 0.85; // Đọc câu ví dụ chậm hơn một chút để luyện tai nghe
-    
+    utterance.lang = voiceAccent;
+    utterance.rate = type === 'word' ? 0.9 : 0.85;
     window.speechSynthesis.speak(utterance);
   };
 
-  // Tự động phát âm thanh khi học viên chuyển sang từ mới ở chế độ Nghe
   useEffect(() => {
     if (mode === 'listen' && shuffledPool.length > 0 && !loading) {
-      // Trễ nhẹ để trang kịp nạp cấu trúc
       const timer = setTimeout(() => {
         playAudio(shuffledPool[listenIndex]?.word, 'word');
       }, 400);
@@ -207,6 +241,7 @@ function VocabularyContent() {
     }
   }, [listenIndex, mode, loading, voiceAccent]);
 
+  // HÀM TẠO THẺ TÌM CẶP THEO HIỆP
   const generateRoundCards = (pool, roundNumber) => {
     const itemsPerRound = 10;
     const startIndex = (roundNumber - 1) * itemsPerRound;
@@ -226,21 +261,25 @@ function VocabularyContent() {
     setMatchCards(shuffleArray(generatedCards));
   };
 
-  const handleFinishSession = async () => {
+  // ĐỒNG BỘ LÊN FIREBASE KHI HOÀN THÀNH BÀI HỌC
+  const handleFinishSession = async (finalScore = null) => {
     if (!CURRENT_USER_ID) {
       router.push('/home');
       return;
     }
+    const scoreToSave = finalScore !== null ? finalScore : (mode === 'match' ? 50 : words.length);
+    const totalToSave = mode === 'quiz' ? 10 : (mode === 'match' ? 50 : words.length);
+    
     try {
       const progressRef = doc(db, 'users', CURRENT_USER_ID, 'progress', `vocab_${mode}_${topicId}`);
       await setDoc(progressRef, {
         status: 'completed',
-        score: words.length,
-        totalQuestions: words.length,
+        score: scoreToSave,
+        totalQuestions: totalToSave,
         updatedAt: new Date().toISOString()
       }, { merge: true });
 
-      alert('🎉 Chúc mừng! Bạn đã hoàn thành xuất sắc phân hệ học từ vựng này!');
+      alert(`🎉 Hoàn thành bài học! Điểm số của bạn đã được lưu: ${scoreToSave}/${totalToSave}`);
       router.push('/home');
     } catch (err) {
       console.error(err);
@@ -248,26 +287,19 @@ function VocabularyContent() {
     }
   };
 
-  // XỬ LÝ KIỂM TRA ĐÁP ÁN PHẦN NGHE CHÉP CHÍNH TẢ
+  // LOGIC ĐÁP ÁN PHẦN NGHE TỪ VỰNG
   const handleCheckListenAnswer = () => {
     if (!userAnswer.trim()) return;
-    
     const correctAnswer = shuffledPool[listenIndex]?.word.toLowerCase().trim();
     const currentInput = userAnswer.toLowerCase().trim();
-    
     setListenChecked(true);
-    if (currentInput === correctAnswer) {
-      setListenResult('correct');
-    } else {
-      setListenResult('wrong');
-    }
+    setListenResult(currentInput === correctAnswer ? 'correct' : 'wrong');
   };
 
   const handleNextListenCard = () => {
     setUserAnswer('');
     setListenChecked(false);
     setListenResult(null);
-    
     if (listenIndex < shuffledPool.length - 1) {
       setListenIndex(prev => prev + 1);
     } else {
@@ -275,7 +307,29 @@ function VocabularyContent() {
     }
   };
 
-  // LOGIC XỬ LÝ CLICK CHỌN THẺ MATCHING
+  // 🌟 LOGIC XỬ LÝ KIỂM TRA ĐÁP ÁN TRẮC NGHIỆM (MỚI)
+  const handleCheckQuizAnswer = () => {
+    if (!selectedOption || quizChecked) return;
+    
+    setQuizChecked(true);
+    if (selectedOption === quizQuestions[quizIndex].correctAnswer) {
+      setQuizScore(prev => prev + 1);
+    }
+  };
+
+  const handleNextQuizQuestion = () => {
+    setSelectedOption(null);
+    setQuizChecked(false);
+    
+    if (quizIndex < quizQuestions.length - 1) {
+      setQuizIndex(prev => prev + 1);
+    } else {
+      // Kết thúc bộ 10 câu trắc nghiệm, truyền điểm số cuối cùng để lưu Firestore
+      handleFinishSession(quizScore + (selectedOption === quizQuestions[quizIndex].correctAnswer ? 1 : 0));
+    }
+  };
+
+  // LOGIC TÌM CẶP (MATCHING)
   const handleCardClick = (card) => {
     if (isChecking || matchedCards.includes(card.uniqueId) || selectedCards.some(c => c.uniqueId === card.uniqueId)) return;
 
@@ -320,7 +374,7 @@ function VocabularyContent() {
     }
   };
 
-  // LOGIC ĐIỀU HƯỚNG FLASHCARDS
+  // LOGIC FLASHCARDS
   const handleNextCard = () => {
     setIsFlipped(false);
     setTimeout(() => {
@@ -345,7 +399,7 @@ function VocabularyContent() {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center text-gray-400 text-xs font-bold gap-3">
         <div className="w-8 h-8 border-4 border-green-400 border-t-transparent rounded-full animate-spin" />
-        Hệ thống đang tải kho từ vựng từ tệp Excel...
+        Hệ thống đang kết nối dữ liệu tệp Excel bài học...
       </div>
     );
   }
@@ -353,7 +407,7 @@ function VocabularyContent() {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 text-center">
-        <div className="text-2xl mb-2">⚠️</div>
+        <div className="text-3xl mb-2">⚠️</div>
         <h3 className="text-gray-800 font-bold text-sm">Lỗi đồng bộ dữ liệu</h3>
         <p className="text-gray-400 text-xs max-w-md mt-1 mb-4 leading-relaxed">{error}</p>
         <button onClick={() => router.back()} className="bg-green-400 text-white font-bold text-xs p-2 px-5 rounded-xl">Quay lại danh mục</button>
@@ -445,14 +499,11 @@ function VocabularyContent() {
       );
 
     case 'listen':
-      // 🌟 PHÁT TRIỂN MỚI: PHAN HỆ NGHE TỪ VỰNG CHỦ ĐỘNG (Spaced Dictation Component)
       const currentListenWord = shuffledPool[listenIndex];
-      // Tạo chuỗi mặt nạ che giấu câu ví dụ (Thay thế từ mục tiêu thành dấu ba chấm [...])
       const maskedExample = currentListenWord?.example.replace(new RegExp(`\\b${currentListenWord?.word}\\b`, 'gi'), '[...]');
 
       return (
         <div className={`${roboto.className} min-h-screen bg-gray-50 flex flex-col antialiased`}>
-          {/* HEADER NGHE TỪ VỰNG */}
           <header className="bg-green-400 p-3.5 px-5 flex items-center justify-between shadow-md">
             <button onClick={() => router.back()} className="bg-white/20 border-none rounded-lg p-1.5 px-3 text-white text-xs font-bold cursor-pointer transition hover:bg-white/30">← Thoát</button>
             <span className="text-white font-black text-sm text-center flex-1">🎧 Luyện nghe từ vựng — {topic?.title}</span>
@@ -460,66 +511,33 @@ function VocabularyContent() {
           </header>
 
           <div className="flex-1 max-w-xl w-full mx-auto p-4 flex flex-col justify-center items-center gap-6">
-            
-            {/* THẺ ĐIỀU CHỈNH GIỌNG ĐỌC ACCENT (ANH - MỸ VÀ ANH - ANH) */}
             <div className="flex items-center gap-2 bg-white p-1.5 px-3 rounded-full border border-gray-100 shadow-sm text-xs font-bold text-gray-500">
-              <span>Giọng đọc phát âm:</span>
-              <button 
-                onClick={() => setVoiceAccent('en-US')} 
-                className={`border-none rounded-full px-2.5 py-1 font-black cursor-pointer transition ${voiceAccent === 'en-US' ? 'bg-green-400 text-white shadow-sm' : 'bg-gray-100 text-gray-400'}`}
-              >
-                US (Mỹ)
-              </button>
-              <button 
-                onClick={() => setVoiceAccent('en-GB')} 
-                className={`border-none rounded-full px-2.5 py-1 font-black cursor-pointer transition ${voiceAccent === 'en-GB' ? 'bg-green-400 text-white shadow-sm' : 'bg-gray-100 text-gray-400'}`}
-              >
-                UK (Anh)
-              </button>
+              <span>Giọng phát âm:</span>
+              <button onClick={() => setVoiceAccent('en-US')} className={`border-none rounded-full px-2.5 py-1 font-black cursor-pointer transition ${voiceAccent === 'en-US' ? 'bg-green-400 text-white shadow-sm' : 'bg-gray-100 text-gray-400'}`}>US (Mỹ)</button>
+              <button onClick={() => setVoiceAccent('en-GB')} className={`border-none rounded-full px-2.5 py-1 font-black cursor-pointer transition ${voiceAccent === 'en-GB' ? 'bg-green-400 text-white shadow-sm' : 'bg-gray-100 text-gray-400'}`}>UK (Anh)</button>
             </div>
 
-            {/* CARD PHÁT SOUND CHÍNH */}
             <div className="w-full bg-white rounded-3xl border border-gray-100 shadow-xl p-6 flex flex-col items-center gap-6 text-center">
-              
-              {/* Nút phát thanh to rõ */}
-              <button 
-                onClick={() => playAudio(currentListenWord?.word, 'word')}
-                className="w-20 h-20 bg-green-50 text-green-500 hover:bg-green-100 rounded-full flex items-center justify-center text-3xl border-none cursor-pointer transition shadow-inner"
-              >
-                🔊
-              </button>
-              
+              <button onClick={() => playAudio(currentListenWord?.word, 'word')} className="w-20 h-20 bg-green-50 text-green-500 hover:bg-green-100 rounded-full flex items-center justify-center text-3xl border-none cursor-pointer transition shadow-inner">🔊</button>
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] font-black text-gray-300 tracking-widest uppercase">Audio Dictation Challenge</span>
-                <p className="text-gray-400 text-xs font-medium px-4 leading-relaxed">Hãy bấm nút loa để nghe, xem nghĩa tiếng Việt hỗ trợ và điền chính xác từ vựng bằng tiếng Anh.</p>
+                <p className="text-gray-400 text-xs font-medium px-4 leading-relaxed">Nghe phát âm, xem nghĩa gợi ý và điền chính xác từ vựng tiếng Anh vào ô trống.</p>
               </div>
 
-              {/* KHUNG GỢI Ý NGHĨA TIẾNG VIỆT */}
               <div className="w-full bg-gray-50 rounded-2xl p-4 border border-gray-100">
                 <span className="text-[9px] font-black text-green-400 tracking-wider uppercase block mb-1">Gợi ý nghĩa tiếng Việt</span>
                 <p className="text-gray-800 font-bold text-sm leading-snug">{currentListenWord?.meaning}</p>
-                {listenChecked && (
-                  <p className="text-gray-400 text-xs font-mono font-bold mt-1 bg-white inline-block px-3 py-0.5 rounded-full border border-gray-100">{currentListenWord?.ipa}</p>
-                )}
+                {listenChecked && <p className="text-gray-400 text-xs font-mono font-bold mt-1 bg-white inline-block px-3 py-0.5 rounded-full border border-gray-100">{currentListenWord?.ipa}</p>}
               </div>
 
-              {/* KHUNG LUYỆN NGHE THEO NGỮ CẢNH CÂU (PART 3 & PART 4 SKILLS) */}
               <div className="w-full bg-emerald-50/40 rounded-2xl p-4 border border-emerald-100/60 text-left">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[9px] font-black text-emerald-600 tracking-wider uppercase">Nghe cụm từ trong câu</span>
-                  <button 
-                    onClick={() => playAudio(currentListenWord?.example, 'sentence')}
-                    className="bg-emerald-500 border-none rounded-lg text-white font-bold text-[10px] p-1 px-2.5 cursor-pointer shadow-sm shadow-emerald-600/10"
-                  >
-                    🔊 Nghe cả câu
-                  </button>
+                  <button onClick={() => playAudio(currentListenWord?.example, 'sentence')} className="bg-emerald-500 border-none rounded-lg text-white font-bold text-[10px] p-1 px-2.5 cursor-pointer shadow-sm">🔊 Nghe cả câu</button>
                 </div>
-                <p className="text-gray-600 italic text-xs leading-relaxed font-medium">
-                  "{listenChecked ? currentListenWord?.example : maskedExample}"
-                </p>
+                <p className="text-gray-600 italic text-xs leading-relaxed font-medium">"{listenChecked ? currentListenWord?.example : maskedExample}"</p>
               </div>
 
-              {/* Ô NHẬP ĐÁP ÁN CHÍNH TẢ */}
               <div className="w-full flex flex-col gap-2 mt-2">
                 <input 
                   type="text"
@@ -528,41 +546,127 @@ function VocabularyContent() {
                   onChange={(e) => setUserAnswer(e.target.value)}
                   placeholder="Gõ từ vựng tiếng Anh nghe được tại đây..."
                   className={`w-full p-3.5 border rounded-xl text-center font-bold text-sm transition focus:outline-none focus:ring-2
-                    ${listenChecked 
-                      ? (listenResult === 'correct' ? 'bg-green-50 border-green-400 text-green-700' : 'bg-red-50 border-red-400 text-red-700') 
-                      : 'bg-white border-gray-200 focus:border-green-400 focus:ring-green-100'}`}
+                    ${listenChecked ? (listenResult === 'correct' ? 'bg-green-50 border-green-400 text-green-700' : 'bg-red-50 border-red-400 text-red-700') : 'bg-white border-gray-200 focus:border-green-400 focus:ring-green-100'}`}
                 />
-
-                {/* HIỂN THỊ KẾT QUẢ ĐÚNG SAI TRỰC QUAN */}
                 {listenChecked && (
                   <div className={`p-3 rounded-xl text-xs font-bold border ${listenResult === 'correct' ? 'bg-green-100/50 border-green-200 text-green-800' : 'bg-red-100/50 border-red-200 text-red-800'}`}>
                     {listenResult === 'correct' ? '🎉 Chính xác!' : `❌ Chưa đúng! Đáp án chuẩn: "${currentListenWord?.word}"`}
                   </div>
                 )}
               </div>
-
             </div>
 
-            {/* THANH ĐIỀU HƯỚNG KIỂM TRA / CHUYỂN TỪ */}
             <div className="w-full flex items-center justify-between px-1">
               {!listenChecked ? (
-                <button 
-                  onClick={handleCheckListenAnswer}
-                  disabled={!userAnswer.trim()}
-                  className="w-full bg-green-400 text-white font-bold text-xs p-3.5 rounded-xl transition hover:opacity-95 disabled:opacity-40 shadow-md shadow-green-500/10 border-none cursor-pointer"
-                >
-                  Kiểm tra đáp án ✔
-                </button>
+                <button onClick={handleCheckListenAnswer} disabled={!userAnswer.trim()} className="w-full bg-green-400 text-white font-bold text-xs p-3.5 rounded-xl transition hover:opacity-95 disabled:opacity-40 shadow-md">Kiểm tra đáp án ✔</button>
               ) : (
-                <button 
-                  onClick={handleNextListenCard}
-                  className="w-full bg-gray-800 text-white font-bold text-xs p-3.5 rounded-xl transition hover:opacity-95 shadow-md border-none cursor-pointer"
-                >
+                <button onClick={handleNextListenCard} className="w-full bg-gray-800 text-white font-bold text-xs p-3.5 rounded-xl transition hover:opacity-95 shadow-md">
                   {listenIndex === shuffledPool.length - 1 ? 'Hoàn thành bài nghe 🎉' : 'Từ tiếp theo →'}
                 </button>
               )}
             </div>
+          </div>
+        </div>
+      );
 
+    case 'quiz':
+      // 🌟 PHÁT TRIỂN MỚI: PHÂN HỆ TRẮC NGHIỆM TỪ VỰNG CHUẨN TOEIC (`mode=quiz`)
+      if (quizQuestions.length === 0) return null;
+      const currentQuestion = quizQuestions[quizIndex];
+
+      return (
+        <div className={`${roboto.className} min-h-screen bg-gray-50 flex flex-col antialiased`}>
+          {/* HEADER TRẮC NGHIỆM */}
+          <header className="bg-green-400 p-3.5 px-5 flex items-center justify-between shadow-md">
+            <button onClick={() => router.back()} className="bg-white/20 border-none rounded-lg p-1.5 px-3 text-white text-xs font-bold cursor-pointer transition hover:bg-white/30">← Thoát</button>
+            <span className="text-white font-black text-sm text-center flex-1">📝 Trắc nghiệm từ vựng — {topic?.title}</span>
+            <span className="text-white text-xs font-bold bg-emerald-600 px-3 py-1.5 rounded-full">Câu: {quizIndex + 1}/10</span>
+          </header>
+
+          <div className="flex-1 max-w-xl w-full mx-auto p-4 flex flex-col justify-center gap-5">
+            {/* THANH TIẾN TRÌNH TRỰC QUAN */}
+            <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden shadow-inner">
+              <div className="bg-green-400 h-full transition-all duration-300" style={{ width: `${(quizIndex + 1) * 10}%` }} />
+            </div>
+
+            {/* CARD THỂ HIỆN CÂU HỎI NGỮ CẢNH */}
+            <div className="w-full bg-white rounded-3xl border border-gray-100 shadow-xl p-6 flex flex-col gap-4">
+              <span className="text-[10px] font-black text-green-400 tracking-widest uppercase">TOEIC Form Part 5 Question</span>
+              
+              {/* Câu hỏi điền vào chỗ trống dạng đục lỗ chuẩn TOEIC */}
+              <h3 className="text-gray-800 font-bold text-base leading-relaxed tracking-tight mt-1">
+                "{currentQuestion.maskedSentence}"
+              </h3>
+              
+              <div className="w-full h-[1px] bg-gray-100 my-1" />
+              <p className="text-gray-400 text-xs font-medium">Chọn từ thích hợp điền vào câu trên dựa theo nghĩa: <strong className="text-gray-700 font-bold text-xs">"{currentQuestion.meaning}"</strong></p>
+            </div>
+
+            {/* DANH SÁCH 4 LỰA CHỌN TRẮC NGHIỆM (A, B, C, D) */}
+            <div className="flex flex-col gap-2.5 w-full">
+              {currentQuestion.options.map((option, idx) => {
+                const isSelected = selectedOption === option;
+                const isCorrect = option === currentQuestion.correctAnswer;
+                
+                let optionStyle = 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50';
+                
+                if (!quizChecked && isSelected) {
+                  optionStyle = 'bg-amber-50 border-amber-400 text-amber-800 shadow-sm';
+                } else if (quizChecked) {
+                  if (isCorrect) {
+                    optionStyle = 'bg-green-50 border-green-500 text-green-700 font-bold';
+                  } else if (isSelected && !isCorrect) {
+                    optionStyle = 'bg-red-50 border-red-400 text-red-700';
+                  } else {
+                    optionStyle = 'bg-white border-gray-100 text-gray-300 opacity-60 pointer-events-none';
+                  }
+                }
+
+                return (
+                  <button
+                    key={idx}
+                    disabled={quizChecked}
+                    onClick={() => setSelectedOption(option)}
+                    className={`w-full p-4 border rounded-2xl text-left font-semibold text-sm transition-all duration-150 cursor-pointer flex items-center gap-3 ${optionStyle}`}
+                  >
+                    <span className={`w-6 h-6 rounded-xl flex items-center justify-center text-xs font-black border 
+                      ${isSelected ? 'bg-amber-400 border-amber-400 text-white' : 'bg-gray-50 border-gray-200 text-gray-400'}`}>
+                      {String.fromCharCode(65 + idx)}
+                    </span>
+                    {option}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* CARD GIẢI THÍCH CHI TIẾT NGAY SAU KHI CHECK ĐÁP ÁN */}
+            {quizChecked && (
+              <div className="w-full bg-gray-800 text-white rounded-2xl p-4 shadow-md flex flex-col gap-1.5 animate-fadeIn">
+                <span className="text-[9px] font-black text-green-400 tracking-wider uppercase">Giải thích ngữ cảnh</span>
+                <p className="text-xs font-bold">{currentQuestion.correctAnswer} {currentQuestion.ipa} : {currentQuestion.meaning}</p>
+                <p className="text-[11px] text-gray-300 leading-relaxed italic mt-1">"Example: {currentQuestion.example}"</p>
+              </div>
+            )}
+
+            {/* BUTTON ĐIỀU HƯỚNG BÀI BẤM */}
+            <div className="w-full mt-1">
+              {!quizChecked ? (
+                <button
+                  disabled={!selectedOption}
+                  onClick={handleCheckQuizAnswer}
+                  className="w-full bg-green-400 text-white font-bold text-xs p-4 rounded-xl transition hover:opacity-95 disabled:opacity-40 shadow-md border-none cursor-pointer"
+                >
+                  Kiểm tra câu trả lời
+                </button>
+              ) : (
+                <button
+                  onClick={handleNextQuizQuestion}
+                  className="w-full bg-gray-800 text-white font-bold text-xs p-4 rounded-xl transition hover:opacity-95 shadow-md border-none cursor-pointer"
+                >
+                  {quizIndex === quizQuestions.length - 1 ? 'Xem kết quả & Hoàn thành 🎉' : 'Câu tiếp theo →'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       );
