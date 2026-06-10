@@ -36,7 +36,7 @@ const VOCAB_SUBMENU = [
   { key: 'quiz', label: 'Trắc nghiệm từ vựng', icon: '✏️' },
   { key: 'match', label: 'Tìm cặp', icon: '🔗' },
   { key: 'listen', label: 'Nghe từ vựng', icon: '🎧' },
-  { key: 'typer', label: 'Đua tốc độ phản xạ', icon: '⚡' }, // 🌟 Đã tích hợp phân hệ trò chơi mới thành công
+  { key: 'typer', label: 'Vượt chướng ngại vật', icon: '🚀' }, 
 ];
 
 const GRAMMAR_SUBMENU = [
