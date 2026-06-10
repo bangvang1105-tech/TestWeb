@@ -1,8 +1,10 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Roboto } from 'next/font/google';
+import { db } from '@/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 const roboto = Roboto({
   weight: ['400', '500', '700', '900'],
@@ -36,76 +38,99 @@ const MODE_INFO = {
 function GrammarContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const mode = searchParams.get('mode');
-  const topicId = searchParams.get('topic');
+  const mode = searchParams.get('mode'); // 'video' hoặc 'slide'
+  const topicId = searchParams.get('topic'); // ID từ 1 đến 12
 
   const modeInfo = MODE_INFO[mode] || { label: 'Ngữ pháp', icon: '📝' };
   const topic = GRAMMAR_TOPICS.find(t => String(t.id) === String(topicId));
 
+  const [lessonContent, setLessonContent] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // 🌟 ĐỌC DỮ LIỆU ĐƯỜNG LINK VIDEO / SLIDE TỪ FIRESTORE
+  useEffect(() => {
+    if (!topicId) return;
+    async function fetchLessonData() {
+      try {
+        setLoading(true);
+        // Tìm document tương ứng với ID bài học trong collection grammar_lessons
+        const docSnap = await getDoc(doc(db, 'grammar_lessons', String(topicId)));
+        if (docSnap.exists()) {
+          setLessonContent(docSnap.data());
+        }
+      } catch (err) {
+        console.error("Lỗi nạp link bài học ngữ pháp: ", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchLessonData();
+  }, [topicId]);
+
+  // Điều hướng thẳng đến file excel làm bài thực hành ngữ pháp
+  const handlePracticeNow = () => {
+    router.push(`/lesson?type=grammar_practice&id=${topicId}`);
+  };
+
   return (
-    <div
-      className={roboto.className}
-      style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', flexDirection: 'column' }}
-    >
+    <div className={`${roboto.className} min-h-screen bg-gray-50 flex flex-col`}>
       {/* HEADER */}
-      <header
-        style={{ background: BRAND, padding: '10px 20px', display: 'flex', alignItems: 'center', justifyBetween: 'space-between', flexShrink: 0 }}
-      >
-        <button
-          onClick={() => router.back()}
-          style={{ background: 'rgba(255,255,255,0.25)', border: 'none', borderRadius: 6, padding: '4px 10px', color: BRAND_DARK, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-        >
-          ← Thoát
-        </button>
-        <span style={{ color: BRAND_DARK, fontWeight: 700, fontSize: 14, flex: 1, textAlign: 'center' }}>
-          {modeInfo.icon} {modeInfo.label} — Bài {topic?.id}: {topic?.title || 'Chủ đề'}
-        </span>
-        <span style={{ fontSize: 12, color: BRAND_DARK, fontWeight: 500 }}>
-          {topic?.subtitle}
-        </span>
+      <header className="bg-green-400 p-3 px-5 flex items-center justify-between shadow-md">
+        <button onClick={() => router.back()} className="bg-white/20 border-none rounded-lg p-1.5 px-3 text-white text-xs font-bold cursor-pointer transition hover:bg-white/30">← Thoát</button>
+        <span className="text-white font-black text-sm text-center flex-1">{modeInfo.icon} {modeInfo.label} — Bài {topic?.id}: {topic?.title}</span>
+        <span className="text-white/90 text-xs font-bold hidden sm:inline">{topic?.subtitle}</span>
       </header>
 
-      {/* BODY CHỨA PHẦN NỘI DUNG BÀI HỌC VỀ SAU */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
-        <div
-          style={{
-            background: '#fff',
-            borderRadius: 16,
-            border: '0.5px solid #e2e8f0',
-            padding: '48px 56px',
-            textAlign: 'center',
-            maxWidth: 640,
-            width: '100%',
-            boxShadow: '0 2px 16px 0 rgba(74,222,128,0.08)',
-          }}
-        >
-          <div style={{ fontSize: 56, marginBottom: 16 }}>{modeInfo.icon}</div>
-          <h1 style={{ fontSize: 20, fontWeight: 800, color: '#1e293b', marginBottom: 6 }}>
-            {modeInfo.label}
-          </h1>
-          <div
-            style={{ display: 'inline-block', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '4px 14px', marginBottom: 16 }}
-          >
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#166534' }}>
-              Bài {topic?.id}: {topic?.title} ({topic?.subtitle})
-            </span>
-          </div>
-
-          {/* Vùng không gian hiển thị bài học mẫu */}
-          <div style={{ marginTop: 12, marginBottom: 32, padding: 20, background: '#f8fafc', borderRadius: 12, border: '1px dashed #cbd5e1' }}>
-            <p style={{ fontSize: 13, color: '#64748b', margin: 0, lineHeight: 1.7 }}>
-              [Khu vực tích hợp nội dung]<br />
-              {mode === 'video' ? 'Hệ thống chuẩn bị trình phát Video bài giảng lý thuyết.' : 'Hệ thống chuẩn bị tài liệu nhúng Slide PDF/Powerpoint.'}
-            </p>
-          </div>
-
-          <button
-            onClick={() => router.back()}
-            style={{ background: BRAND, color: BRAND_DARK, border: 'none', borderRadius: 8, padding: '10px 28px', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}
-          >
-            ← Quay lại danh sách bài học
-          </button>
+      {/* BODY CHỨA BÀI HỌC THỰC TẾ */}
+      <div className="flex-1 max-w-4xl w-full mx-auto p-4 md:p-6 flex flex-col gap-6">
+        
+        {/* Khung Trình Phát Lý Thuyết */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm flex-1 flex flex-col min-h-[400px]">
+          {loading ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 text-gray-400 text-xs font-bold">
+              <div className="w-8 h-8 border-4 border-green-400 border-t-transparent rounded-full animate-spin" />
+              Đang tải tư liệu bài giảng...
+            </div>
+          ) : (
+            <div className="flex-1 w-full h-full rounded-xl overflow-hidden bg-black relative">
+              {mode === 'video' ? (
+                lessonContent?.videoUrl ? (
+                  <iframe 
+                    src={lessonContent.videoUrl} 
+                    className="w-full h-full border-none absolute top-0 left-0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                    allowFullScreen
+                  ></iframe>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs font-semibold p-4 text-center">📺 Thầy Băng chưa cập nhật liên kết Video bài giảng cho chuyên đề này.</div>
+                )
+              ) : (
+                lessonContent?.slideUrl ? (
+                  <iframe 
+                    src={lessonContent.slideUrl} 
+                    className="w-full h-full border-none absolute top-0 left-0 bg-white"
+                    allow="autoplay"
+                  ></iframe>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs font-semibold p-4 text-center">📊 Thầy Băng chưa cập nhật liên kết Slide bài giảng cho chuyên đề này.</div>
+                )
+              )}
+            </div>
+          )}
         </div>
+
+        {/* FOOTER ĐIỀU HƯỚNG BÀI TẬP LIÊN KẾT */}
+        <div className="bg-white border border-gray-100 rounded-2xl p-4 flex flex-col sm:flex-row gap-4 items-center justify-between shadow-sm">
+          <div className="text-center sm:text-left">
+            <h4 className="text-gray-800 font-extrabold text-sm m-0">Đã nắm vững lý thuyết chuyên đề?</h4>
+            <p className="text-gray-400 text-xs m-0 mt-0.5">Bứt phá điểm số bằng cách rèn luyện bộ câu hỏi trắc nghiệm ngay.</p>
+          </div>
+          <div className="flex gap-2.5 w-full sm:w-auto">
+            <button onClick={() => router.back()} className="flex-1 sm:flex-none bg-gray-100 text-gray-500 font-bold text-xs p-2.5 px-5 rounded-xl cursor-pointer hover:bg-gray-200 transition">Quay lại danh mục</button>
+            <button onClick={handlePracticeNow} className="flex-1 sm:flex-none bg-orange-400 shadow-md shadow-orange-400/20 text-white font-bold text-xs p-2.5 px-6 rounded-xl cursor-pointer hover:opacity-95 transition">Luyện tập ngay 🚀</button>
+          </div>
+        </div>
+
       </div>
     </div>
   );
@@ -113,11 +138,7 @@ function GrammarContent() {
 
 export default function GrammarPage() {
   return (
-    <Suspense fallback={
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 14 }}>
-        Đang tải dữ liệu bài học ngữ pháp...
-      </div>
-    }>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-gray-400 text-xs font-bold">Đang nạp dữ liệu bài học ngữ pháp...</div>}>
       <GrammarContent />
     </Suspense>
   );

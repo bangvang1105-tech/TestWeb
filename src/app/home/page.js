@@ -55,7 +55,7 @@ const GRAMMAR_TOPICS = [
   { id: 9, title: 'Giới từ', subtitle: 'Prepositions' },
   { id: 10, title: 'Liên từ', subtitle: 'Conjunctions' },
   { id: 11, title: 'Cấu tạo câu', subtitle: 'Sentence Structures' },
-  { id: 12, text: 'Hòa hợp chủ vị', subtitle: 'Subject-Verb Agreement' },
+  { id: 12, title: 'Hòa hợp chủ vị', subtitle: 'Subject-Verb Agreement' },
 ];
 
 const EXERCISE_SKILLS = [
@@ -70,20 +70,14 @@ const EXERCISE_PARTS = {
     { key: 'dictation_p3', label: 'Nghe chép chính tả Part 3', detail: 'Hội thoại ngắn (Short Conversations)' },
     { key: 'dictation_p4', label: 'Nghe chép chính tả Part 4', detail: 'Bài nói ngắn (Short Talks)' },
   ],
+  // 🌟 NÂNG CẤP: Phân tách Kỹ năng đọc gồm Trắc nghiệm các Part và Luyện tập 12 bài Ngữ pháp
   reading: [
-    { key: 'quiz_p5', label: 'Trắc nghiệm Part 5', detail: 'Câu chưa hoàn chỉnh (Incomplete Sentences)' },
-    { key: 'quiz_p6', label: 'Trắc nghiệm Part 6', detail: 'Hoàn thành đoạn văn (Text Completion)' },
-    { key: 'quiz_p7', label: 'Trắc nghiệm Part 7', detail: 'Đọc hiểu đoạn văn (Reading Comprehension)' },
+    { key: 'quiz_p5', label: 'Trắc nghiệm Part 5', detail: 'Câu chưa hoàn chỉnh' },
+    { key: 'quiz_p6', label: 'Trắc nghiệm Part 6', detail: 'Hoàn thành đoạn văn' },
+    { key: 'quiz_p7', label: 'Trắc nghiệm Part 7', detail: 'Đọc hiểu đoạn văn' },
+    { key: 'grammar_list', label: 'Luyện tập Ngữ pháp', detail: 'Trọn bộ 12 chuyên đề trọng tâm' }
   ]
 };
-
-const EXAM_BOOKS = [
-  { key: 'ets2023', label: 'ETS 2023', icon: '📚' },
-  { key: 'ets2024', label: 'ETS 2024', icon: '📗' },
-  { key: 'ets2026', label: 'ETS 2026', icon: '📘' },
-  { key: 'hacker2', label: 'Hacker 2', icon: '📙' },
-  { key: 'hacker3', label: 'Hacker 3', icon: '📕' },
-];
 
 export default function HomePage() {
   const router = useRouter();
@@ -98,8 +92,6 @@ export default function HomePage() {
 
   const [userProgress, setUserProgress] = useState({});
   const [loadingProgress, setLoadingProgress] = useState(true);
-
-  // 🌟 THÊM MỚI STATES QUẢN LÝ CÁ NHÂN HÓA LỚP HỌC
   const [userStreak, setUserStreak] = useState(1);
   const [leaderboardData, setLeaderboardData] = useState([]);
 
@@ -114,11 +106,7 @@ export default function HomePage() {
     async function initializeDashboardData() {
       try {
         setLoadingProgress(true);
-        
-        // 1. Fetch tiến trình học tập của user
-        const querySnapshot = await getDocs(
-          collection(db, 'users', CURRENT_USER_ID, 'progress')
-        );
+        const querySnapshot = await getDocs(collection(db, 'users', CURRENT_USER_ID, 'progress'));
         const progressMap = {};
         let completedCounter = 0;
         querySnapshot.forEach((docSnap) => {
@@ -128,8 +116,7 @@ export default function HomePage() {
         });
         setUserProgress(progressMap);
 
-        // 2. 🌟 XỬ LÝ ĐIỂM DANH TÍNH STREAK TỰ ĐỘNG KHÔNG CẦN LÀM MỚI
-        const todayStr = new Date().toLocaleDateString('sv-SE'); // Định dạng chuẩn YYYY-MM-DD
+        const todayStr = new Date().toLocaleDateString('sv-SE');
         const userRef = doc(db, 'users', CURRENT_USER_ID);
         const userSnap = await getDoc(userRef);
         
@@ -145,38 +132,32 @@ export default function HomePage() {
             const yesterdayStr = yesterday.toLocaleDateString('sv-SE');
 
             if (lastActive === yesterdayStr) {
-              currentStreak += 1; // Học liên tục ngày hôm sau -> Tăng streak
+              currentStreak += 1;
             } else {
-              currentStreak = 1;  // Bỏ ngắt quãng -> Reset chuỗi về 1
+              currentStreak = 1;
             }
           }
         }
         setUserStreak(currentStreak);
 
-        // Lưu ngược thông tin đồng bộ lên Firebase của học viên
         await setDoc(userRef, {
           streak: currentStreak,
           lastActiveDate: todayStr,
-          completedCount: completedCounter // Đồng bộ số bài để tính Leaderboard
+          completedCount: completedCounter
         }, { merge: true });
 
-        // 3. 🌟 QUÉT DỮ LIỆU ĐỌC BẢNG XẾP HẠNG THỰC TẾ (Lấy top 5 học viên làm nhiều bài nhất)
         const usersQuery = query(collection(db, 'users'), orderBy('completedCount', 'desc'), limit(5));
         const usersSnapshot = await getDocs(usersQuery);
         const ranks = [];
         let index = 1;
         usersSnapshot.forEach((uSnap) => {
           const uData = uSnap.data();
-          ranks.push({
-            rank: index++,
-            name: uSnap.id, // Sử dụng ID tài khoản đăng nhập làm tên hiển thị công khai
-            count: uData.completedCount || 0
-          });
+          ranks.push({ rank: index++, name: uSnap.id, count: uData.completedCount || 0 });
         });
         setLeaderboardData(ranks);
 
       } catch (err) {
-        console.error("Lỗi xử lý dữ liệu cá nhân hóa: ", err);
+        console.error(err);
       } finally {
         setLoadingProgress(false);
       }
@@ -187,9 +168,7 @@ export default function HomePage() {
   const menuItems = ['Tổng quan', 'Khóa học', 'Ngữ pháp', 'Từ vựng', 'Bài tập', 'Luyện đề'];
 
   const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('userId');
-    }
+    if (typeof window !== 'undefined') localStorage.removeItem('userId');
     router.push('/');
   };
 
@@ -201,9 +180,7 @@ export default function HomePage() {
       setExerciseSkill(null);
       setExercisePart(null);
     }
-    if (item !== 'Luyện đề') {
-      setExamBook(null);
-    }
+    if (item !== 'Luyện đề') setExamBook(null);
   };
 
   const handleNavigation = (type, id) => {
@@ -219,11 +196,43 @@ export default function HomePage() {
   };
 
   const handleExerciseNavigation = (partKey) => {
+    // Nếu học viên nhấn chọn Luyện tập Ngữ pháp tổng quát ở mục Bài tập, giữ nguyên tại trang chủ để hiển thị 12 card con
+    if (partKey === 'grammar_list') {
+      setExercisePart(partKey);
+      return;
+    }
     router.push(`/exercise?part=${partKey}`);
   };
 
   const handleExamNavigation = (bookKey, testId) => {
     router.push(`/exam?book=${bookKey}&test=${testId}`);
+  };
+
+  // Hàm sinh danh sách bài tập cho 12 chuyên đề Ngữ pháp
+  const renderGrammarExerciseCards = () => {
+    if (loadingProgress) return <p className="text-gray-400 text-xs mt-4">Đang tải tiến trình...</p>;
+    const dataList = buildDisplayData(GRAMMAR_TOPICS, 'grammar_practice');
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-4 w-full">
+        {dataList.map((item) => (
+          <div key={item.id} className="w-full h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
+            <div className="flex justify-between items-start gap-2">
+              <div className="flex-1">
+                <h3 className="font-bold text-gray-800 text-sm line-clamp-1">{item.title}</h3>
+                <p className="text-[11px] text-gray-400 mt-0.5">{item.subtitle}</p>
+              </div>
+              <span className="text-xs font-semibold px-2 py-0.5 bg-gray-100 text-gray-600 rounded">Điểm: {item.score}</span>
+            </div>
+            <div className="flex justify-between items-center mt-2">
+              <span className={`text-xs font-bold px-2 py-1 rounded-md ${item.status === 'Đã làm' ? 'bg-green-100 text-green-700' : item.status === 'Đang làm' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>{item.status}</span>
+              <button onClick={() => handleNavigation('grammar_practice', item.id)} className="bg-green-400 text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:opacity-90 transition">
+                {item.status === 'Chưa làm' ? 'Làm bài' : item.status === 'Đang làm' ? 'Tiếp tục' : 'Làm lại'}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   const renderVocabTopicCards = (mode) => {
@@ -232,10 +241,7 @@ export default function HomePage() {
         {VOCAB_TOPICS.map((topic) => (
           <div key={topic.id} className="w-full h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
             <div className="flex justify-between items-start gap-2">
-              <div className="flex-1">
-                <h3 className="font-bold text-gray-800 text-sm line-clamp-1">{topic.title}</h3>
-                <p className="text-xs text-gray-400 mt-0.5">{topic.subtitle}</p>
-              </div>
+              <div className="flex-1"><h3 className="font-bold text-gray-800 text-sm line-clamp-1">{topic.title}</h3><p className="text-xs text-gray-400 mt-0.5">{topic.subtitle}</p></div>
               <span className="text-xs font-semibold px-2 py-0.5 bg-green-50 text-green-600 rounded border border-green-100">Chủ đề {topic.id}</span>
             </div>
             <div className="flex justify-between items-center mt-2">
@@ -254,10 +260,7 @@ export default function HomePage() {
         {GRAMMAR_TOPICS.map((topic) => (
           <div key={topic.id} className="w-full h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
             <div className="flex justify-between items-start gap-2">
-              <div className="flex-1">
-                <h3 className="font-bold text-gray-800 text-sm line-clamp-1">{topic.title}</h3>
-                <p className="text-xs text-gray-400 mt-0.5">{topic.subtitle}</p>
-              </div>
+              <div className="flex-1"><h3 className="font-bold text-gray-800 text-sm line-clamp-1">{topic.title}</h3><p className="text-xs text-gray-400 mt-0.5">{topic.subtitle}</p></div>
               <span className="text-xs font-semibold px-2 py-0.5 bg-green-50 text-green-600 rounded border border-green-100">Bài {topic.id}</span>
             </div>
             <div className="flex justify-between items-center mt-2">
@@ -277,10 +280,7 @@ export default function HomePage() {
         {parts.map((part) => (
           <div key={part.key} className="w-full h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
             <div className="flex justify-between items-start gap-2">
-              <div className="flex-1">
-                <h3 className="font-bold text-gray-800 text-sm line-clamp-1">{part.label}</h3>
-                <p className="text-xs text-gray-400 mt-0.5">{part.detail}</p>
-              </div>
+              <div className="flex-1"><h3 className="font-bold text-gray-800 text-sm line-clamp-1">{part.label}</h3><p className="text-xs text-gray-400 mt-0.5">{part.detail}</p></div>
             </div>
             <div className="flex justify-between items-center mt-2">
               <span className="text-xs font-bold px-2 py-1 rounded-md bg-gray-100 text-gray-500">Chưa làm</span>
@@ -299,10 +299,7 @@ export default function HomePage() {
         {tests.map((testNum) => (
           <div key={testNum} className="w-full h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
             <div className="flex justify-between items-start gap-2">
-              <div className="flex-1">
-                <h3 className="font-bold text-gray-800 text-sm">Đề khảo sát số {testNum}</h3>
-                <p className="text-xs text-gray-400 mt-0.5">Mã đề: {bookKey.toUpperCase()} _ TEST {testNum}</p>
-              </div>
+              <div className="flex-1"><h3 className="font-bold text-gray-800 text-sm">Đề khảo sát số {testNum}</h3><p className="text-xs text-gray-400 mt-0.5">Mã đề: {bookKey.toUpperCase()} _ TEST {testNum}</p></div>
               <span className="text-xs font-semibold px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded border border-emerald-100">200 Câu</span>
             </div>
             <div className="flex justify-between items-center mt-2">
@@ -335,23 +332,15 @@ export default function HomePage() {
 
         return (
           <div className="flex flex-col gap-7">
-            {/* Banner Chào Mừng Động */}
             <div className="bg-gradient-to-r from-green-400 to-emerald-500 rounded-2xl p-6 md:p-8 text-white flex flex-wrap justify-between items-center gap-5 shadow-lg shadow-green-400/10 relative overflow-hidden">
               <div className="absolute w-44 h-44 rounded-full bg-white/5 -top-10 -right-5"></div>
               <div className="z-10">
-                <h2 className="text-xl md:text-2xl font-black tracking-wide">
-                  XIN CHÀO, {CURRENT_USER_ID ? String(CURRENT_USER_ID).toUpperCase() : 'HỌC VIÊN'}! 👋
-                </h2>
-                <p className="text-sm mt-1.5 color-white/90 font-medium max-w-xl leading-relaxed">
-                  "Đường chạy chinh phục chứng chỉ TOEIC cùng Thầy Băng đã kích hoạt. Hôm nay hãy tiếp tục bứt phá giới hạn nhé!"
-                </p>
+                <h2 className="text-xl md:text-2xl font-black tracking-wide">XIN CHÀO, {CURRENT_USER_ID ? String(CURRENT_USER_ID).toUpperCase() : 'HỌC VIÊN'}! 👋</h2>
+                <p className="text-sm mt-1.5 color-white/90 font-medium max-w-xl leading-relaxed">"Đường chạy chinh phục chứng chỉ TOEIC cùng Thầy Băng đã kích hoạt. Hôm nay hãy tiếp tục bứt phá giới hạn nhé!"</p>
               </div>
-              <div className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-full text-xs font-extrabold border border-white/25 shadow-sm z-10">
-                🔥 Chuỗi học: {userStreak} ngày liên tục
-              </div>
+              <div className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-full text-xs font-extrabold border border-white/25 shadow-sm z-10">🔥 Chuỗi học: {userStreak} ngày liên tục</div>
             </div>
 
-            {/* Các thẻ thống kê */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               <div className="border border-gray-100 bg-white rounded-2xl p-5 flex flex-col gap-2.5 shadow-sm">
                 <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-wider"><span>🎯</span> Bài tập đã xong</div>
@@ -367,7 +356,6 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Khung Chi tiết */}
             <div className="flex flex-col lg:flex-row gap-6">
               <div className="flex-1 flex flex-col gap-4">
                 <h3 className="text-xs font-black text-gray-400 uppercase tracking-wider">📌 Lịch trình ôn luyện</h3>
@@ -384,41 +372,23 @@ export default function HomePage() {
                   <div className="p-8 rounded-2xl border-2 border-dashed border-gray-200 text-center text-gray-400 text-xs font-semibold bg-white">🎉 Thật tuyệt vời! Bạn không bỏ dở bài tập nào. Hãy chọn mục mới để học.</div>
                 )}
                 <div className="grid grid-cols-2 gap-4">
-                  <button onClick={() => handleMenuClick('Từ vựng')} className="p-4 text-left border border-gray-100 bg-white hover:border-green-300 rounded-2xl shadow-sm transition group">
-                    <span className="text-xl">📖</span>
-                    <div className="font-bold text-gray-700 text-xs mt-2 group-hover:text-green-500 transition">Học Từ Vựng nhanh</div>
-                  </button>
-                  <button onClick={() => handleMenuClick('Luyện đề')} className="p-4 text-left border border-gray-100 bg-white hover:border-green-300 rounded-2xl shadow-sm transition group">
-                    <span className="text-xl">⏱️</span>
-                    <div className="font-bold text-gray-700 text-xs mt-2 group-hover:text-green-500 transition">Luyện đề Full-Test</div>
-                  </button>
+                  <button onClick={() => handleMenuClick('Từ vựng')} className="p-4 text-left border border-gray-100 bg-white hover:border-green-300 rounded-2xl shadow-sm transition group"><span className="text-xl">📖</span><div className="font-bold text-gray-700 text-xs mt-2 group-hover:text-green-500 transition">Học Từ Vựng nhanh</div></button>
+                  <button onClick={() => handleMenuClick('Luyện đề')} className="p-4 text-left border border-gray-100 bg-white hover:border-green-300 rounded-2xl shadow-sm transition group"><span className="text-xl">⏱️</span><div className="font-bold text-gray-700 text-xs mt-2 group-hover:text-green-500 transition">Luyện đề Full-Test</div></button>
                 </div>
               </div>
 
-              {/* Bảng vinh danh học viên thực tế đọc từ Firestore */}
               <div className="w-full lg:w-80 border border-gray-100 bg-white rounded-2xl p-5 shadow-sm">
                 <h3 className="text-xs font-black text-gray-800 uppercase tracking-wider mb-4">🏆 Bảng Vàng Học Viên</h3>
                 <div className="flex flex-col gap-3">
-                  {leaderboardData.length > 0 ? (
-                    leaderboardData.map((student) => (
-                      <div key={student.rank} className="flex items-center justify-between text-xs border-b border-gray-50 pb-2.5 last:border-0 last:pb-0">
-                        <div className="flex items-center gap-3">
-                          <span className={`w-6 h-6 rounded-full font-bold flex items-center justify-center text-[11px] 
-                            ${student.rank === 1 ? 'bg-amber-100 text-amber-800' : student.rank === 2 ? 'bg-slate-100 text-slate-700' : 'bg-orange-50 text-orange-800'}`}>
-                            {student.rank}
-                          </span>
-                          <span className={`font-semibold ${student.name === CURRENT_USER_ID ? 'text-green-500 font-bold' : 'text-gray-600'}`}>
-                            {student.name} {student.name === CURRENT_USER_ID && "(Bạn)"}
-                          </span>
-                        </div>
-                        <span className="font-extrabold text-gray-700 flex items-center gap-1">
-                          {student.count} bài done {student.rank === 1 ? '🥇' : student.rank === 2 ? '🥈' : student.rank === 3 ? '🥉' : ''}
-                        </span>
+                  {leaderboardData.map((student) => (
+                    <div key={student.rank} className="flex items-center justify-between text-xs border-b border-gray-50 pb-2.5 last:border-0 last:pb-0">
+                      <div className="flex items-center gap-3">
+                        <span className={`w-6 h-6 rounded-full font-bold flex items-center justify-center text-[11px] ${student.rank === 1 ? 'bg-amber-100 text-amber-800' : student.rank === 2 ? 'bg-slate-100 text-slate-700' : 'bg-orange-50 text-orange-800'}`}>{student.rank}</span>
+                        <span className={`font-semibold ${student.name === CURRENT_USER_ID ? 'text-green-500 font-bold' : 'text-gray-600'}`}>{student.name} {student.name === CURRENT_USER_ID && "(Bạn)"}</span>
                       </div>
-                    ))
-                  ) : (
-                    <p className="text-gray-400 text-xs text-center font-medium py-4">Đang tính toán thứ hạng bài làm...</p>
-                  )}
+                      <span className="font-extrabold text-gray-700 flex items-center gap-1">{student.count} bài done {student.rank === 1 ? '🥇' : student.rank === 2 ? '🥈' : student.rank === 3 ? '🥉' : ''}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -468,7 +438,7 @@ export default function HomePage() {
           return (
             <div>
               <h2 className="text-xl font-extrabold text-gray-800 mb-2">Vocabulary (Từ vựng)</h2>
-              <p className="text-gray-500 text-sm mb-6">Chọn hình thức học từ vựng bạn muốn thực hành.</p>
+              <p className="text-gray-500 text-sm mb-6">Chọn hình thức học từ vựng you want to practice.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {VOCAB_SUBMENU.map((sub) => (
                   <button key={sub.key} onClick={() => setVocabSubMenu(sub.key)} className="flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white shadow-sm hover:border-green-300 hover:shadow-md transition duration-200 text-left">
@@ -517,13 +487,21 @@ export default function HomePage() {
           return (
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <button onClick={() => setExerciseSkill(null)} className="text-xs text-gray-400 hover:text-green-600 transition">← Bài tập</button>
+                <button onClick={() => { setExerciseSkill(null); setExercisePart(null); }} className="text-xs text-gray-400 hover:text-green-600 transition">← Bài tập</button>
                 <span className="text-xs text-gray-300">/</span>
                 <span className="text-xs font-semibold text-green-400">{skillInfo?.label}</span>
+                {exercisePart === 'grammar_list' && (
+                  <>
+                    <span className="text-xs text-gray-300"> / </span>
+                    <span className="text-xs font-semibold text-green-500">Luyện tập Ngữ pháp</span>
+                  </>
+                )}
               </div>
               <h2 className="text-xl font-extrabold text-gray-800 mb-1">{skillInfo?.icon} {skillInfo?.label}</h2>
-              <p className="text-gray-500 text-sm mb-4">Chọn Part tiêu điểm để bắt đầu quá trình nạp kiến thức.</p>
-              {renderExercisePartCards(exerciseSkill)}
+              <p className="text-gray-500 text-sm mb-4">Chọn tiêu điểm chuyên sâu để bắt đầu làm bài.</p>
+              
+              {/* 🌟 NÂNG CẤP LOGIC CHỌN CARD BÀI TẬP: Nếu click vào 'Luyện tập Ngữ pháp' thì render 12 bài, ngược lại render các Part */}
+              {exercisePart === 'grammar_list' ? renderGrammarExerciseCards() : renderExercisePartCards(exerciseSkill)}
             </div>
           );
         }
@@ -535,11 +513,7 @@ export default function HomePage() {
               <p className="text-gray-500 text-sm mb-6">Chọn giáo trình đề thi thử định dạng chuẩn IIG.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {EXAM_BOOKS.map((book) => (
-                  <button key={book.key} onClick={() => setExamBook(book.key)} className="flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white shadow-sm hover:border-green-300 hover:shadow-md transition duration-200 text-left">
-                    <span className="text-2xl">{book.icon}</span>
-                    <span className="font-bold text-gray-800 text-sm">{book.label}</span>
-                    <span className="text-xs text-gray-400">Trọn bộ 10 bài thi mẫu</span>
-                  </button>
+                  <button key={book.key} onClick={() => setExamBook(book.key)} className="flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white shadow-sm hover:border-green-300 hover:shadow-md transition duration-200 text-left"><span className="text-2xl">{book.icon}</span><span className="font-bold text-gray-800 text-sm">{book.label}</span><span className="text-xs text-gray-400">Trọn bộ 10 bài thi mẫu</span></button>
                 ))}
               </div>
             </div>
@@ -548,11 +522,7 @@ export default function HomePage() {
           const bookInfo = EXAM_BOOKS.find(b => b.key === examBook);
           return (
             <div>
-              <div className="flex items-center gap-2 mb-1">
-                <button onClick={() => setExamBook(null)} className="text-xs text-gray-400 hover:text-green-600 transition">← Luyện đề</button>
-                <span className="text-xs text-gray-300">/</span>
-                <span className="text-xs font-semibold text-green-400">{bookInfo?.label}</span>
-              </div>
+              <div className="flex items-center gap-2 mb-1"><button onClick={() => setExamBook(null)} className="text-xs text-gray-400 hover:text-green-600 transition">← Luyện đề</button><span className="text-xs text-gray-300">/</span><span className="text-xs font-semibold text-green-400">{bookInfo?.label}</span></div>
               <h2 className="text-xl font-extrabold text-gray-800 mb-1">{bookInfo?.icon} Bộ đề {bookInfo?.label}</h2>
               <p className="text-gray-500 text-sm mb-4">Chọn đề thi thử để bắt đầu làm bài tính thời gian (120 phút).</p>
               {renderExamTestCards(examBook)}
@@ -585,9 +555,7 @@ export default function HomePage() {
               {item === 'Ngữ pháp' && activeMenu === 'Ngữ pháp' && (
                 <div className="mt-1 ml-2 flex flex-col gap-0.5">
                   {GRAMMAR_SUBMENU.map((sub) => (
-                    <button key={sub.key} onClick={() => setGrammarSubMenu(sub.key)} className={`text-left w-full px-3 py-2 rounded-lg text-xs font-medium transition duration-150 flex items-center gap-1.5 ${grammarSubMenu === sub.key ? 'bg-white/90 text-green-800 font-bold shadow-sm' : 'text-white/90 hover:bg-white/20'}`}>
-                      <span>{sub.icon}</span><span>{sub.label}</span>
-                    </button>
+                    <button key={sub.key} onClick={() => setGrammarSubMenu(sub.key)} className={`text-left w-full px-3 py-2 rounded-lg text-xs font-medium transition duration-150 flex items-center gap-1.5 ${grammarSubMenu === sub.key ? 'bg-white/90 text-green-800 font-bold shadow-sm' : 'text-white/90 hover:bg-white/20'}`}><span>{sub.icon}</span><span>{sub.label}</span></button>
                   ))}
                 </div>
               )}
@@ -595,9 +563,7 @@ export default function HomePage() {
               {item === 'Từ vựng' && activeMenu === 'Từ vựng' && (
                 <div className="mt-1 ml-2 flex flex-col gap-0.5">
                   {VOCAB_SUBMENU.map((sub) => (
-                    <button key={sub.key} onClick={() => setVocabSubMenu(sub.key)} className={`text-left w-full px-3 py-2 rounded-lg text-xs font-medium transition duration-150 flex items-center gap-1.5 ${vocabSubMenu === sub.key ? 'bg-white/90 text-green-800 font-bold shadow-sm' : 'text-white/90 hover:bg-white/20'}`}>
-                      <span>{sub.icon}</span><span>{sub.label}</span>
-                    </button>
+                    <button key={sub.key} onClick={() => setVocabSubMenu(sub.key)} className={`text-left w-full px-3 py-2 rounded-lg text-xs font-medium transition duration-150 flex items-center gap-1.5 ${vocabSubMenu === sub.key ? 'bg-white/90 text-green-800 font-bold shadow-sm' : 'text-white/90 hover:bg-white/20'}`}><span>{sub.icon}</span><span>{sub.label}</span></button>
                   ))}
                 </div>
               )}
@@ -606,13 +572,11 @@ export default function HomePage() {
                 <div className="mt-1 ml-2 flex flex-col gap-0.5">
                   {EXERCISE_SKILLS.map((skill) => (
                     <div key={skill.key} className="flex flex-col">
-                      <button onClick={() => { setExerciseSkill(skill.key); setExercisePart(null); }} className={`text-left w-full px-3 py-2 rounded-lg text-xs font-medium transition duration-150 flex items-center gap-1.5 ${exerciseSkill === skill.key ? 'bg-white/90 text-green-800 font-bold shadow-sm' : 'text-white/90 hover:bg-white/20'}`}>
-                        <span>{skill.icon}</span><span>{skill.label}</span>
-                      </button>
+                      <button onClick={() => { setExerciseSkill(skill.key); setExercisePart(null); }} className={`text-left w-full px-3 py-2 rounded-lg text-xs font-medium transition duration-150 flex items-center gap-1.5 ${exerciseSkill === skill.key ? 'bg-white/90 text-green-800 font-bold shadow-sm' : 'text-white/90 hover:bg-white/20'}`}><span>{skill.icon}</span><span>{skill.label}</span></button>
                       {exerciseSkill === skill.key && (
                         <div className="mt-0.5 ml-3 pl-1.5 border-l border-white/40 flex flex-col gap-0.5">
                           {EXERCISE_PARTS[skill.key].map((part) => (
-                            <button key={part.key} onClick={() => { setExercisePart(part.key); handleExerciseNavigation(part.key); }} className={`text-left w-full py-1.5 px-2 rounded-md text-[11px] transition duration-150 line-clamp-1 ${exercisePart === part.key ? 'bg-white/70 text-green-900 font-bold' : 'text-white/80 hover:text-white hover:bg-white/10'}`}>Part {part.key.split('_p')[1]?.toUpperCase()}</button>
+                            <button key={part.key} onClick={() => { setExercisePart(part.key); handleExerciseNavigation(part.key); }} className={`text-left w-full py-1.5 px-2 rounded-md text-[11px] transition duration-150 line-clamp-1 ${exercisePart === part.key ? 'bg-white/70 text-green-900 font-bold' : 'text-white/80 hover:text-white hover:bg-white/10'}`}>Part {part.key === 'grammar_list' ? 'Grammar' : part.key.split('_p')[1]?.toUpperCase()}</button>
                           ))}
                         </div>
                       )}
@@ -624,9 +588,7 @@ export default function HomePage() {
               {item === 'Luyện đề' && activeMenu === 'Luyện đề' && (
                 <div className="mt-1 ml-2 flex flex-col gap-0.5">
                   {EXAM_BOOKS.map((book) => (
-                    <button key={book.key} onClick={() => setExamBook(book.key)} className={`text-left w-full px-3 py-2 rounded-lg text-xs font-medium transition duration-150 flex items-center gap-1.5 ${examBook === book.key ? 'bg-white/90 text-green-800 font-bold shadow-sm' : 'text-white/90 hover:bg-white/20'}`}>
-                      <span>{book.icon}</span><span>{book.label}</span>
-                    </button>
+                    <button key={book.key} onClick={() => setExamBook(book.key)} className={`text-left w-full px-3 py-2 rounded-lg text-xs font-medium transition duration-150 flex items-center gap-1.5 ${examBook === book.key ? 'bg-white/90 text-green-800 font-bold shadow-sm' : 'text-white/90 hover:bg-white/20'}`}><span>{book.icon}</span><span>{book.label}</span></button>
                   ))}
                 </div>
               )}
