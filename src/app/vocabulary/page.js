@@ -85,17 +85,17 @@ function VocabularyContent() {
 
   const topic = VOCAB_TOPICS.find(t => String(t.id) === String(topicId));
 
-  // States tổng
+  // States tổng hệ thống
   const [shuffledPool, setShuffledPool] = useState([]); 
   const [words, setWords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // States Flashcards
+  // States chế độ Flashcards
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false); 
 
-  // States Game Tìm Cặp
+  // States chế độ Tìm Cặp (Matching)
   const [currentRound, setCurrentRound] = useState(1); 
   const [matchCards, setMatchCards] = useState([]);
   const [selectedCards, setSelectedCards] = useState([]);
@@ -104,30 +104,30 @@ function VocabularyContent() {
   const [correctCards, setCorrectCards] = useState([]); 
   const [isChecking, setIsChecking] = useState(false);
 
-  // States Nghe từ vựng
+  // States chế độ Nghe từ vựng
   const [listenIndex, setListenIndex] = useState(0);
   const [userAnswer, setUserAnswer] = useState('');
   const [listenChecked, setListenChecked] = useState(false);
   const [listenResult, setListenResult] = useState(null); 
   const [voiceAccent, setVoiceAccent] = useState('en-US'); 
 
-  // States Trắc nghiệm từ vựng
+  // States chế độ Trắc nghiệm từ vựng (50 câu ngẫu nhiên)
   const [quizQuestions, setQuizQuestions] = useState([]);
   const [quizIndex, setQuizIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState(null);
   const [quizChecked, setQuizChecked] = useState(false);
   const [quizScore, setQuizScore] = useState(0);
 
-  // 🌟 States MINI-GAME ĐUA TỐC ĐỘ GÕ TỪ (MỚI)
+  // States chế độ ĐUA TỐC ĐỘ PHẢN XẠ (Typer Challenge)
   const [typerIndex, setTyperIndex] = useState(0);
   const [typerInput, setTyperInput] = useState('');
   const [typerScore, setTyperScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(15); // 15 giây cho mỗi từ
+  const [timeLeft, setTimeLeft] = useState(15); 
   const [isTyperFinished, setIsTyperFinished] = useState(false);
 
   const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
 
-  // FETCH VÀ KHỞI TẠO DỮ LIỆU
+  // ĐỒNG BỘ DỮ LIỆU BAN ĐẦU
   useEffect(() => {
     if (!topicId) return;
 
@@ -147,7 +147,6 @@ function VocabularyContent() {
         setQuizChecked(false);
         setQuizScore(0);
 
-        // Reset Typer Game States
         setTyperIndex(0);
         setTyperInput('');
         setTyperScore(0);
@@ -186,7 +185,7 @@ function VocabularyContent() {
         const randomizedPool = shuffleArray([...parsedData]);
         setShuffledPool(randomizedPool);
 
-        // KHỞI TẠO ĐỢT 1 CHO TÌM CẶP
+        // Khởi tạo đợt 1 cho Tìm cặp
         if (mode === 'match') {
           const itemsPerRound = 10;
           const roundWords = randomizedPool.slice(0, itemsPerRound);
@@ -198,7 +197,7 @@ function VocabularyContent() {
           setMatchCards(shuffleArray(generatedCards));
         }
 
-        // KHỞI TẠO TRẮC NGHIỆM 50 CÂU
+        // Khởi tạo 50 câu trắc nghiệm ngẫu nhiên
         if (mode === 'quiz') {
           const generatedQuestions = randomizedPool.map((item) => {
             const distractors = parsedData
@@ -231,12 +230,11 @@ function VocabularyContent() {
     fetchAndParseExcelData();
   }, [topicId, mode]);
 
-  // 🌟 HIỆU ỨNG ĐẾM NGƯỢC THỜI GIAN CHO MINI-GAME GÕ CHỮ (WORD TYPER)
+  // LUỒNG TIME-ATTACK ĐẾM NGƯỢC CHO PHẦN ĐUA TỐC ĐỘ PHẢN XẠ
   useEffect(() => {
     if (mode !== 'typer' || isTyperFinished || loading || shuffledPool.length === 0) return;
 
     if (timeLeft === 0) {
-      // Hết giờ câu này: Tự động chuyển sang từ tiếp theo
       handleNextTyperWord();
       return;
     }
@@ -248,7 +246,7 @@ function VocabularyContent() {
     return () => clearInterval(timer);
   }, [timeLeft, mode, isTyperFinished, loading, shuffledPool]);
 
-  // LUỒNG SOUND CHO NGHE TỪ VỰNG
+  // PHÁT ÂM THANH TEXT-TO-SPEECH
   const playAudio = (text, type = 'word') => {
     if (typeof window === 'undefined' || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
@@ -277,7 +275,7 @@ function VocabularyContent() {
     setMatchCards(shuffleArray(generatedCards));
   };
 
-  // ĐỒNG BỘ TIẾN TRÌNH LÊN FIREBASE KHI KẾT THÚC
+  // LƯU TIẾN TRÌNH LÊN FIREBASE FIRESTORE
   const handleFinishSession = async (finalScore = null) => {
     if (!CURRENT_USER_ID) {
       router.push('/home');
@@ -295,7 +293,7 @@ function VocabularyContent() {
         updatedAt: new Date().toISOString()
       }, { merge: true });
 
-      alert(`🎉 Hoàn thành xuất sắc bài học! Điểm số tổng của bạn: ${scoreToSave}/${totalToSave}`);
+      alert(`🎉 Hoàn thành bài học! Kết quả ghi nhận: ${scoreToSave}/${totalToSave}`);
       router.push('/home');
     } catch (err) {
       console.error(err);
@@ -303,7 +301,7 @@ function VocabularyContent() {
     }
   };
 
-  // LOGIC ĐÁP ÁN PHẦN NGHE TỪ VỰNG
+  // LOGIC ĐÁP ÁN PHẦN NGHE
   const handleCheckListenAnswer = () => {
     if (!userAnswer.trim()) return;
     const correctAnswer = shuffledPool[listenIndex]?.word.toLowerCase().trim();
@@ -323,7 +321,7 @@ function VocabularyContent() {
     }
   };
 
-  // LOGIC KIỂM TRA ĐÁP ÁN TRẮC NGHIỆM 50 CÂU
+  // LOGIC ĐÁP ÁN PHẦN TRẮC NGHIỆM 50 CÂU
   const handleCheckQuizAnswer = () => {
     if (!selectedOption || quizChecked) return;
     setQuizChecked(true);
@@ -344,7 +342,7 @@ function VocabularyContent() {
     }
   };
 
-  // 🌟 LOGIC TỰ ĐỘNG CHUYỂN TỪ HOẶC CHECK ĐÁP ÁN KHI USER GÕ PHẦN MINI-GAME (TYPER)
+  // LOGIC ĐÁP ÁN PHẦN ĐUA PHẢN XẠ GÕ CHỮ
   const handleTyperInputChange = (e) => {
     const val = e.target.value;
     setTyperInput(val);
@@ -358,18 +356,17 @@ function VocabularyContent() {
 
   const handleNextTyperWord = () => {
     setTyperInput('');
-    setTimeLeft(15); // Reset lại 15 giây cho từ mới
+    setTimeLeft(15); 
     
     if (typerIndex < shuffledPool.length - 1) {
       setTyperIndex(prev => prev + 1);
     } else {
       setIsTyperFinished(true);
-      // Kết thúc game, truyền điểm số nộp Firebase
       handleFinishSession(typerScore + 1); 
     }
   };
 
-  // LOGIC TÌM CẶP
+  // LOGIC ĐÁP ÁN PHẦN TÌM CẶP
   const handleCardClick = (card) => {
     if (isChecking || matchedCards.includes(card.uniqueId) || selectedCards.some(c => c.uniqueId === card.uniqueId)) return;
     const newSelection = [...selectedCards, card];
@@ -412,7 +409,7 @@ function VocabularyContent() {
     }
   };
 
-  // LOGIC FLASHCARDS
+  // LOGIC ĐIỀU HƯỚNG FLASHCARDS
   const handleNextCard = () => {
     setIsFlipped(false);
     setTimeout(() => {
@@ -596,9 +593,9 @@ function VocabularyContent() {
 
             <div className="w-full flex items-center justify-between px-1">
               {!listenChecked ? (
-                <button onClick={handleCheckListenAnswer} disabled={!userAnswer.trim()} className="w-full bg-green-400 text-white font-bold text-xs p-3.5 rounded-xl transition hover:opacity-95 disabled:opacity-40 shadow-md">Kiểm tra đáp án ✔</button>
+                <button onClick={handleCheckListenAnswer} disabled={!userAnswer.trim()} className="w-full bg-green-400 text-white font-bold text-xs p-3.5 rounded-xl shadow-md border-none cursor-pointer">Kiểm tra đáp án ✔</button>
               ) : (
-                <button onClick={handleNextListenCard} className="w-full bg-gray-800 text-white font-bold text-xs p-3.5 rounded-xl transition hover:opacity-95 shadow-md">
+                <button onClick={handleNextListenCard} className="w-full bg-gray-800 text-white font-bold text-xs p-3.5 rounded-xl shadow-md border-none cursor-pointer">
                   {listenIndex === shuffledPool.length - 1 ? 'Hoàn thành bài nghe 🎉' : 'Từ tiếp theo →'}
                 </button>
               )}
@@ -682,28 +679,25 @@ function VocabularyContent() {
       );
 
     case 'typer':
-      // 🌟 PHÁT TRIỂN MỚI: GIAO DIỆN MINI-GAME ĐUA TỐC ĐỘ GÕ TỪ CHUẨN XÁC (`mode=typer`)
+      // 🌟 ĐÃ CẬP NHẬT TÊN MỚI: ĐUA TỐC ĐỘ PHẢN XẠ (`mode=typer`)
       if (shuffledPool.length === 0) return null;
       const currentTyperWord = shuffledPool[typerIndex];
       const maskedTyperSentence = currentTyperWord?.example.replace(new RegExp(`\\b${currentTyperWord?.word}\\b`, 'gi'), '_____');
 
       return (
         <div className={`${roboto.className} min-h-screen bg-gray-50 flex flex-col antialiased`}>
-          {/* HEADER GAME */}
           <header className="bg-green-400 p-3.5 px-5 flex items-center justify-between shadow-md">
             <button onClick={() => router.back()} className="bg-white/20 border-none rounded-lg p-1.5 px-3 text-white text-xs font-bold cursor-pointer transition hover:bg-white/30">← Bỏ cuộc</button>
-            <span className="text-white font-black text-sm text-center flex-1">⚡ Đua tốc độ gõ chữ — {topic?.title}</span>
+            <span className="text-white font-black text-sm text-center flex-1">⚡ Đua tốc độ phản xạ — {topic?.title}</span>
             <span className="text-white text-xs font-bold bg-emerald-600 px-3 py-1.5 rounded-full">Từ: {typerIndex + 1}/{shuffledPool.length}</span>
           </header>
 
           <div className="flex-1 max-w-xl w-full mx-auto p-4 flex flex-col justify-center gap-6">
-            
-            {/* VÙNG ĐẾM NGƯỢC THỜI GIAN THEO GIÂY VÀ ĐIỂM SỐ SỐNG ĐỘNG */}
             <div className="flex items-center justify-between bg-white border border-gray-100 p-4 px-6 rounded-2xl shadow-sm w-full">
               <div className="flex items-center gap-2">
                 <span className="text-xl">⏱️</span>
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase">Thời gian còn lại</span>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Thời gian phản xạ</span>
                   <span className={`text-xl font-black ${timeLeft <= 5 ? 'text-red-500 animate-pulse' : 'text-gray-700'}`}>{timeLeft} giây</span>
                 </div>
               </div>
@@ -719,7 +713,6 @@ function VocabularyContent() {
               </div>
             </div>
 
-            {/* THANH THỜI GIAN CO NGẮN TRỰC QUAN ĐỂ TẠO ÁP LỰC GIẢI TRÍ */}
             <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden shadow-inner">
               <div 
                 className={`h-full transition-all duration-1000 ease-linear ${timeLeft <= 5 ? 'bg-red-500' : 'bg-amber-400'}`} 
@@ -727,43 +720,39 @@ function VocabularyContent() {
               />
             </div>
 
-            {/* CARD GỢI Ý CÂU HỎI VÀ ĐỤC LỖ NGỮ CẢNH */}
             <div className="w-full bg-white rounded-3xl border border-gray-100 shadow-xl p-6 flex flex-col items-center gap-4 text-center">
-              <span className="text-[10px] font-black text-green-400 tracking-widest uppercase">Spelling & Context Clue</span>
+              <span className="text-[10px] font-black text-green-400 tracking-widest uppercase">Recall & Spelling Match</span>
               
               <div className="w-full bg-gray-50 rounded-2xl p-4 border border-gray-100 my-1">
                 <span className="text-[9px] font-black text-gray-400 tracking-wider uppercase block mb-1">Nghĩa tiếng Việt cần tìm</span>
                 <p className="text-gray-800 font-black text-lg leading-snug">{currentTyperWord?.meaning}</p>
-                <p className="text-gray-400 font-mono text-xs font-bold mt-1 bg-white inline-block px-3 py-0.5 rounded-full border border-gray-100">Ký tự gợi ý: {currentTyperWord?.word.length} chữ cái | {currentTyperWord?.ipa}</p>
+                <p className="text-gray-400 font-mono text-xs font-bold mt-1 bg-white inline-block px-3 py-0.5 rounded-full border border-gray-100">Độ dài: {currentTyperWord?.word.length} chữ cái | {currentTyperWord?.ipa}</p>
               </div>
 
               <div className="w-full bg-emerald-50/30 rounded-2xl p-4 border border-emerald-100/40 text-left">
-                <span className="text-[9px] font-black text-emerald-600 tracking-wider uppercase block mb-1">Ngữ cảnh câu hỗ trợ</span>
+                <span className="text-[9px] font-black text-emerald-600 tracking-wider uppercase block mb-1">Ngữ cảnh câu gợi ý</span>
                 <p className="text-gray-600 italic text-xs leading-relaxed font-medium">"{maskedTyperSentence}"</p>
               </div>
 
-              {/* Ô NHẬP LIỆU TỐC ĐỘ (INPUT CHỮ) */}
               <div className="w-full flex flex-col gap-2 mt-2">
                 <input 
                   type="text"
                   autoFocus
                   value={typerInput}
                   onChange={handleTyperInputChange}
-                  placeholder="Nhìn nghĩa dịch và gõ nhanh từ tiếng Anh..."
+                  placeholder="Nhìn nghĩa dịch và gõ thật nhanh từ tiếng Anh..."
                   className="w-full p-4 border border-gray-200 rounded-2xl text-center font-black text-base tracking-wide bg-white focus:outline-none focus:border-green-400 focus:ring-4 focus:ring-green-50 shadow-inner"
                 />
-                <span className="text-[10px] font-bold text-gray-300 animate-pulse">💡 Hệ thống tự động nhảy từ mới ngay khi bạn gõ chính xác 100%!</span>
+                <span className="text-[10px] font-bold text-gray-300">💡 Hệ thống tự động nhảy từ mới ngay khi bạn gõ chính xác 100%!</span>
               </div>
             </div>
 
-            {/* NÚT BỎ QUA CÂU NẾU GẶP TỪ KHÓ TRONG GAME */}
             <button 
               onClick={handleNextTyperWord}
               className="w-full bg-gray-200 text-gray-500 font-bold text-xs p-3.5 rounded-xl border-none cursor-pointer transition hover:bg-gray-300 shadow-sm"
             >
               Bỏ qua từ này (Chấp nhận tính sai) ➔
             </button>
-
           </div>
         </div>
       );
