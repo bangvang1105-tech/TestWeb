@@ -85,7 +85,7 @@ function VocabularyContent() {
 
   const topic = VOCAB_TOPICS.find(t => String(t.id) === String(topicId));
 
-  // States dữ liệu tổng
+  // States tổng
   const [shuffledPool, setShuffledPool] = useState([]); 
   const [words, setWords] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -111,16 +111,23 @@ function VocabularyContent() {
   const [listenResult, setListenResult] = useState(null); 
   const [voiceAccent, setVoiceAccent] = useState('en-US'); 
 
-  // States Trắc nghiệm từ vựng nâng cao (Quản lý trọn vẹn 50 từ ngẫu nhiên)
+  // States Trắc nghiệm từ vựng
   const [quizQuestions, setQuizQuestions] = useState([]);
   const [quizIndex, setQuizIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState(null);
   const [quizChecked, setQuizChecked] = useState(false);
   const [quizScore, setQuizScore] = useState(0);
 
+  // 🌟 States MINI-GAME ĐUA TỐC ĐỘ GÕ TỪ (MỚI)
+  const [typerIndex, setTyperIndex] = useState(0);
+  const [typerInput, setTyperInput] = useState('');
+  const [typerScore, setTyperScore] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(15); // 15 giây cho mỗi từ
+  const [isTyperFinished, setIsTyperFinished] = useState(false);
+
   const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
 
-  // FETCH VÀ KHỞI TẠO DỮ LIỆU TỪ EXCEL & DRIVE
+  // FETCH VÀ KHỞI TẠO DỮ LIỆU
   useEffect(() => {
     if (!topicId) return;
 
@@ -139,6 +146,13 @@ function VocabularyContent() {
         setSelectedOption(null);
         setQuizChecked(false);
         setQuizScore(0);
+
+        // Reset Typer Game States
+        setTyperIndex(0);
+        setTyperInput('');
+        setTyperScore(0);
+        setTimeLeft(15);
+        setIsTyperFinished(false);
 
         const docSnap = await getDoc(doc(db, 'vocab_lessons', String(topicId)));
         if (!docSnap.exists()) {
@@ -169,7 +183,6 @@ function VocabularyContent() {
 
         setWords(parsedData);
 
-        // Trộn ngẫu nhiên toàn bộ bể từ vựng (50 từ) để phục vụ các phân hệ phản xạ nhanh
         const randomizedPool = shuffleArray([...parsedData]);
         setShuffledPool(randomizedPool);
 
@@ -185,16 +198,13 @@ function VocabularyContent() {
           setMatchCards(shuffleArray(generatedCards));
         }
 
-        // 🌟 KHỞI TẠO BỘ TRẮC NGHIỆM CHO TOÀN BỘ CẢ 50 TỪ VỰNG NGẪU NHIÊN
+        // KHỞI TẠO TRẮC NGHIỆM 50 CÂU
         if (mode === 'quiz') {
           const generatedQuestions = randomizedPool.map((item) => {
-            // Lấy 3 từ vựng khác bất kỳ trong danh sách để làm đáp án nhiễu (distractors)
             const distractors = parsedData
               .filter(w => w.word !== item.word)
               .map(w => w.word);
             const randomDistractors = shuffleArray(distractors).slice(0, 3);
-            
-            // Trộn đáp án đúng với 3 đáp án sai để vị trí A, B, C, D hoàn toàn ngẫu nhiên
             const options = shuffleArray([item.word, ...randomDistractors]);
             
             return {
@@ -203,7 +213,6 @@ function VocabularyContent() {
               ipa: item.ipa,
               meaning: item.meaning,
               example: item.example,
-              // Tạo câu hỏi đục lỗ chuẩn form TOEIC Part 5
               maskedSentence: item.example.replace(new RegExp(`\\b${item.word}\\b`, 'gi'), '_____'),
               options: options
             };
@@ -222,7 +231,24 @@ function VocabularyContent() {
     fetchAndParseExcelData();
   }, [topicId, mode]);
 
-  // HÀM AUDIO TEXT-TO-SPEECH
+  // 🌟 HIỆU ỨNG ĐẾM NGƯỢC THỜI GIAN CHO MINI-GAME GÕ CHỮ (WORD TYPER)
+  useEffect(() => {
+    if (mode !== 'typer' || isTyperFinished || loading || shuffledPool.length === 0) return;
+
+    if (timeLeft === 0) {
+      // Hết giờ câu này: Tự động chuyển sang từ tiếp theo
+      handleNextTyperWord();
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setTimeLeft(prev => prev - 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [timeLeft, mode, isTyperFinished, loading, shuffledPool]);
+
+  // LUỒNG SOUND CHO NGHE TỪ VỰNG
   const playAudio = (text, type = 'word') => {
     if (typeof window === 'undefined' || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
@@ -232,16 +258,6 @@ function VocabularyContent() {
     window.speechSynthesis.speak(utterance);
   };
 
-  useEffect(() => {
-    if (mode === 'listen' && shuffledPool.length > 0 && !loading) {
-      const timer = setTimeout(() => {
-        playAudio(shuffledPool[listenIndex]?.word, 'word');
-      }, 400);
-      return () => clearTimeout(timer);
-    }
-  }, [listenIndex, mode, loading, voiceAccent]);
-
-  // HÀM TẠO THẺ TÌM CẶP THEO HIỆP
   const generateRoundCards = (pool, roundNumber) => {
     const itemsPerRound = 10;
     const startIndex = (roundNumber - 1) * itemsPerRound;
@@ -261,14 +277,14 @@ function VocabularyContent() {
     setMatchCards(shuffleArray(generatedCards));
   };
 
-  // ĐỒNG BỘ TIẾN TRÌNH LÊN FIREBASE
+  // ĐỒNG BỘ TIẾN TRÌNH LÊN FIREBASE KHI KẾT THÚC
   const handleFinishSession = async (finalScore = null) => {
     if (!CURRENT_USER_ID) {
       router.push('/home');
       return;
     }
     const scoreToSave = finalScore !== null ? finalScore : (mode === 'match' ? 50 : words.length);
-    const totalToSave = mode === 'quiz' ? quizQuestions.length : (mode === 'match' ? 50 : words.length);
+    const totalToSave = mode === 'quiz' || mode === 'typer' ? shuffledPool.length : words.length;
     
     try {
       const progressRef = doc(db, 'users', CURRENT_USER_ID, 'progress', `vocab_${mode}_${topicId}`);
@@ -279,7 +295,7 @@ function VocabularyContent() {
         updatedAt: new Date().toISOString()
       }, { merge: true });
 
-      alert(`🎉 Hoàn thành xuất sắc bài học! Điểm số trắc nghiệm tổng của bạn: ${scoreToSave}/${totalToSave}`);
+      alert(`🎉 Hoàn thành xuất sắc bài học! Điểm số tổng của bạn: ${scoreToSave}/${totalToSave}`);
       router.push('/home');
     } catch (err) {
       console.error(err);
@@ -307,10 +323,9 @@ function VocabularyContent() {
     }
   };
 
-  // LOGIC XỬ LÝ KIỂM TRA ĐÁP ÁN TRẮC NGHIỆM 50 CÂU
+  // LOGIC KIỂM TRA ĐÁP ÁN TRẮC NGHIỆM 50 CÂU
   const handleCheckQuizAnswer = () => {
     if (!selectedOption || quizChecked) return;
-    
     setQuizChecked(true);
     if (selectedOption === quizQuestions[quizIndex].correctAnswer) {
       setQuizScore(prev => prev + 1);
@@ -319,12 +334,9 @@ function VocabularyContent() {
 
   const handleNextQuizQuestion = () => {
     const isLastQuestion = quizIndex === quizQuestions.length - 1;
-    // Tính điểm cộng dồn cho câu cuối cùng nếu chọn đúng
     const finalCalculatedScore = quizScore + (selectedOption === quizQuestions[quizIndex].correctAnswer ? 1 : 0);
-
     setSelectedOption(null);
     setQuizChecked(false);
-    
     if (!isLastQuestion) {
       setQuizIndex(prev => prev + 1);
     } else {
@@ -332,17 +344,40 @@ function VocabularyContent() {
     }
   };
 
+  // 🌟 LOGIC TỰ ĐỘNG CHUYỂN TỪ HOẶC CHECK ĐÁP ÁN KHI USER GÕ PHẦN MINI-GAME (TYPER)
+  const handleTyperInputChange = (e) => {
+    const val = e.target.value;
+    setTyperInput(val);
+
+    const targetWord = shuffledPool[typerIndex]?.word.toLowerCase().trim();
+    if (val.toLowerCase().trim() === targetWord) {
+      setTyperScore(prev => prev + 1);
+      handleNextTyperWord();
+    }
+  };
+
+  const handleNextTyperWord = () => {
+    setTyperInput('');
+    setTimeLeft(15); // Reset lại 15 giây cho từ mới
+    
+    if (typerIndex < shuffledPool.length - 1) {
+      setTyperIndex(prev => prev + 1);
+    } else {
+      setIsTyperFinished(true);
+      // Kết thúc game, truyền điểm số nộp Firebase
+      handleFinishSession(typerScore + 1); 
+    }
+  };
+
   // LOGIC TÌM CẶP
   const handleCardClick = (card) => {
     if (isChecking || matchedCards.includes(card.uniqueId) || selectedCards.some(c => c.uniqueId === card.uniqueId)) return;
-
     const newSelection = [...selectedCards, card];
     setSelectedCards(newSelection);
 
     if (newSelection.length === 2) {
       setIsChecking(true);
       const [first, second] = newSelection;
-
       if (first.pairId === second.pairId && first.type !== second.type) {
         setCorrectCards([first.uniqueId, second.uniqueId]);
         setTimeout(() => {
@@ -573,13 +608,11 @@ function VocabularyContent() {
       );
 
     case 'quiz':
-      // 🌟 PHÁT TRIỂN MỚI: QUẢN LÝ TRỌN VẸN CẢ 50 CÂU TRẮC NGHIỆM KHÔNG TRÙNG LẶP (`mode=quiz`)
       if (quizQuestions.length === 0) return null;
       const currentQuestion = quizQuestions[quizIndex];
 
       return (
         <div className={`${roboto.className} min-h-screen bg-gray-50 flex flex-col antialiased`}>
-          {/* HEADER TRẮC NGHIỆM */}
           <header className="bg-green-400 p-3.5 px-5 flex items-center justify-between shadow-md">
             <button onClick={() => router.back()} className="bg-white/20 border-none rounded-lg p-1.5 px-3 text-white text-xs font-bold cursor-pointer transition hover:bg-white/30">← Thoát</button>
             <span className="text-white font-black text-sm text-center flex-1">📝 Trắc nghiệm từ vựng — {topic?.title}</span>
@@ -587,45 +620,30 @@ function VocabularyContent() {
           </header>
 
           <div className="flex-1 max-w-xl w-full mx-auto p-4 flex flex-col justify-center gap-5">
-            {/* THANH TIẾN TRÌNH TRỰC QUAN DỰA TRÊN TỔNG SỐ CÂU HỎI */}
             <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden shadow-inner">
               <div className="bg-green-400 h-full transition-all duration-300" style={{ width: `${((quizIndex + 1) / quizQuestions.length) * 100}%` }} />
             </div>
 
-            {/* CARD THỂ HIỆN CÂU HỎI NGỮ CẢNH */}
             <div className="w-full bg-white rounded-3xl border border-gray-100 shadow-xl p-6 flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-black text-green-400 tracking-widest uppercase">TOEIC Form Part 5 Question</span>
                 <span className="text-[11px] font-black text-gray-400 bg-gray-50 px-3 py-0.5 rounded-full border border-gray-100">Đúng: {quizScore} câu</span>
               </div>
-              
-              {/* Câu hỏi đục lỗ chuẩn form TOEIC */}
-              <h3 className="text-gray-800 font-bold text-base leading-relaxed tracking-tight mt-1">
-                "{currentQuestion.maskedSentence}"
-              </h3>
-              
+              <h3 className="text-gray-800 font-bold text-base leading-relaxed tracking-tight mt-1">"{currentQuestion.maskedSentence}"</h3>
               <div className="w-full h-[1px] bg-gray-100 my-1" />
               <p className="text-gray-400 text-xs font-medium">Chọn từ thích hợp điền vào câu trên dựa theo nghĩa: <strong className="text-gray-700 font-bold text-xs">"{currentQuestion.meaning}"</strong></p>
             </div>
 
-            {/* DANH SÁCH 4 LỰA CHỌN TRẮC NGHIỆM (A, B, C, D) */}
             <div className="flex flex-col gap-2.5 w-full">
               {currentQuestion.options.map((option, idx) => {
                 const isSelected = selectedOption === option;
                 const isCorrect = option === currentQuestion.correctAnswer;
-                
                 let optionStyle = 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50';
-                
-                if (!quizChecked && isSelected) {
-                  optionStyle = 'bg-amber-50 border-amber-400 text-amber-800 shadow-sm';
-                } else if (quizChecked) {
-                  if (isCorrect) {
-                    optionStyle = 'bg-green-50 border-green-500 text-green-700 font-bold';
-                  } else if (isSelected && !isCorrect) {
-                    optionStyle = 'bg-red-50 border-red-400 text-red-700';
-                  } else {
-                    optionStyle = 'bg-white border-gray-100 text-gray-300 opacity-60 pointer-events-none';
-                  }
+                if (!quizChecked && isSelected) optionStyle = 'bg-amber-50 border-amber-400 text-amber-800 shadow-sm';
+                else if (quizChecked) {
+                  if (isCorrect) optionStyle = 'bg-green-50 border-green-500 text-green-700 font-bold';
+                  else if (isSelected && !isCorrect) optionStyle = 'bg-red-50 border-red-400 text-red-700';
+                  else optionStyle = 'bg-white border-gray-100 text-gray-300 opacity-60 pointer-events-none';
                 }
 
                 return (
@@ -635,17 +653,13 @@ function VocabularyContent() {
                     onClick={() => setSelectedOption(option)}
                     className={`w-full p-4 border rounded-2xl text-left font-semibold text-sm transition-all duration-150 cursor-pointer flex items-center gap-3 ${optionStyle}`}
                   >
-                    <span className={`w-6 h-6 rounded-xl flex items-center justify-center text-xs font-black border 
-                      ${isSelected ? 'bg-amber-400 border-amber-400 text-white' : 'bg-gray-50 border-gray-200 text-gray-400'}`}>
-                      {String.fromCharCode(65 + idx)}
-                    </span>
+                    <span className={`w-6 h-6 rounded-xl flex items-center justify-center text-xs font-black border ${isSelected ? 'bg-amber-400 border-amber-400 text-white' : 'bg-gray-50 border-gray-200 text-gray-400'}`}>{String.fromCharCode(65 + idx)}</span>
                     {option}
                   </button>
                 );
               })}
             </div>
 
-            {/* CARD GIẢI THÍCH CHI TIẾT NGAY SAU KHI CHECK ĐÁP ÁN */}
             {quizChecked && (
               <div className="w-full bg-gray-800 text-white rounded-2xl p-4 shadow-md flex flex-col gap-1.5 animate-fadeIn">
                 <span className="text-[9px] font-black text-green-400 tracking-wider uppercase">Giải thích ngữ cảnh</span>
@@ -654,25 +668,102 @@ function VocabularyContent() {
               </div>
             )}
 
-            {/* BUTTON ĐIỀU HƯỚNG BÀI BẤM */}
             <div className="w-full mt-1">
               {!quizChecked ? (
-                <button
-                  disabled={!selectedOption}
-                  onClick={handleCheckQuizAnswer}
-                  className="w-full bg-green-400 text-white font-bold text-xs p-4 rounded-xl transition hover:opacity-95 disabled:opacity-40 shadow-md border-none cursor-pointer"
-                >
-                  Kiểm tra câu trả lời
-                </button>
+                <button disabled={!selectedOption} onClick={handleCheckQuizAnswer} className="w-full bg-green-400 text-white font-bold text-xs p-4 rounded-xl shadow-md border-none cursor-pointer">Kiểm tra câu trả lời</button>
               ) : (
-                <button
-                  onClick={handleNextQuizQuestion}
-                  className="w-full bg-gray-800 text-white font-bold text-xs p-4 rounded-xl transition hover:opacity-95 shadow-md border-none cursor-pointer"
-                >
+                <button onClick={handleNextQuizQuestion} className="w-full bg-gray-800 text-white font-bold text-xs p-4 rounded-xl shadow-md border-none cursor-pointer">
                   {quizIndex === quizQuestions.length - 1 ? 'Xem kết quả & Hoàn thành 🎉' : 'Câu tiếp theo →'}
                 </button>
               )}
             </div>
+          </div>
+        </div>
+      );
+
+    case 'typer':
+      // 🌟 PHÁT TRIỂN MỚI: GIAO DIỆN MINI-GAME ĐUA TỐC ĐỘ GÕ TỪ CHUẨN XÁC (`mode=typer`)
+      if (shuffledPool.length === 0) return null;
+      const currentTyperWord = shuffledPool[typerIndex];
+      const maskedTyperSentence = currentTyperWord?.example.replace(new RegExp(`\\b${currentTyperWord?.word}\\b`, 'gi'), '_____');
+
+      return (
+        <div className={`${roboto.className} min-h-screen bg-gray-50 flex flex-col antialiased`}>
+          {/* HEADER GAME */}
+          <header className="bg-green-400 p-3.5 px-5 flex items-center justify-between shadow-md">
+            <button onClick={() => router.back()} className="bg-white/20 border-none rounded-lg p-1.5 px-3 text-white text-xs font-bold cursor-pointer transition hover:bg-white/30">← Bỏ cuộc</button>
+            <span className="text-white font-black text-sm text-center flex-1">⚡ Đua tốc độ gõ chữ — {topic?.title}</span>
+            <span className="text-white text-xs font-bold bg-emerald-600 px-3 py-1.5 rounded-full">Từ: {typerIndex + 1}/{shuffledPool.length}</span>
+          </header>
+
+          <div className="flex-1 max-w-xl w-full mx-auto p-4 flex flex-col justify-center gap-6">
+            
+            {/* VÙNG ĐẾM NGƯỢC THỜI GIAN THEO GIÂY VÀ ĐIỂM SỐ SỐNG ĐỘNG */}
+            <div className="flex items-center justify-between bg-white border border-gray-100 p-4 px-6 rounded-2xl shadow-sm w-full">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">⏱️</span>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Thời gian còn lại</span>
+                  <span className={`text-xl font-black ${timeLeft <= 5 ? 'text-red-500 animate-pulse' : 'text-gray-700'}`}>{timeLeft} giây</span>
+                </div>
+              </div>
+
+              <div className="w-[1px] h-8 bg-gray-100" />
+
+              <div className="flex items-center gap-2">
+                <div className="flex flex-col text-right">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Từ gõ đúng</span>
+                  <span className="text-xl font-black text-green-500">{typerScore} / {shuffledPool.length}</span>
+                </div>
+                <span className="text-xl">🏆</span>
+              </div>
+            </div>
+
+            {/* THANH THỜI GIAN CO NGẮN TRỰC QUAN ĐỂ TẠO ÁP LỰC GIẢI TRÍ */}
+            <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden shadow-inner">
+              <div 
+                className={`h-full transition-all duration-1000 ease-linear ${timeLeft <= 5 ? 'bg-red-500' : 'bg-amber-400'}`} 
+                style={{ width: `${(timeLeft / 15) * 100}%` }}
+              />
+            </div>
+
+            {/* CARD GỢI Ý CÂU HỎI VÀ ĐỤC LỖ NGỮ CẢNH */}
+            <div className="w-full bg-white rounded-3xl border border-gray-100 shadow-xl p-6 flex flex-col items-center gap-4 text-center">
+              <span className="text-[10px] font-black text-green-400 tracking-widest uppercase">Spelling & Context Clue</span>
+              
+              <div className="w-full bg-gray-50 rounded-2xl p-4 border border-gray-100 my-1">
+                <span className="text-[9px] font-black text-gray-400 tracking-wider uppercase block mb-1">Nghĩa tiếng Việt cần tìm</span>
+                <p className="text-gray-800 font-black text-lg leading-snug">{currentTyperWord?.meaning}</p>
+                <p className="text-gray-400 font-mono text-xs font-bold mt-1 bg-white inline-block px-3 py-0.5 rounded-full border border-gray-100">Ký tự gợi ý: {currentTyperWord?.word.length} chữ cái | {currentTyperWord?.ipa}</p>
+              </div>
+
+              <div className="w-full bg-emerald-50/30 rounded-2xl p-4 border border-emerald-100/40 text-left">
+                <span className="text-[9px] font-black text-emerald-600 tracking-wider uppercase block mb-1">Ngữ cảnh câu hỗ trợ</span>
+                <p className="text-gray-600 italic text-xs leading-relaxed font-medium">"{maskedTyperSentence}"</p>
+              </div>
+
+              {/* Ô NHẬP LIỆU TỐC ĐỘ (INPUT CHỮ) */}
+              <div className="w-full flex flex-col gap-2 mt-2">
+                <input 
+                  type="text"
+                  autoFocus
+                  value={typerInput}
+                  onChange={handleTyperInputChange}
+                  placeholder="Nhìn nghĩa dịch và gõ nhanh từ tiếng Anh..."
+                  className="w-full p-4 border border-gray-200 rounded-2xl text-center font-black text-base tracking-wide bg-white focus:outline-none focus:border-green-400 focus:ring-4 focus:ring-green-50 shadow-inner"
+                />
+                <span className="text-[10px] font-bold text-gray-300 animate-pulse">💡 Hệ thống tự động nhảy từ mới ngay khi bạn gõ chính xác 100%!</span>
+              </div>
+            </div>
+
+            {/* NÚT BỎ QUA CÂU NẾU GẶP TỪ KHÓ TRONG GAME */}
+            <button 
+              onClick={handleNextTyperWord}
+              className="w-full bg-gray-200 text-gray-500 font-bold text-xs p-3.5 rounded-xl border-none cursor-pointer transition hover:bg-gray-300 shadow-sm"
+            >
+              Bỏ qua từ này (Chấp nhận tính sai) ➔
+            </button>
+
           </div>
         </div>
       );
