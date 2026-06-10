@@ -1,5 +1,4 @@
 'use client';
-
 import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { db } from '@/firebase';
@@ -12,60 +11,54 @@ function ExerciseContent() {
 
   const [q, setQ] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    async function loadData() {
+    async function init() {
       try {
         setLoading(true);
-        // 1. Kiểm tra Firestore
-        const docRef = doc(db, 'exercise_lessons', partKey);
-        const docSnap = await getDoc(docRef);
-        
-        if (!docSnap.exists()) {
-          console.error("LỖI: Không tìm thấy document ID:", partKey, "trong collection 'exercise_lessons'");
-          return;
-        }
+        // 1. Lấy dữ liệu từ Firestore
+        const docSnap = await getDoc(doc(db, 'exercise_lessons', partKey));
+        if (!docSnap.exists()) throw new Error(`Không tìm thấy Document ID: ${partKey}`);
 
-        const data = docSnap.data();
-        console.log("Dữ liệu Firestore:", data);
-
-        // 2. Chuyển đổi link
-        const url = data.exerciseUrl;
-        const exportUrl = url.replace('/edit', '/export?format=csv');
+        const url = docSnap.data().exerciseUrl;
         
-        const response = await fetch(exportUrl);
-        const csvText = await response.text();
+        // 2. Tải CSV từ Google Sheets (dùng link Published to web)
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Không thể tải file từ link, hãy kiểm tra lại quyền công khai!");
         
-        // 3. Tạm thời lấy dòng đầu tiên để test
+        const csvText = await res.text();
         const lines = csvText.split('\n');
-        console.log("CSV đã tải về thành công, số dòng:", lines.length);
         
-        setQ({
-            audioUrl: lines[1]?.split(',')[1], // Giả định cột 2 là audioUrl
-            meaning: lines[1]?.split(',')[2]   // Giả định cột 3 là meaning
-        });
+        // 3. Xử lý dữ liệu dòng thứ 2 (dòng 1 là tiêu đề)
+        if (lines.length < 2) throw new Error("File CSV rỗng hoặc chưa có dữ liệu!");
+        const row = lines[1].split(',');
+        
+        // Cấu trúc tạm thời để test hiển thị
+        setQ({ audio: row[1], meaning: row[2] });
 
-      } catch (err) {
-        console.error("Lỗi chi tiết:", err);
+      } catch (e) {
+        setError(e.message);
       } finally {
         setLoading(false);
       }
     }
-    loadData();
+    init();
   }, [partKey]);
 
-  if (loading) return <div>Đang nạp dữ liệu... Hãy kiểm tra F12 Console để xem lỗi!</div>;
-  if (!q) return <div>Không tìm thấy dữ liệu. Hãy xem log ở F12 (Console) để biết lỗi tại Firestore hay tại Link Google Sheet.</div>;
+  if (loading) return <div>Đang kiểm tra dữ liệu...</div>;
+  if (error) return <div className="text-red-500 font-bold p-10">LỖI: {error}</div>;
 
   return (
     <div className="p-10">
-      <h1>Đang học: {partKey}</h1>
-      <audio src={q.audioUrl} controls />
-      <p>{q.meaning}</p>
+      <h1 className="text-2xl font-bold mb-5">Bài tập: {partKey}</h1>
+      <audio src={q.audio} controls className="mb-4" />
+      <p className="text-lg">Nghĩa: {q.meaning}</p>
+      <button onClick={() => router.back()} className="mt-5 p-3 bg-gray-200 rounded">Quay lại</button>
     </div>
   );
 }
 
 export default function Page() {
-  return <Suspense fallback={<div>Loading...</div>}><ExerciseContent /></Suspense>;
+  return <Suspense fallback={<div>Đang tải...</div>}><ExerciseContent /></Suspense>;
 }
