@@ -1,67 +1,76 @@
 'use client';
 import { Suspense, useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { db } from '@/firebase';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { db } from '@/firebase'; // Đảm bảo đường dẫn này đúng với file firebase.js của bạn
 import { doc, getDoc } from 'firebase/firestore';
 import Papa from 'papaparse';
 
-// Component con xử lý giao diện cho Part 1 (Gõ cả câu)
-const Part1UI = ({ data }) => (
-  <div className="p-4">
-    <h2>Chép chính tả Part 1</h2>
-    <audio controls src={data.audiourl} className="w-full mb-4" />
-    <textarea className="w-full h-32 p-2 border" placeholder="Gõ câu bạn nghe được..." />
-  </div>
-);
-
-// Component con xử lý giao diện cho Part 3 & 4 (Đục lỗ - Cloze Test)
-const Part34UI = ({ data }) => (
-  <div className="p-4">
-    <h2>Điền vào chỗ trống</h2>
-    <audio controls src={data.audiourl} className="w-full mb-4" />
-    <p className="text-lg leading-loose">{data.maskedsentence}</p>
-    <input className="border-b-2 border-black mt-2" placeholder="Đáp án..." />
-  </div>
-);
-
 function ExerciseContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const partKey = searchParams.get('part') || 'dictation_p1'; // Mặc định là p1
+  const partKey = searchParams.get('part') || 'dictation_p1';
   
-  const [exerciseData, setExerciseData] = useState([]);
+  const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     async function loadData() {
+      setLoading(true);
+      setError(null);
       try {
+        // 1. Lấy URL bài tập từ Firestore
         const docRef = doc(db, 'exercise_lessons', partKey);
         const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const csvUrl = docSnap.data().exerciseUrl;
-          const response = await fetch(csvUrl);
-          const csvText = await response.text();
-          
-          Papa.parse(csvText, {
-            header: true,
-            complete: (results) => setExerciseData(results.data),
-          });
+
+        if (!docSnap.exists()) {
+          throw new Error(`Không tìm thấy Document ID: "${partKey}" trong collection "exercise_lessons".`);
         }
-      } catch (err) { console.error(err); }
-      finally { setLoading(false); }
+
+        const url = docSnap.data().exerciseUrl;
+        
+        // 2. Fetch dữ liệu từ link CSV
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("Không thể tải file CSV từ Google Sheets.");
+        
+        const csvText = await response.text();
+        
+        // 3. Parse dữ liệu
+        Papa.parse(csvText, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+            setData(results.data);
+            setLoading(false);
+          },
+          error: (err) => {
+            throw new Error("Lỗi đọc file: " + err.message);
+          }
+        });
+      } catch (err) {
+        setError(err.message);
+        setLoading(false);
+      }
     }
     loadData();
   }, [partKey]);
 
-  if (loading) return <div>Đang tải bài tập...</div>;
+  if (loading) return <div className="p-10 text-center">Đang nạp dữ liệu...</div>;
+  if (error) return <div className="p-10 text-center text-red-500 font-bold">LỖI: {error}</div>;
 
   return (
-    <div className="container mx-auto">
-      {exerciseData.map((item, index) => (
-        <div key={index} className="mb-10 p-6 shadow-lg rounded-xl">
-          {/* Tự động chọn giao diện dựa trên PartKey */}
-          {partKey.includes('p1') ? <Part1UI data={item} /> : <Part34UI data={item} />}
-        </div>
-      ))}
+    <div className="p-8 max-w-4xl mx-auto">
+      <h1 className="text-2xl font-bold mb-6 uppercase">Bài tập: {partKey}</h1>
+      <div className="grid gap-4">
+        {data.map((row, index) => (
+          <div key={index} className="p-4 border rounded-lg shadow-sm">
+            <p><strong>Câu hỏi:</strong> {row.maskedsentence}</p>
+            <p><strong>Đáp án:</strong> {row.correctanswer}</p>
+            <audio src={row.audiourl} controls className="mt-2 w-full" />
+          </div>
+        ))}
+      </div>
+      <button onClick={() => router.back()} className="mt-6 px-4 py-2 bg-gray-200 rounded">Quay lại</button>
     </div>
   );
 }
