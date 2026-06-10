@@ -56,6 +56,7 @@ const GRAMMAR_TOPICS = [
   { id: 10, title: 'Liên từ', subtitle: 'Conjunctions' },
   { id: 11, title: 'Cấu tạo câu', subtitle: 'Sentence Structures' },
   { id: 12, title: 'Hòa hợp chủ vị', subtitle: 'Subject-Verb Agreement' },
+  { id: 13, title: 'Các loại so sánh', subtitle: 'Comparisons' }, // 🌟 Đã cập nhật Bài 13 toàn cục
 ];
 
 const EXERCISE_SKILLS = [
@@ -70,14 +71,21 @@ const EXERCISE_PARTS = {
     { key: 'dictation_p3', label: 'Nghe chép chính tả Part 3', detail: 'Hội thoại ngắn (Short Conversations)' },
     { key: 'dictation_p4', label: 'Nghe chép chính tả Part 4', detail: 'Bài nói ngắn (Short Talks)' },
   ],
-  // 🌟 NÂNG CẤP: Phân tách Kỹ năng đọc gồm Trắc nghiệm các Part và Luyện tập 12 bài Ngữ pháp
   reading: [
     { key: 'quiz_p5', label: 'Trắc nghiệm Part 5', detail: 'Câu chưa hoàn chỉnh' },
     { key: 'quiz_p6', label: 'Trắc nghiệm Part 6', detail: 'Hoàn thành đoạn văn' },
     { key: 'quiz_p7', label: 'Trắc nghiệm Part 7', detail: 'Đọc hiểu đoạn văn' },
-    { key: 'grammar_list', label: 'Luyện tập Ngữ pháp', detail: 'Trọn bộ 12 chuyên đề trọng tâm' }
+    { key: 'grammar_list', label: 'Luyện tập Ngữ pháp', detail: 'Trọn bộ 13 chuyên đề trọng tâm' }
   ]
 };
+
+const EXAM_BOOKS = [
+  { key: 'ets2023', label: 'ETS 2023', icon: '📚' },
+  { key: 'ets2024', label: 'ETS 2024', icon: '📗' },
+  { key: 'ets2026', label: 'ETS 2026', icon: '📘' },
+  { key: 'hacker2', label: 'Hacker 2', icon: '📙' },
+  { key: 'hacker3', label: 'Hacker 3', icon: '📕' },
+];
 
 export default function HomePage() {
   const router = useRouter();
@@ -196,7 +204,6 @@ export default function HomePage() {
   };
 
   const handleExerciseNavigation = (partKey) => {
-    // Nếu học viên nhấn chọn Luyện tập Ngữ pháp tổng quát ở mục Bài tập, giữ nguyên tại trang chủ để hiển thị 12 card con
     if (partKey === 'grammar_list') {
       setExercisePart(partKey);
       return;
@@ -208,7 +215,25 @@ export default function HomePage() {
     router.push(`/exam?book=${bookKey}&test=${testId}`);
   };
 
-  // Hàm sinh danh sách bài tập cho 12 chuyên đề Ngữ pháp
+  const buildDisplayData = (rawData, prefixType) => {
+    return rawData.map(item => {
+      const targetLessonId = `${prefixType}_${item.id}`;
+      const progress = userProgress[targetLessonId];
+      let status = 'Chưa làm';
+      let scoreText = '0/10';
+      if (progress) {
+        if (progress.status === 'completed') {
+          status = 'Đã làm';
+          scoreText = `${progress.score}/${progress.totalQuestions || 10}`;
+        } else if (progress.status === 'in_progress') {
+          status = 'Đang làm';
+          scoreText = `0/${progress.totalQuestions || 10}`;
+        }
+      }
+      return { ...item, status, score: scoreText };
+    });
+  };
+
   const renderGrammarExerciseCards = () => {
     if (loadingProgress) return <p className="text-gray-400 text-xs mt-4">Đang tải tiến trình...</p>;
     const dataList = buildDisplayData(GRAMMAR_TOPICS, 'grammar_practice');
@@ -412,7 +437,7 @@ export default function HomePage() {
                   <button key={sub.key} onClick={() => setGrammarSubMenu(sub.key)} className="flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white shadow-sm hover:border-green-300 hover:shadow-md transition duration-200 text-left">
                     <span className="text-2xl">{sub.icon}</span>
                     <span className="font-bold text-gray-800 text-sm">{sub.label}</span>
-                    <span className="text-xs text-gray-400">12 chủ đề trọng tâm</span>
+                    <span className="text-xs text-gray-400">13 chủ đề trọng tâm</span>
                   </button>
                 ))}
               </div>
@@ -438,7 +463,7 @@ export default function HomePage() {
           return (
             <div>
               <h2 className="text-xl font-extrabold text-gray-800 mb-2">Vocabulary (Từ vựng)</h2>
-              <p className="text-gray-500 text-sm mb-6">Chọn hình thức học từ vựng you want to practice.</p>
+              <p className="text-gray-500 text-sm mb-6">Chọn hình thức học từ vựng bạn muốn thực hành.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {VOCAB_SUBMENU.map((sub) => (
                   <button key={sub.key} onClick={() => setVocabSubMenu(sub.key)} className="flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white shadow-sm hover:border-green-300 hover:shadow-md transition duration-200 text-left">
@@ -500,7 +525,6 @@ export default function HomePage() {
               <h2 className="text-xl font-extrabold text-gray-800 mb-1">{skillInfo?.icon} {skillInfo?.label}</h2>
               <p className="text-gray-500 text-sm mb-4">Chọn tiêu điểm chuyên sâu để bắt đầu làm bài.</p>
               
-              {/* 🌟 NÂNG CẤP LOGIC CHỌN CARD BÀI TẬP: Nếu click vào 'Luyện tập Ngữ pháp' thì render 12 bài, ngược lại render các Part */}
               {exercisePart === 'grammar_list' ? renderGrammarExerciseCards() : renderExercisePartCards(exerciseSkill)}
             </div>
           );

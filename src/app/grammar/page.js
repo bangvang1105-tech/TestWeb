@@ -13,7 +13,6 @@ const roboto = Roboto({
 });
 
 const BRAND = '#4ade80';
-const BRAND_DARK = '#14532d';
 
 const GRAMMAR_TOPICS = [
   { id: 1, title: 'Từ loại', subtitle: 'Parts of Speech' },
@@ -28,6 +27,7 @@ const GRAMMAR_TOPICS = [
   { id: 10, title: 'Liên từ', subtitle: 'Conjunctions' },
   { id: 11, title: 'Cấu tạo câu', subtitle: 'Sentence Structures' },
   { id: 12, title: 'Hòa hợp chủ vị', subtitle: 'Subject-Verb Agreement' },
+  { id: 13, title: 'Các loại so sánh', subtitle: 'Comparisons' }, // 🌟 Đã tích hợp Chuyên đề 13 lý thuyết
 ];
 
 const MODE_INFO = {
@@ -38,22 +38,22 @@ const MODE_INFO = {
 function GrammarContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const mode = searchParams.get('mode'); // 'video' hoặc 'slide'
-  const topicId = searchParams.get('topic'); // ID từ 1 đến 12
+  const mode = searchParams.get('mode'); 
+  const topicId = searchParams.get('topic'); 
 
   const modeInfo = MODE_INFO[mode] || { label: 'Ngữ pháp', icon: '📝' };
   const topic = GRAMMAR_TOPICS.find(t => String(t.id) === String(topicId));
 
   const [lessonContent, setLessonContent] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [iframeLoading, setIframeLoading] = useState(true); // Vòng quay tải trang mượt mà cho iframe
 
-  // 🌟 ĐỌC DỮ LIỆU ĐƯỜNG LINK VIDEO / SLIDE TỪ FIRESTORE
   useEffect(() => {
     if (!topicId) return;
     async function fetchLessonData() {
       try {
         setLoading(true);
-        // Tìm document tương ứng với ID bài học trong collection grammar_lessons
+        setIframeLoading(true);
         const docSnap = await getDoc(doc(db, 'grammar_lessons', String(topicId)));
         if (docSnap.exists()) {
           setLessonContent(docSnap.data());
@@ -65,9 +65,8 @@ function GrammarContent() {
       }
     }
     fetchLessonData();
-  }, [topicId]);
+  }, [topicId, mode]);
 
-  // Điều hướng thẳng đến file excel làm bài thực hành ngữ pháp
   const handlePracticeNow = () => {
     router.push(`/lesson?type=grammar_practice&id=${topicId}`);
   };
@@ -81,11 +80,11 @@ function GrammarContent() {
         <span className="text-white/90 text-xs font-bold hidden sm:inline">{topic?.subtitle}</span>
       </header>
 
-      {/* BODY CHỨA BÀI HỌC THỰC TẾ */}
+      {/* BODY */}
       <div className="flex-1 max-w-4xl w-full mx-auto p-4 md:p-6 flex flex-col gap-6">
         
-        {/* Khung Trình Phát Lý Thuyết */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm flex-1 flex flex-col min-h-[400px]">
+        {/* Khung Trình Phát */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm flex-1 flex flex-col min-h-[460px]">
           {loading ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-3 text-gray-400 text-xs font-bold">
               <div className="w-8 h-8 border-4 border-green-400 border-t-transparent rounded-full animate-spin" />
@@ -102,17 +101,26 @@ function GrammarContent() {
                     allowFullScreen
                   ></iframe>
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs font-semibold p-4 text-center">📺 Thầy Băng chưa cập nhật liên kết Video bài giảng cho chuyên đề này.</div>
+                  <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs font-semibold p-4 text-center">📺 Chưa có liên kết Video bài giảng cho chuyên đề này.</div>
                 )
               ) : (
                 lessonContent?.slideUrl ? (
-                  <iframe 
-                    src={lessonContent.slideUrl} 
-                    className="w-full h-full border-none absolute top-0 left-0 bg-white"
-                    allow="autoplay"
-                  ></iframe>
+                  <div className="w-full h-full relative">
+                    {iframeLoading && (
+                      <div className="absolute inset-0 bg-white flex flex-col items-center justify-center gap-2 text-gray-400 text-xs font-semibold z-10">
+                        <div className="w-6 h-6 border-4 border-green-400 border-t-transparent rounded-full animate-spin" />
+                        Đang tối ưu hiển thị slide tài liệu...
+                      </div>
+                    )}
+                    <iframe 
+                      src={lessonContent.slideUrl} 
+                      className="w-full h-full border-none absolute top-0 left-0 bg-white"
+                      allow="autoplay"
+                      onLoad={() => setIframeLoading(false)}
+                    ></iframe>
+                  </div>
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs font-semibold p-4 text-center">📊 Thầy Băng chưa cập nhật liên kết Slide bài giảng cho chuyên đề này.</div>
+                  <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs font-semibold p-4 text-center">📊 Chưa có liên kết Slide bài giảng cho chuyên đề này.</div>
                 )
               )}
             </div>
