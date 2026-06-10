@@ -37,7 +37,7 @@ const VOCAB_SUBMENU = [
   { key: 'match', label: 'Tìm cặp', icon: '🔗' },
   { key: 'listen', label: 'Nghe từ vựng', icon: '🎧' },
   { key: 'typer', label: 'Đua tốc độ phản xạ', icon: '⚡' },
-  { key: 'invaders', label: 'Vượt chướng ngại vật', icon: '🚀' }, // 🌟 Đã tách thành key riêng biệt độc lập
+  { key: 'invaders', label: 'Vượt chướng ngại vật', icon: '🚀' }, 
 ];
 
 const GRAMMAR_SUBMENU = [

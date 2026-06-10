@@ -85,7 +85,7 @@ function VocabularyContent() {
 
   const topic = VOCAB_TOPICS.find(t => String(t.id) === String(topicId));
 
-  // States tổng hệ thống
+  // States dữ liệu tổng hệ thống
   const [shuffledPool, setShuffledPool] = useState([]); 
   const [words, setWords] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -118,14 +118,14 @@ function VocabularyContent() {
   const [quizChecked, setQuizChecked] = useState(false);
   const [quizScore, setQuizScore] = useState(0);
 
-  // ⚡ States chế độ ĐUA TỐC ĐỘ PHẢN XẠ (Typer cũ phục hồi)
+  // ⚡ States chế độ ĐUA TỐC ĐỘ PHẢN XẠ 
   const [typerIndex, setTyperIndex] = useState(0);
   const [typerInput, setTyperInput] = useState('');
   const [typerScore, setTyperScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(15); 
   const [isTyperFinished, setIsTyperFinished] = useState(false);
 
-  // 🚀 States chế độ VƯỢT CHƯỚNG NGẠI VẬT (Invaders mới tách biệt)
+  // 🚀 States chế độ VƯỢT CHƯỚNG NGẠI VẬT (SPACE INVADERS)
   const [gameIndex, setGameIndex] = useState(0);
   const [gameInput, setGameInput] = useState('');
   const [gameScore, setGameScore] = useState(0);
@@ -135,7 +135,20 @@ function VocabularyContent() {
   const [laserEffect, setLaserEffect] = useState(false);
 
   const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
+  
+  // Các biến tham chiếu động phá vỡ Closer Scope Stale State trong setInterval
   const gameLoopRef = useRef(null);
+  const gameIndexRef = useRef(gameIndex);
+  const shuffledPoolRef = useRef(shuffledPool);
+
+  // Cập nhật tham chiếu đồng bộ mọi lượt render
+  useEffect(() => {
+    gameIndexRef.current = gameIndex;
+  }, [gameIndex]);
+
+  useEffect(() => {
+    shuffledPoolRef.current = shuffledPool;
+  }, [shuffledPool]);
 
   // ĐỒNG BỘ DỮ LIỆU BAN ĐẦU
   useEffect(() => {
@@ -172,9 +185,7 @@ function VocabularyContent() {
         setLaserEffect(false);
 
         const docSnap = await getDoc(doc(db, 'vocab_lessons', String(topicId)));
-        if (!docSnap.exists()) {
-          throw new Error('Chưa cấu hình dữ liệu bài học.');
-        }
+        if (!docSnap.exists()) throw new Error('Chưa cấu hình dữ liệu bài học.');
 
         const data = docSnap.data();
         let rawUrl = data.vocabUrl;
@@ -242,7 +253,7 @@ function VocabularyContent() {
     fetchAndParseExcelData();
   }, [topicId, mode]);
 
-  // ⚡ TIMER COUNTDOWN ĐÔI VỚI CHẾ ĐỘ ĐUA TỐC ĐỘ PHẢN XẠ
+  // ⚡ TIMER COUNTDOWN ĐỐI VỚI CHẾ ĐỘ ĐUA TỐC ĐỘ PHẢN XẠ
   useEffect(() => {
     if (mode !== 'typer' || isTyperFinished || loading || shuffledPool.length === 0) return;
 
@@ -258,47 +269,55 @@ function VocabularyContent() {
     return () => clearInterval(timer);
   }, [timeLeft, mode, isTyperFinished, loading, shuffledPool]);
 
-  // 🚀 ARCADE PHYSICS TICK ENGINE ĐỐI VỚI VƯỢT CHƯỚNG NGẠI VẬT
+  // 🚀 ARCADE PHYSICS TICK ENGINE - SỬA LỖI TRỪ MÁU VÀ GIẢM TỐC ĐỘ RƠI (+4S)
   useEffect(() => {
     if (mode !== 'invaders' || isGameOver || loading || shuffledPool.length === 0) return;
 
-    const speedFactor = 1.2 + (gameScore * 0.15); 
+    // Giảm tốc độ rơi cơ bản từ 1.2 xuống 0.5 để khối từ vựng trôi chậm hơn thêm 4 giây
+    const speedFactor = 0.5 + (gameScore * 0.05); 
 
     gameLoopRef.current = setInterval(() => {
       setWordYPos((prevY) => {
         if (prevY >= 82) { 
+          // Gọi hàm crash sử dụng Functional State chặn Stale Closure
           handleWordCrash();
           return 0;
         }
         return prevY + speedFactor;
       });
-    }, 120);
+    }, 160); // Tăng thời gian tick giúp ảnh chuyển động trôi êm ái hơn
 
     return () => clearInterval(gameLoopRef.current);
   }, [mode, isGameOver, loading, shuffledPool, gameIndex, gameScore]);
 
   const handleWordCrash = () => {
-    setGameHealth((prev) => {
-      const nextHealth = prev - 1;
+    // Ép trừ máu dạng Functional State chạy tức thì
+    setGameHealth((prevHealth) => {
+      const nextHealth = prevHealth - 1;
       if (nextHealth <= 0) {
         setIsGameOver(true);
         clearInterval(gameLoopRef.current);
-        setTimeout(() => { handleFinishSession(gameScore); }, 1000);
+        // Trễ nhẹ để học viên kịp thấy tim cuối cùng biến mất
+        setTimeout(() => { handleFinishSession(gameScore); }, 600);
       }
       return nextHealth;
     });
+
     setGameInput('');
     setWordYPos(0);
     goToNextInvadersWord();
   };
 
   const goToNextInvadersWord = () => {
-    if (gameIndex < shuffledPool.length - 1) {
-      setGameIndex(p => p + 1);
+    const currentIndexVal = gameIndexRef.current;
+    const poolLength = shuffledPoolRef.current.length;
+
+    if (currentIndexVal < poolLength - 1) {
+      setGameIndex((prev) => prev + 1);
     } else {
       setIsGameOver(true);
       clearInterval(gameLoopRef.current);
-      handleFinishSession(gameScore + 1);
+      handleFinishSession(gameScore);
     }
   };
 
@@ -343,7 +362,7 @@ function VocabularyContent() {
         totalQuestions: totalToSave,
         updatedAt: new Date().toISOString()
       }, { merge: true });
-      alert(`🎉 Hoàn thành! Kết quả ghi nhận: ${scoreToSave}/${totalToSave}`);
+      alert(`🎉 Kết thúc màn chơi! Điểm số phòng thủ thành phố: ${scoreToSave}/${totalToSave}`);
       router.push('/home');
     } catch (err) {
       router.push('/home');
@@ -443,6 +462,8 @@ function VocabularyContent() {
       else handleFinishSession();
     }, 200); 
   };
+
+  if (loading) return <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center text-gray-400 text-xs font-bold gap-3"><div className="w-8 h-8 border-4 border-green-400 border-t-transparent rounded-full animate-spin" />Đang nạp dữ liệu từ vựng...</div>;
 
   switch (mode) {
     case 'flashcard':
@@ -553,7 +574,6 @@ function VocabularyContent() {
       );
 
     case 'typer':
-      // ⚡ PHỤC HỒI NGUYÊN VẸN CHẾ ĐỘ: ĐUA TỐC ĐỘ PHẢN XẠ TRUYỀN THỐNG 15 GIÂY
       if (shuffledPool.length === 0) return null;
       const currentTyperWord = shuffledPool[typerIndex];
       const maskedTyperSentence = currentTyperWord?.example.replace(new RegExp(`\\b${currentTyperWord?.word}\\b`, 'gi'), '_____');
@@ -596,7 +616,7 @@ function VocabularyContent() {
                 <p className="text-gray-400 font-mono text-xs font-bold mt-1.5 bg-white inline-block px-3 py-0.5 rounded-full border border-gray-100">Độ dài: {currentTyperWord?.word.length} chữ cái | {currentTyperWord?.ipa}</p>
               </div>
               <div className="w-full bg-emerald-50/30 rounded-2xl p-4 border text-left"><p className="text-gray-600 italic text-xs">"{maskedTyperSentence}"</p></div>
-              <input type="text" autoFocus value={typerInput} onChange={handleTyperInputChange} placeholder="Gõ thật nhanh từ tiếng Anh..." className="w-full p-4 border rounded-2xl text-center font-black text-base tracking-wide" />
+              <input type="text" autoFocus value={typerInput} onChange={handleTyperInputChange} placeholder="Gõ thật nhanh từ tiếng Anh..." className="w-full p-4 border rounded-2xl text-center font-black text-base tracking-wide bg-white focus:outline-none" />
             </div>
             <button onClick={handleNextTyperWord} className="w-full bg-gray-200 text-gray-500 font-bold text-xs p-3.5 rounded-xl border-none">Bỏ qua ➔</button>
           </div>
@@ -604,7 +624,6 @@ function VocabularyContent() {
       );
 
     case 'invaders':
-      // 🚀 PHÂN HỆ TÁCH BIỆT MỚI: MINI-GAME VƯỢT CHƯỚNG NGẠI VẬT (SPACE INVADERS)
       if (shuffledPool.length === 0) return null;
       const currentActiveTarget = shuffledPool[gameIndex];
       const maskedArcadeSentence = currentActiveTarget?.example.replace(new RegExp(`\\b${currentActiveTarget?.word}\\b`, 'gi'), '_____');
@@ -623,7 +642,7 @@ function VocabularyContent() {
                 <span className="text-[10px] font-black text-gray-400 uppercase">Năng lượng khiên (HP)</span>
                 <div className="flex gap-1.5 text-lg">
                   {Array.from({ length: 3 }).map((_, i) => (
-                    <span key={i} className={`transition-all duration-300 ${i < gameHealth ? 'text-red-500 scale-110 drop-shadow-[0_0_6px_rgba(239,68,68,0.7)]' : 'text-slate-700 scale-90'}`}>❤️</span>
+                    <span key={i} className={`transition-all duration-300 ${i < gameHealth ? 'text-red-500 scale-110 drop-shadow-[0_0_6px_rgba(239,68,68,0.7)]' : 'text-slate-700 opacity-20 scale-90'}`}>❤️</span>
                   ))}
                 </div>
               </div>
@@ -631,10 +650,6 @@ function VocabularyContent() {
                 <span className="text-[10px] font-black text-gray-400 uppercase">Thiệt hại đã phá hủy</span>
                 <span className="text-xl font-black text-green-400 font-mono tracking-wider">{gameScore} / {shuffledPool.length}</span>
               </div>
-            </div>
-
-            <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden shadow-inner">
-              <div className={`h-full transition-all duration-1000 ease-linear ${gameHealth === 1 ? 'bg-red-500' : 'bg-amber-400'}`} style={{ width: `${(timeLeft / 15) * 100}%` }} />
             </div>
 
             <div className="flex-1 w-full bg-slate-900/60 rounded-3xl border border-slate-800 shadow-2xl relative overflow-hidden min-h-[360px] flex flex-col justify-between p-6">
@@ -660,7 +675,7 @@ function VocabularyContent() {
             </div>
 
             <div className="w-full flex flex-col gap-2 bg-slate-900 p-4 border border-slate-800 rounded-2xl shadow-xl">
-              <input type="text" autoFocus value={gameInput} disabled={isGameOver} onChange={handleInvadersInputChange} placeholder="Nhìn nghĩa rơi, gõ từ Tiếng Anh chuẩn để kích nổ..." className="w-full p-4 bg-slate-950 border border-slate-800 rounded-xl text-center font-black text-green-400 text-lg tracking-wider focus:outline-none" />
+              <input type="text" autoFocus value={gameInput} disabled={isGameOver} onChange={handleInvadersInputChange} placeholder="Nhìn nghĩa rơi, gõ từ Tiếng Anh chuẩn để kích nổ..." className="w-full p-4 bg-slate-950 border border-slate-800 rounded-xl text-center font-black text-green-400 text-lg tracking-wider focus:outline-none placeholder-slate-700" />
             </div>
           </div>
         </div>
