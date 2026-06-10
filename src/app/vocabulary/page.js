@@ -28,7 +28,7 @@ const VOCAB_TOPICS = [
   { id: 13, title: 'Sức khỏe & Y tế', subtitle: 'Health' },
 ];
 
-// 🌟 NÂNG CẤP: Hàm xử lý CSV thông minh, không bao giờ bị mất hoặc cắt cụt câu ví dụ
+// Hàm xử lý phân tích cú pháp CSV từ Google Drive an toàn, chống mất chữ câu ví dụ
 function parseCSVToJSON(csvText) {
   const lines = csvText.split(/\r?\n/);
   const result = [];
@@ -41,7 +41,6 @@ function parseCSVToJSON(csvText) {
     let insideQuote = false;
     let currentCell = '';
     
-    // Duyệt qua từng ký tự để parse chuẩn quy tắc đóng ngoặc kép của Excel/Google Sheets
     for (let j = 0; j < line.length; j++) {
       const char = line[j];
       if (char === '"') {
@@ -68,22 +67,44 @@ function parseCSVToJSON(csvText) {
   return result;
 }
 
+// Thuật toán xáo trộn mảng ngẫu nhiên Fisher-Yates chuẩn cú pháp JavaScript
+function shuffleArray(array) {
+  let m = array.length, t, i;
+  while (m) {
+    i = Math.floor(Math.random() * m--);
+    t = array[m];
+    array[m] = array[i];
+    array[i] = t;
+  }
+  return array;
+}
+
 function VocabularyContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const mode = searchParams.get('mode') || 'learn'; // Mặc định chế độ nếu không truyền là learn
+  const mode = searchParams.get('mode') || 'learn'; 
   const topicId = searchParams.get('topic'); 
 
   const topic = VOCAB_TOPICS.find(t => String(t.id) === String(topicId));
 
+  // States dữ liệu tổng
   const [words, setWords] = useState([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isFlipped, setIsFlipped] = useState(false); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // States quản lý Flashcards
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isFlipped, setIsFlipped] = useState(false); 
+
+  // States quản lý Mini-game TÌM CẶP
+  const [matchCards, setMatchCards] = useState([]);
+  const [selectedCards, setSelectedCards] = useState([]);
+  const [matchedCards, setMatchedCards] = useState([]);
+  const [isChecking, setIsChecking] = useState(false);
+
   const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
 
+  // FETCH DỮ LIỆU TỪ FIREBASE & GOOGLE DRIVE
   useEffect(() => {
     if (!topicId) return;
 
@@ -93,6 +114,8 @@ function VocabularyContent() {
         setError(null);
         setIsFlipped(false);
         setCurrentIndex(0);
+        setSelectedCards([]);
+        setMatchedCards([]);
 
         const docSnap = await getDoc(doc(db, 'vocab_lessons', String(topicId)));
         if (!docSnap.exists()) {
@@ -101,10 +124,7 @@ function VocabularyContent() {
 
         const data = docSnap.data();
         let rawUrl = data.vocabUrl;
-
-        if (!rawUrl) {
-          throw new Error('Đường dẫn trích xuất file đang trống.');
-        }
+        if (!rawUrl) throw new Error('Đường dẫn trích xuất file đang trống.');
 
         let exportCsvUrl = rawUrl;
         if (rawUrl.includes('/edit')) {
@@ -117,18 +137,28 @@ function VocabularyContent() {
         }
 
         const response = await fetch(exportCsvUrl);
-        if (!response.ok) {
-          throw new Error('Không thể đọc file từ Drive. Hãy kiểm tra lại quyền xem Công khai của file.');
-        }
+        if (!response.ok) throw new Error('Không thể đọc dữ liệu file Drive. Kiểm tra lại quyền công khai.');
 
         const csvText = await response.text();
         const parsedData = parseCSVToJSON(csvText);
         
-        if (parsedData.length === 0) {
-          throw new Error('File tài liệu trống hoặc sai quy cách đặt tên 4 cột.');
-        }
+        if (parsedData.length === 0) throw new Error('File tài liệu trống hoặc sai quy cách đặt tiêu đề cột.');
 
         setWords(parsedData);
+
+        // KHỞI TẠO RIÊNG CHO GAME TÌM CẶP: Lấy 6 từ ngẫu nhiên tạo thành 12 thẻ (6 Anh - 6 Việt)
+        if (mode === 'match') {
+          const pool = shuffleArray([...parsedData]).slice(0, 6);
+          let generatedCards = [];
+          
+          pool.forEach((item, index) => {
+            generatedCards.push({ uniqueId: `w_${index}`, pairId: index, content: item.word, type: 'word' });
+            generatedCards.push({ uniqueId: `m_${index}`, pairId: index, content: item.meaning, type: 'meaning' });
+          });
+          
+          setMatchCards(shuffleArray(generatedCards));
+        }
+
       } catch (err) {
         console.error(err);
         setError(err.message);
@@ -138,8 +168,9 @@ function VocabularyContent() {
     }
 
     fetchAndParseExcelData();
-  }, [topicId]);
+  }, [topicId, mode]);
 
+  // ĐỒNG BỘ TIẾN TRÌNH LÊN FIREBASE KHI HOÀN THÀNH
   const handleFinishSession = async () => {
     if (!CURRENT_USER_ID) {
       router.push('/home');
@@ -149,12 +180,12 @@ function VocabularyContent() {
       const progressRef = doc(db, 'users', CURRENT_USER_ID, 'progress', `vocab_${mode}_${topicId}`);
       await setDoc(progressRef, {
         status: 'completed',
-        score: words.length,
-        totalQuestions: words.length,
+        score: mode === 'match' ? 10 : words.length,
+        totalQuestions: mode === 'match' ? 10 : words.length,
         updatedAt: new Date().toISOString()
       }, { merge: true });
 
-      alert('🎉 Chúc mừng bạn đã hoàn thành trọn vẹn nội dung phần học này!');
+      alert('🎉 Tuyệt vời! Hệ thống đã ghi nhận điểm và hoàn thành phân hệ học này!');
       router.push('/home');
     } catch (err) {
       console.error(err);
@@ -162,6 +193,41 @@ function VocabularyContent() {
     }
   };
 
+  // LOGIC XỬ LÝ KHỚP THẺ CỦA GAME TÌM CẶP
+  const handleCardClick = (card) => {
+    if (isChecking || matchedCards.includes(card.uniqueId) || selectedCards.some(c => c.uniqueId === card.uniqueId)) return;
+
+    const newSelection = [...selectedCards, card];
+    setSelectedCards(newSelection);
+
+    if (newSelection.length === 2) {
+      setIsChecking(true);
+      const [first, second] = newSelection;
+
+      if (first.pairId === second.pairId && first.type !== second.type) {
+        // Đúng cặp: Thêm vào mảng matchedCards để ẩn thẻ ngay lập tức
+        setTimeout(() => {
+          setMatchedCards(prev => {
+            const updated = [...prev, first.uniqueId, second.uniqueId];
+            if (updated.length === matchCards.length) {
+              setTimeout(() => { handleFinishSession(); }, 500);
+            }
+            return updated;
+          });
+          setSelectedCards([]);
+          setIsChecking(false);
+        }, 300);
+      } else {
+        // Sai cặp: Giữ màu đỏ báo lỗi nhẹ 0.8 giây, sau đó tự động úp thẻ xuống lại
+        setTimeout(() => {
+          setSelectedCards([]);
+          setIsChecking(false);
+        }, 800);
+      }
+    }
+  };
+
+  // LOGIC ĐIỀU HƯỚNG FLASHCARDS
   const handleNextCard = () => {
     setIsFlipped(false);
     setTimeout(() => {
@@ -186,7 +252,7 @@ function VocabularyContent() {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center text-gray-400 text-xs font-bold gap-3">
         <div className="w-8 h-8 border-4 border-green-400 border-t-transparent rounded-full animate-spin" />
-        Đang nạp dữ liệu từ file Excel trực tuyến...
+        Hệ thống đang kết nối Google Drive và nạp bảng dữ liệu Excel...
       </div>
     );
   }
@@ -202,48 +268,37 @@ function VocabularyContent() {
     );
   }
 
-  const currentCard = words[currentIndex];
-
-  // 🌟 NÂNG CẤP LOGIC RENDER: Tách biệt các phân hệ học dựa theo tham số mode truyền vào URL
+  // ĐIỀU HƯỚNG PHÂN PHÁT GIAO DIỆN THEO BIẾN MODE TRÊN URL
   switch (mode) {
     case 'flashcard':
+      const currentCard = words[currentIndex];
       return (
         <div className={`${roboto.className} min-h-screen bg-gray-50 flex flex-col antialiased`}>
-          {/* HEADER FLASHCARD */}
           <header className="bg-green-400 p-3.5 px-5 flex items-center justify-between shadow-md">
             <button onClick={() => router.back()} className="bg-white/20 border-none rounded-lg p-1.5 px-3 text-white text-xs font-bold cursor-pointer transition hover:bg-white/30">← Thoát</button>
             <span className="text-white font-black text-sm text-center flex-1">🃏 Flashcards — {topic?.title}</span>
             <span className="text-white text-xs font-bold bg-white/20 px-3 py-1 rounded-full">{currentIndex + 1}/{words.length}</span>
           </header>
 
-          {/* CONTAINER THỂ HIỆN FLASHCARD */}
           <div className="flex-1 flex flex-col items-center justify-center p-4 max-w-xl w-full mx-auto gap-8">
             <div onClick={() => setIsFlipped(!isFlipped)} className="w-full h-80 cursor-pointer [perspective:1000px] select-none">
               <div className={`relative w-full h-full duration-500 [transform-style:preserve-3d] ${isFlipped ? '[transform:rotateY(180deg)]' : ''}`}>
-                
-                {/* MẶT TRƯỚC */}
                 <div className="absolute inset-0 w-full h-full rounded-3xl bg-white border border-gray-100 shadow-xl p-8 flex flex-col items-center justify-center text-center [backface-visibility:hidden]">
                   <span className="text-xs font-bold text-green-400 tracking-widest uppercase mb-2">English Word</span>
                   <h2 className="text-4xl font-black text-gray-800 tracking-tight">{currentCard?.word}</h2>
                   <p className="text-sm font-semibold text-gray-400 mt-2 bg-gray-50 px-3 py-1 rounded-full">{currentCard?.ipa}</p>
                   <p className="text-[11px] font-medium text-gray-300 mt-10 animate-pulse">💡 Click vào thẻ để lật xem nghĩa và câu ví dụ</p>
                 </div>
-
-                {/* MẶT SAU: Câu ví dụ hiện đầy đủ không lo bị cắt */}
                 <div className="absolute inset-0 w-full h-full rounded-3xl bg-emerald-500 text-white shadow-xl p-8 flex flex-col items-center justify-center text-center [backface-visibility:hidden] [transform:rotateY(180deg)]">
                   <span className="text-xs font-bold text-emerald-100 tracking-widest uppercase mb-1">Vietnamese Meaning</span>
                   <h3 className="text-2xl font-bold px-2 leading-snug">{currentCard?.meaning}</h3>
                   <div className="w-full h-[1px] bg-white/20 my-5" />
                   <span className="text-[10px] font-bold text-emerald-100 tracking-widest uppercase mb-1">Context Example</span>
-                  <p className="text-xs font-medium max-w-sm italic leading-relaxed text-emerald-50 px-2">
-                    "{currentCard?.example}"
-                  </p>
+                  <p className="text-xs font-medium max-w-sm italic leading-relaxed text-emerald-50 px-2">"{currentCard?.example}"</p>
                 </div>
-
               </div>
             </div>
 
-            {/* BUTTON ĐIỀU HƯỚNG */}
             <div className="flex items-center justify-between w-full px-2 gap-4">
               <button onClick={handlePrevCard} disabled={currentIndex === 0} className="flex-1 bg-white border border-gray-200 text-gray-600 font-bold text-xs p-3.5 rounded-xl transition hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm">← Từ trước đó</button>
               <button onClick={handleNextCard} className="flex-1 bg-green-400 shadow-md shadow-green-400/20 text-white font-bold text-xs p-3.5 rounded-xl transition hover:opacity-95">
@@ -254,9 +309,51 @@ function VocabularyContent() {
         </div>
       );
 
+    case 'match':
+      return (
+        <div className={`${roboto.className} min-h-screen bg-gray-50 flex flex-col antialiased`}>
+          <header className="bg-green-400 p-3.5 px-5 flex items-center justify-between shadow-md">
+            <button onClick={() => router.back()} className="bg-white/20 border-none rounded-lg p-1.5 px-3 text-white text-xs font-bold cursor-pointer transition hover:bg-white/30">← Thoát game</button>
+            <span className="text-white font-black text-sm text-center flex-1">🔗 Tìm cặp từ vựng — {topic?.title}</span>
+            <span className="text-white text-xs font-bold bg-white/20 px-3 py-1 rounded-full">Tiến độ: {matchedCards.length / 2} / 6 cặp</span>
+          </header>
+
+          <div className="flex-1 max-w-3xl w-full mx-auto p-4 md:p-6 flex flex-col justify-center gap-4">
+            <div className="text-center mb-2">
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-widest bg-white border border-gray-100 px-4 py-1.5 rounded-full shadow-sm">🎯 Quy tắc: Chọn 1 từ Tiếng Anh khớp với 1 nghĩa Tiếng Việt</span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 w-full">
+              {matchCards.map((card) => {
+                const isSelected = selectedCards.some(c => c.uniqueId === card.uniqueId);
+                const isMatched = matchedCards.includes(card.uniqueId);
+                const isWrongPair = selectedCards.length === 2 && isSelected && !isMatched;
+
+                return (
+                  <div
+                    key={card.uniqueId}
+                    onClick={() => handleCardClick(card)}
+                    className={`h-28 rounded-2xl p-3 flex items-center justify-center text-center font-bold text-xs border cursor-pointer select-none transition-all duration-200 shadow-sm
+                      ${isMatched ? 'opacity-0 scale-95 pointer-events-none' : ''}
+                      ${isSelected ? (isWrongPair ? 'bg-red-50 border-red-300 text-red-600 shadow-md' : 'bg-green-50 border-green-400 text-green-600 scale-102 shadow-md') : 'bg-white border-gray-200 text-gray-700 hover:border-green-300 hover:shadow'}`}
+                  >
+                    <span className="line-clamp-4 leading-relaxed font-semibold">{card.content}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {matchedCards.length === matchCards.length && matchCards.length > 0 && (
+              <div className="text-center mt-6 p-4 rounded-xl border border-green-200 bg-green-50 text-green-700 font-bold text-sm animate-bounce">
+                🎉 Hoàn thành xuất sắc! Đang đồng bộ điểm số lên hệ thống...
+              </div>
+            )}
+          </div>
+        </div>
+      );
+
     case 'learn':
     default:
-      // Giao diện mẫu cho các mục con khác (Học từ vựng cơ bản, Trắc nghiệm...) để không bị dính Flashcard
       return (
         <div className={`${roboto.className} min-h-screen bg-gray-50 flex flex-col p-6`}>
           <div className="max-w-2xl w-full mx-auto bg-white rounded-2xl p-6 border border-gray-100 shadow-sm mt-10">
@@ -274,7 +371,7 @@ function VocabularyContent() {
                 </div>
               ))}
             </div>
-            <button onClick={() => handleFinishSession()} className="mt-6 w-full bg-green-400 text-white font-bold text-xs p-3.5 rounded-xl transition hover:opacity-95 shadow-md shadow-green-400/10">Hoàn thành phần học này</button>
+            <button onClick={() => handleFinishSession()} className="mt-6 w-full bg-green-400 text-white font-bold text-xs p-3.5 rounded-xl transition hover:opacity-95 shadow-md">Hoàn thành phần học này</button>
           </div>
         </div>
       );
