@@ -111,7 +111,7 @@ function VocabularyContent() {
   const [listenResult, setListenResult] = useState(null); 
   const [voiceAccent, setVoiceAccent] = useState('en-US'); 
 
-  // 🌟 States PHÂN HỆ TRẮC NGHIỆM TỪ VỰNG (MỚI)
+  // States Trắc nghiệm từ vựng nâng cao (Quản lý trọn vẹn 50 từ ngẫu nhiên)
   const [quizQuestions, setQuizQuestions] = useState([]);
   const [quizIndex, setQuizIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState(null);
@@ -120,7 +120,7 @@ function VocabularyContent() {
 
   const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
 
-  // FETCH VÀ KHỞI TẠO DỮ LIỆU TỔNG HỢP
+  // FETCH VÀ KHỞI TẠO DỮ LIỆU TỪ EXCEL & DRIVE
   useEffect(() => {
     if (!topicId) return;
 
@@ -135,7 +135,6 @@ function VocabularyContent() {
         setListenChecked(false);
         setListenResult(null);
         
-        // Reset Quiz states
         setQuizIndex(0);
         setSelectedOption(null);
         setQuizChecked(false);
@@ -170,6 +169,7 @@ function VocabularyContent() {
 
         setWords(parsedData);
 
+        // Trộn ngẫu nhiên toàn bộ bể từ vựng (50 từ) để phục vụ các phân hệ phản xạ nhanh
         const randomizedPool = shuffleArray([...parsedData]);
         setShuffledPool(randomizedPool);
 
@@ -185,17 +185,16 @@ function VocabularyContent() {
           setMatchCards(shuffleArray(generatedCards));
         }
 
-        // 🌟 KHỞI TẠO BỘ CÂU HỎI TRẮC NGHIỆM THÔNG MINH (Lấy ngẫu nhiên 10 câu từ file Excel)
+        // 🌟 KHỞI TẠO BỘ TRẮC NGHIỆM CHO TOÀN BỘ CẢ 50 TỪ VỰNG NGẪU NHIÊN
         if (mode === 'quiz') {
-          const selectedSubset = randomizedPool.slice(0, 10);
-          const generatedQuestions = selectedSubset.map((item) => {
-            // Lấy 3 từ khác bất kỳ làm đáp án nhiễu (distractors)
+          const generatedQuestions = randomizedPool.map((item) => {
+            // Lấy 3 từ vựng khác bất kỳ trong danh sách để làm đáp án nhiễu (distractors)
             const distractors = parsedData
               .filter(w => w.word !== item.word)
               .map(w => w.word);
             const randomDistractors = shuffleArray(distractors).slice(0, 3);
             
-            // Trộn đáp án đúng với 3 đáp án sai
+            // Trộn đáp án đúng với 3 đáp án sai để vị trí A, B, C, D hoàn toàn ngẫu nhiên
             const options = shuffleArray([item.word, ...randomDistractors]);
             
             return {
@@ -204,6 +203,7 @@ function VocabularyContent() {
               ipa: item.ipa,
               meaning: item.meaning,
               example: item.example,
+              // Tạo câu hỏi đục lỗ chuẩn form TOEIC Part 5
               maskedSentence: item.example.replace(new RegExp(`\\b${item.word}\\b`, 'gi'), '_____'),
               options: options
             };
@@ -222,7 +222,7 @@ function VocabularyContent() {
     fetchAndParseExcelData();
   }, [topicId, mode]);
 
-  // LUỒNG SOUND CHO NGHE TỪ VỰNG
+  // HÀM AUDIO TEXT-TO-SPEECH
   const playAudio = (text, type = 'word') => {
     if (typeof window === 'undefined' || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
@@ -261,14 +261,14 @@ function VocabularyContent() {
     setMatchCards(shuffleArray(generatedCards));
   };
 
-  // ĐỒNG BỘ LÊN FIREBASE KHI HOÀN THÀNH BÀI HỌC
+  // ĐỒNG BỘ TIẾN TRÌNH LÊN FIREBASE
   const handleFinishSession = async (finalScore = null) => {
     if (!CURRENT_USER_ID) {
       router.push('/home');
       return;
     }
     const scoreToSave = finalScore !== null ? finalScore : (mode === 'match' ? 50 : words.length);
-    const totalToSave = mode === 'quiz' ? 10 : (mode === 'match' ? 50 : words.length);
+    const totalToSave = mode === 'quiz' ? quizQuestions.length : (mode === 'match' ? 50 : words.length);
     
     try {
       const progressRef = doc(db, 'users', CURRENT_USER_ID, 'progress', `vocab_${mode}_${topicId}`);
@@ -279,7 +279,7 @@ function VocabularyContent() {
         updatedAt: new Date().toISOString()
       }, { merge: true });
 
-      alert(`🎉 Hoàn thành bài học! Điểm số của bạn đã được lưu: ${scoreToSave}/${totalToSave}`);
+      alert(`🎉 Hoàn thành xuất sắc bài học! Điểm số trắc nghiệm tổng của bạn: ${scoreToSave}/${totalToSave}`);
       router.push('/home');
     } catch (err) {
       console.error(err);
@@ -307,7 +307,7 @@ function VocabularyContent() {
     }
   };
 
-  // 🌟 LOGIC XỬ LÝ KIỂM TRA ĐÁP ÁN TRẮC NGHIỆM (MỚI)
+  // LOGIC XỬ LÝ KIỂM TRA ĐÁP ÁN TRẮC NGHIỆM 50 CÂU
   const handleCheckQuizAnswer = () => {
     if (!selectedOption || quizChecked) return;
     
@@ -318,18 +318,21 @@ function VocabularyContent() {
   };
 
   const handleNextQuizQuestion = () => {
+    const isLastQuestion = quizIndex === quizQuestions.length - 1;
+    // Tính điểm cộng dồn cho câu cuối cùng nếu chọn đúng
+    const finalCalculatedScore = quizScore + (selectedOption === quizQuestions[quizIndex].correctAnswer ? 1 : 0);
+
     setSelectedOption(null);
     setQuizChecked(false);
     
-    if (quizIndex < quizQuestions.length - 1) {
+    if (!isLastQuestion) {
       setQuizIndex(prev => prev + 1);
     } else {
-      // Kết thúc bộ 10 câu trắc nghiệm, truyền điểm số cuối cùng để lưu Firestore
-      handleFinishSession(quizScore + (selectedOption === quizQuestions[quizIndex].correctAnswer ? 1 : 0));
+      handleFinishSession(finalCalculatedScore);
     }
   };
 
-  // LOGIC TÌM CẶP (MATCHING)
+  // LOGIC TÌM CẶP
   const handleCardClick = (card) => {
     if (isChecking || matchedCards.includes(card.uniqueId) || selectedCards.some(c => c.uniqueId === card.uniqueId)) return;
 
@@ -570,7 +573,7 @@ function VocabularyContent() {
       );
 
     case 'quiz':
-      // 🌟 PHÁT TRIỂN MỚI: PHÂN HỆ TRẮC NGHIỆM TỪ VỰNG CHUẨN TOEIC (`mode=quiz`)
+      // 🌟 PHÁT TRIỂN MỚI: QUẢN LÝ TRỌN VẸN CẢ 50 CÂU TRẮC NGHIỆM KHÔNG TRÙNG LẶP (`mode=quiz`)
       if (quizQuestions.length === 0) return null;
       const currentQuestion = quizQuestions[quizIndex];
 
@@ -580,20 +583,23 @@ function VocabularyContent() {
           <header className="bg-green-400 p-3.5 px-5 flex items-center justify-between shadow-md">
             <button onClick={() => router.back()} className="bg-white/20 border-none rounded-lg p-1.5 px-3 text-white text-xs font-bold cursor-pointer transition hover:bg-white/30">← Thoát</button>
             <span className="text-white font-black text-sm text-center flex-1">📝 Trắc nghiệm từ vựng — {topic?.title}</span>
-            <span className="text-white text-xs font-bold bg-emerald-600 px-3 py-1.5 rounded-full">Câu: {quizIndex + 1}/10</span>
+            <span className="text-white text-xs font-bold bg-emerald-600 px-3 py-1.5 rounded-full">Câu: {quizIndex + 1}/{quizQuestions.length}</span>
           </header>
 
           <div className="flex-1 max-w-xl w-full mx-auto p-4 flex flex-col justify-center gap-5">
-            {/* THANH TIẾN TRÌNH TRỰC QUAN */}
+            {/* THANH TIẾN TRÌNH TRỰC QUAN DỰA TRÊN TỔNG SỐ CÂU HỎI */}
             <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden shadow-inner">
-              <div className="bg-green-400 h-full transition-all duration-300" style={{ width: `${(quizIndex + 1) * 10}%` }} />
+              <div className="bg-green-400 h-full transition-all duration-300" style={{ width: `${((quizIndex + 1) / quizQuestions.length) * 100}%` }} />
             </div>
 
             {/* CARD THỂ HIỆN CÂU HỎI NGỮ CẢNH */}
             <div className="w-full bg-white rounded-3xl border border-gray-100 shadow-xl p-6 flex flex-col gap-4">
-              <span className="text-[10px] font-black text-green-400 tracking-widest uppercase">TOEIC Form Part 5 Question</span>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black text-green-400 tracking-widest uppercase">TOEIC Form Part 5 Question</span>
+                <span className="text-[11px] font-black text-gray-400 bg-gray-50 px-3 py-0.5 rounded-full border border-gray-100">Đúng: {quizScore} câu</span>
+              </div>
               
-              {/* Câu hỏi điền vào chỗ trống dạng đục lỗ chuẩn TOEIC */}
+              {/* Câu hỏi đục lỗ chuẩn form TOEIC */}
               <h3 className="text-gray-800 font-bold text-base leading-relaxed tracking-tight mt-1">
                 "{currentQuestion.maskedSentence}"
               </h3>
