@@ -1,66 +1,120 @@
 'use client';
+
 import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { Roboto } from 'next/font/google';
 import { db } from '@/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+
+const roboto = Roboto({ weight: ['400', '500', '700', '900'], subsets: ['vietnamese'], display: 'swap' });
+
+function parseExerciseCSV(csvText, partKey) {
+  const lines = csvText.split(/\r?\n/).filter(line => line.trim() !== '');
+  if (lines.length < 2) return [];
+  
+  const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+  
+  return lines.slice(1).map((line, i) => {
+    const row = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(cell => cell.replace(/^"|"$/g, '').trim());
+    let obj = {};
+    headers.forEach((h, idx) => obj[h] = row[idx]);
+    
+    // Xử lý đục lỗ cho Part 3, 4
+    if (partKey.includes('p3') || partKey.includes('p4')) {
+      const rawScript = obj['scripttext'] || '';
+      const parts = rawScript.split(/(\[.+?\|.+?\])/g);
+      obj.isParagraphMode = true;
+      obj.scriptParagraphs = parts.map(token => {
+        if (token.startsWith('[') && token.endsWith(']')) {
+          const [correctAnswer, hint] = token.slice(1, -1).split('|');
+          return { isGap: true, correctAnswer, hint };
+        }
+        return { isGap: false, text: token };
+      });
+    }
+    return obj;
+  });
+}
 
 function ExerciseContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const partKey = searchParams.get('part') || 'dictation_p1';
 
-  const [q, setQ] = useState(null);
+  const [questions, setQuestions] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [userInput, setUserInput] = useState('');
+  const [paragraphInputs, setParagraphInputs] = useState({});
+  const [isCheck, setIsCheck] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [errorMessage, setErrorMessage] = useState(null);
 
   useEffect(() => {
-    async function init() {
+    async function loadData() {
+      setLoading(true);
+      setErrorMessage(null);
       try {
-        setLoading(true);
-        // 1. Lấy URL từ Firestore
-        const docSnap = await getDoc(doc(db, 'exercise_lessons', partKey));
-        if (!docSnap.exists()) throw new Error("Document không tồn tại!");
+        // 1. Kiểm tra Firebase
+        const docRef = doc(db, 'exercise_lessons', partKey);
+        const docSnap = await getDoc(docRef);
+        
+        if (!docSnap.exists()) {
+          throw new Error(`Không tìm thấy Document ID: "${partKey}" trong Collection "exercise_lessons" trên Firebase.`);
+        }
         
         const url = docSnap.data().exerciseUrl;
+        if (!url) throw new Error("Document tồn tại nhưng không có field 'exerciseUrl'.");
+        
+        // 2. Tải CSV
         const exportUrl = url.replace('/edit', '/export?format=csv');
+        const response = await fetch(exportUrl);
+        if (!response.ok) throw new Error("Không thể tải file CSV. Hãy kiểm tra Link Google Sheet (Phải Public).");
         
-        // 2. Fetch dữ liệu
-        const res = await fetch(exportUrl);
-        const csvText = await res.text();
+        const csvText = await response.text();
+        const data = parseExerciseCSV(csvText, partKey);
         
-        // 3. Parser đơn giản (Kiểm tra xem dòng 2 có dữ liệu không)
-        const lines = csvText.split('\n');
-        if (lines.length < 2) throw new Error("File CSV rỗng!");
+        if (data.length === 0) throw new Error("Dữ liệu CSV rỗng hoặc tiêu đề cột không khớp!");
         
-        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-        const values = lines[1].split(',');
-
-        // Map dữ liệu dựa trên tiêu đề cột
-        const data = {};
-        headers.forEach((h, i) => data[h] = values[i]);
-        
-        console.log("Dữ liệu đã parse:", data);
-        setQ({ audio: data.audiourl, meaning: data.meaning });
-
-      } catch (e) {
-        setError(e.message);
+        setQuestions(data);
+      } catch (err) {
+        setErrorMessage(err.message);
       } finally {
         setLoading(false);
       }
     }
-    init();
+    loadData();
   }, [partKey]);
 
-  if (loading) return <div>Đang nạp dữ liệu từ Drive...</div>;
-  if (error) return <div className="text-red-500">LỖI: {error}</div>;
-  if (!q || !q.audio) return <div>Không tìm thấy dữ liệu bài tập! Hãy kiểm tra lại file Excel (cột audiourl).</div>;
+  // UI RENDERING
+  if (loading) return <div className="p-10 text-center font-bold text-green-500">Đang đồng bộ dữ liệu...</div>;
+  if (errorMessage) return (
+    <div className="p-10 text-center text-red-500 font-bold border border-red-200 bg-red-50 m-4 rounded-xl">
+      <p className="mb-4">⚠️ LỖI: {errorMessage}</p>
+      <button onClick={() => router.back()} className="p-2 px-4 bg-gray-200 rounded-lg">Quay lại</button>
+    </div>
+  );
+
+  const q = questions[currentIndex];
 
   return (
-    <div className="p-10 bg-gray-900 text-white min-h-screen">
-      <h1 className="text-2xl font-bold mb-4">Bài tập: {partKey}</h1>
-      <audio src={q.audio} controls className="mb-4 bg-white rounded-lg p-2" />
-      <p className="text-lg">Nghĩa: {q.meaning}</p>
-      <button onClick={() => router.back()} className="mt-5 p-3 bg-green-500 rounded text-white font-bold">Quay lại</button>
+    <div className={`${roboto.className} min-h-screen bg-gray-50 p-6`}>
+      <div className="max-w-2xl mx-auto bg-white p-8 rounded-3xl shadow-lg">
+        <h2 className="text-xl font-black text-green-500 mb-6 uppercase">{partKey}</h2>
+        <audio src={q.audiourl} controls className="w-full mb-4" key={q.audiourl} />
+        
+        {/* Nội dung bài tập */}
+        <div className="mb-6 p-4 bg-gray-50 rounded-xl text-sm">
+           {q.isParagraphMode ? "Đoạn văn cần điền từ..." : q.meaning}
+        </div>
+
+        {/* Ô nhập liệu */}
+        <textarea className="w-full p-4 border rounded-xl mb-4" rows={3} value={userInput} 
+                  onChange={(e) => setUserInput(e.target.value)} />
+
+        <button onClick={() => alert("Tính năng kiểm tra đã sẵn sàng!")} className="w-full bg-green-500 text-white p-4 rounded-xl font-bold">
+          Kiểm tra đáp án
+        </button>
+      </div>
     </div>
   );
 }
