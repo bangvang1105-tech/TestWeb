@@ -28,7 +28,6 @@ const VOCAB_TOPICS = [
   { id: 13, title: 'Sức khỏe & Y tế', subtitle: 'Health' },
 ];
 
-// Hàm xử lý phân tích cú pháp CSV từ Google Drive an toàn, chống mất chữ câu ví dụ
 function parseCSVToJSON(csvText) {
   const lines = csvText.split(/\r?\n/);
   const result = [];
@@ -67,7 +66,6 @@ function parseCSVToJSON(csvText) {
   return result;
 }
 
-// Thuật toán xáo trộn mảng ngẫu nhiên Fisher-Yates chuẩn cú pháp JavaScript
 function shuffleArray(array) {
   let m = array.length, t, i;
   while (m) {
@@ -87,24 +85,28 @@ function VocabularyContent() {
 
   const topic = VOCAB_TOPICS.find(t => String(t.id) === String(topicId));
 
-  // States dữ liệu tổng
+  // States tổng
+  const [shuffledPool, setShuffledPool] = useState([]); // Chứa toàn bộ 50 từ đã trộn ngẫu nhiên
   const [words, setWords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // States quản lý Flashcards
+  // States Flashcards
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false); 
 
-  // States quản lý Mini-game TÌM CẶP
+  // States Game Tìm Cặp nâng cao
+  const [currentRound, setCurrentRound] = useState(1); // Chạy từ hiệp 1 đến hiệp 5
   const [matchCards, setMatchCards] = useState([]);
   const [selectedCards, setSelectedCards] = useState([]);
   const [matchedCards, setMatchedCards] = useState([]);
+  const [wrongCards, setWrongCards] = useState([]); // Quản lý tạm thời các ô ghép sai để đổi màu đỏ
+  const [correctCards, setCorrectCards] = useState([]); // Quản lý tạm thời các ô ghép đúng để đổi màu xanh
   const [isChecking, setIsChecking] = useState(false);
 
   const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
 
-  // FETCH DỮ LIỆU TỪ FIREBASE & GOOGLE DRIVE
+  // FETCH VÀ KHỞI TẠO DỮ LIỆU
   useEffect(() => {
     if (!topicId) return;
 
@@ -116,6 +118,9 @@ function VocabularyContent() {
         setCurrentIndex(0);
         setSelectedCards([]);
         setMatchedCards([]);
+        setWrongCards([]);
+        setCorrectCards([]);
+        setCurrentRound(1);
 
         const docSnap = await getDoc(doc(db, 'vocab_lessons', String(topicId)));
         if (!docSnap.exists()) {
@@ -146,17 +151,13 @@ function VocabularyContent() {
 
         setWords(parsedData);
 
-        // KHỞI TẠO RIÊNG CHO GAME TÌM CẶP: Lấy 6 từ ngẫu nhiên tạo thành 12 thẻ (6 Anh - 6 Việt)
         if (mode === 'match') {
-          const pool = shuffleArray([...parsedData]).slice(0, 6);
-          let generatedCards = [];
+          // Trộn ngẫu nhiên toàn bộ danh sách từ vựng gốc (ví dụ: 50 từ)
+          const randomizedPool = shuffleArray([...parsedData]);
+          setShuffledPool(randomizedPool);
           
-          pool.forEach((item, index) => {
-            generatedCards.push({ uniqueId: `w_${index}`, pairId: index, content: item.word, type: 'word' });
-            generatedCards.push({ uniqueId: `m_${index}`, pairId: index, content: item.meaning, type: 'meaning' });
-          });
-          
-          setMatchCards(shuffleArray(generatedCards));
+          // Khởi tạo hiệp 1: Lấy 10 từ đầu tiên từ bể dữ liệu đã trộn
+          generateRoundCards(randomizedPool, 1);
         }
 
       } catch (err) {
@@ -170,7 +171,30 @@ function VocabularyContent() {
     fetchAndParseExcelData();
   }, [topicId, mode]);
 
-  // ĐỒNG BỘ TIẾN TRÌNH LÊN FIREBASE KHI HOÀN THÀNH
+  // HÀM TẠO THẺ CHO TỪNG HIỆP (10 TỪ = 20 THẺ)
+  const generateRoundCards = (pool, roundNumber) => {
+    const itemsPerRound = 10;
+    const startIndex = (roundNumber - 1) * itemsPerRound;
+    const endIndex = startIndex + itemsPerRound;
+    
+    // Cắt lấy 10 từ tương ứng của hiệp hiện tại
+    const roundWords = pool.slice(startIndex, endIndex);
+    
+    let generatedCards = [];
+    roundWords.forEach((item, index) => {
+      // pairId dùng chỉ số index cục bộ để so khớp trong hiệp
+      generatedCards.push({ uniqueId: `w_${roundNumber}_${index}`, pairId: index, content: item.word, type: 'word' });
+      generatedCards.push({ uniqueId: `m_${roundNumber}_${index}`, pairId: index, content: item.meaning, type: 'meaning' });
+    });
+    
+    setSelectedCards([]);
+    setMatchedCards([]);
+    setWrongCards([]);
+    setCorrectCards([]);
+    setMatchCards(shuffleArray(generatedCards)); // Trộn ngẫu nhiên vị trí 20 thẻ trước khi lên sàn
+  };
+
+  // ĐỒNG BỘ TIẾN TRÌNH LÊN FIREBASE KHI HOÀN THÀNH TOÀN BỘ 5 HIỆP
   const handleFinishSession = async () => {
     if (!CURRENT_USER_ID) {
       router.push('/home');
@@ -180,12 +204,12 @@ function VocabularyContent() {
       const progressRef = doc(db, 'users', CURRENT_USER_ID, 'progress', `vocab_${mode}_${topicId}`);
       await setDoc(progressRef, {
         status: 'completed',
-        score: mode === 'match' ? 10 : words.length,
-        totalQuestions: mode === 'match' ? 10 : words.length,
+        score: mode === 'match' ? 50 : words.length,
+        totalQuestions: mode === 'match' ? 50 : words.length,
         updatedAt: new Date().toISOString()
       }, { merge: true });
 
-      alert('🎉 Tuyệt vời! Hệ thống đã ghi nhận điểm và hoàn thành phân hệ học này!');
+      alert('🎉 Chúc mừng! Bạn đã chinh phục xuất sắc toàn bộ 50 từ vựng của bài học!');
       router.push('/home');
     } catch (err) {
       console.error(err);
@@ -193,36 +217,57 @@ function VocabularyContent() {
     }
   };
 
-  // LOGIC XỬ LÝ KHỚP THẺ CỦA GAME TÌM CẶP
+  // LOGIC XỬ LÝ CLICK CHỌN THẺ & BIẾN ĐỔI MÀU SẮC
   const handleCardClick = (card) => {
+    // Ngăn chặn bấm khi đang khóa kiểm tra, thẻ đã đúng hoặc bấm lại chính ô đó
     if (isChecking || matchedCards.includes(card.uniqueId) || selectedCards.some(c => c.uniqueId === card.uniqueId)) return;
 
     const newSelection = [...selectedCards, card];
     setSelectedCards(newSelection);
 
+    // Phát hiện lượt click thứ 2
     if (newSelection.length === 2) {
       setIsChecking(true);
       const [first, second] = newSelection;
 
       if (first.pairId === second.pairId && first.type !== second.type) {
-        // Đúng cặp: Thêm vào mảng matchedCards để ẩn thẻ ngay lập tức
+        // CHỌN ĐÚNG CẶP: Kích hoạt hiển thị màu Xanh Lá cho cả 2 ô
+        setCorrectCards([first.uniqueId, second.uniqueId]);
+        
         setTimeout(() => {
           setMatchedCards(prev => {
             const updated = [...prev, first.uniqueId, second.uniqueId];
+            
+            // Kiểm tra xem đã dọn sạch 20 thẻ của hiệp hiện tại chưa
             if (updated.length === matchCards.length) {
-              setTimeout(() => { handleFinishSession(); }, 500);
+              const nextRound = currentRound + 1;
+              const maxRounds = Math.ceil(shuffledPool.length / 10); // Thường là 5 hiệp cho 50 từ
+              
+              setTimeout(() => {
+                if (nextRound <= maxRounds && (nextRound - 1) * 10 < shuffledPool.length) {
+                  setCurrentRound(nextRound);
+                  generateRoundCards(shuffledPool, nextRound);
+                } else {
+                  handleFinishSession();
+                }
+              }, 600);
             }
             return updated;
           });
+          
           setSelectedCards([]);
+          setCorrectCards([]);
           setIsChecking(false);
-        }, 300);
+        }, 500); // Giữ màu xanh lá trong 0.5 giây để học viên kịp nhìn nhận
       } else {
-        // Sai cặp: Giữ màu đỏ báo lỗi nhẹ 0.8 giây, sau đó tự động úp thẻ xuống lại
+        // CHỌN SAI CẶP: Kích hoạt hiển thị màu Đỏ cho cả 2 ô
+        setWrongCards([first.uniqueId, second.uniqueId]);
+        
         setTimeout(() => {
           setSelectedCards([]);
+          setWrongCards([]);
           setIsChecking(false);
-        }, 800);
+        }, 800); // Giữ màu đỏ báo lỗi trong 0.8 giây rồi úp lại bình thường
       }
     }
   };
@@ -252,7 +297,7 @@ function VocabularyContent() {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center text-gray-400 text-xs font-bold gap-3">
         <div className="w-8 h-8 border-4 border-green-400 border-t-transparent rounded-full animate-spin" />
-        Hệ thống đang kết nối Google Drive và nạp bảng dữ liệu Excel...
+        Hệ thống đang nạp kho từ vựng từ tệp Excel...
       </div>
     );
   }
@@ -268,7 +313,6 @@ function VocabularyContent() {
     );
   }
 
-  // ĐIỀU HƯỚNG PHÂN PHÁT GIAO DIỆN THEO BIẾN MODE TRÊN URL
   switch (mode) {
     case 'flashcard':
       const currentCard = words[currentIndex];
@@ -312,40 +356,56 @@ function VocabularyContent() {
     case 'match':
       return (
         <div className={`${roboto.className} min-h-screen bg-gray-50 flex flex-col antialiased`}>
+          {/* HEADER GAME CÓ HIỂN THỊ ĐỢT CHƠI TRỰC QUAN */}
           <header className="bg-green-400 p-3.5 px-5 flex items-center justify-between shadow-md">
-            <button onClick={() => router.back()} className="bg-white/20 border-none rounded-lg p-1.5 px-3 text-white text-xs font-bold cursor-pointer transition hover:bg-white/30">← Thoát game</button>
+            <button onClick={() => router.back()} className="bg-white/20 border-none rounded-lg p-1.5 px-3 text-white text-xs font-bold cursor-pointer transition hover:bg-white/30">← Thôi học</button>
             <span className="text-white font-black text-sm text-center flex-1">🔗 Tìm cặp từ vựng — {topic?.title}</span>
-            <span className="text-white text-xs font-bold bg-white/20 px-3 py-1 rounded-full">Tiến độ: {matchedCards.length / 2} / 6 cặp</span>
+            <span className="text-white text-xs font-bold bg-emerald-600 px-3 py-1.5 rounded-full">Hiệp: {currentRound} / {Math.ceil(shuffledPool.length / 10)}</span>
           </header>
 
-          <div className="flex-1 max-w-3xl w-full mx-auto p-4 md:p-6 flex flex-col justify-center gap-4">
-            <div className="text-center mb-2">
-              <span className="text-xs font-bold text-gray-400 uppercase tracking-widest bg-white border border-gray-100 px-4 py-1.5 rounded-full shadow-sm">🎯 Quy tắc: Chọn 1 từ Tiếng Anh khớp với 1 nghĩa Tiếng Việt</span>
+          <div className="flex-1 max-w-4xl w-full mx-auto p-4 md:p-6 flex flex-col justify-center gap-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 bg-white p-3 px-5 rounded-2xl border border-gray-100 shadow-sm text-center sm:text-left">
+              <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">🎯 Đợt này gồm 10 từ ngẫu nhiên (20 ô chữ)</span>
+              <span className="text-xs font-bold text-green-500 bg-green-50 px-3 py-1 rounded-full">Đã giải quyết: {((currentRound - 1) * 10) + (matchedCards.length / 2)} / {shuffledPool.length} từ</span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 w-full">
+            {/* LƯỚI 20 Ô CHỮ CHO MỖI ĐỢT HỌC */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5 w-full mt-2">
               {matchCards.map((card) => {
                 const isSelected = selectedCards.some(c => c.uniqueId === card.uniqueId);
                 const isMatched = matchedCards.includes(card.uniqueId);
-                const isWrongPair = selectedCards.length === 2 && isSelected && !isMatched;
+                const isCorrectPair = correctCards.includes(card.uniqueId);
+                const isWrongPair = wrongCards.includes(card.uniqueId);
+
+                // Biến đổi màu trạng thái theo đúng yêu cầu: Vàng khi click -> Xanh khi đúng -> Đỏ khi sai
+                let cardStyleClass = 'bg-white border-gray-200 text-gray-700 hover:border-amber-300 hover:shadow-md';
+                if (isSelected) {
+                  cardStyleClass = 'bg-amber-50 border-amber-400 text-amber-700 scale-102 shadow';
+                }
+                if (isCorrectPair) {
+                  cardStyleClass = 'bg-green-50 border-green-500 text-green-700 scale-102 shadow-md';
+                }
+                if (isWrongPair) {
+                  cardStyleClass = 'bg-red-50 border-red-500 text-red-700 animate-shake';
+                }
 
                 return (
                   <div
                     key={card.uniqueId}
                     onClick={() => handleCardClick(card)}
-                    className={`h-28 rounded-2xl p-3 flex items-center justify-center text-center font-bold text-xs border cursor-pointer select-none transition-all duration-200 shadow-sm
-                      ${isMatched ? 'opacity-0 scale-95 pointer-events-none' : ''}
-                      ${isSelected ? (isWrongPair ? 'bg-red-50 border-red-300 text-red-600 shadow-md' : 'bg-green-50 border-green-400 text-green-600 scale-102 shadow-md') : 'bg-white border-gray-200 text-gray-700 hover:border-green-300 hover:shadow'}`}
+                    className={`h-24 rounded-2xl p-3 flex items-center justify-center text-center font-bold text-xs border cursor-pointer select-none transition-all duration-200
+                      ${isMatched ? 'opacity-0 scale-90 pointer-events-none' : ''} ${cardStyleClass}`}
                   >
-                    <span className="line-clamp-4 leading-relaxed font-semibold">{card.content}</span>
+                    <span className="line-clamp-3 leading-relaxed font-semibold">{card.content}</span>
                   </div>
                 );
               })}
             </div>
 
+            {/* HIỆU ỨNG CHUYỂN HIỆP */}
             {matchedCards.length === matchCards.length && matchCards.length > 0 && (
-              <div className="text-center mt-6 p-4 rounded-xl border border-green-200 bg-green-50 text-green-700 font-bold text-sm animate-bounce">
-                🎉 Hoàn thành xuất sắc! Đang đồng bộ điểm số lên hệ thống...
+              <div className="text-center mt-6 p-4 rounded-xl border border-green-200 bg-green-50 text-green-700 font-bold text-sm animate-pulse">
+                👍 Tuyệt vời! Đang xáo trộn và chuẩn bị 10 từ vựng tiếp theo...
               </div>
             )}
           </div>
