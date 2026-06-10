@@ -27,7 +27,7 @@ const GRAMMAR_TOPICS = [
   { id: 10, title: 'Liên từ', subtitle: 'Conjunctions' },
   { id: 11, title: 'Cấu tạo câu', subtitle: 'Sentence Structures' },
   { id: 12, title: 'Hòa hợp chủ vị', subtitle: 'Subject-Verb Agreement' },
-  { id: 13, title: 'Các loại so sánh', subtitle: 'Comparisons' }, // 🌟 Đã tích hợp Chuyên đề 13 lý thuyết
+  { id: 13, title: 'Các loại so sánh', subtitle: 'Comparisons' }, 
 ];
 
 const MODE_INFO = {
@@ -46,7 +46,7 @@ function GrammarContent() {
 
   const [lessonContent, setLessonContent] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [iframeLoading, setIframeLoading] = useState(true); // Vòng quay tải trang mượt mà cho iframe
+  const [iframeLoading, setIframeLoading] = useState(true); 
 
   useEffect(() => {
     if (!topicId) return;
@@ -91,7 +91,7 @@ function GrammarContent() {
               Đang tải tư liệu bài giảng...
             </div>
           ) : (
-            <div className="flex-1 w-full h-full rounded-xl overflow-hidden bg-black relative">
+            <div className="flex-1 w-full h-full rounded-xl overflow-hidden bg-black relative min-h-[400px]">
               {mode === 'video' ? (
                 lessonContent?.videoUrl ? (
                   <iframe 
@@ -105,17 +105,19 @@ function GrammarContent() {
                 )
               ) : (
                 lessonContent?.slideUrl ? (
-                  <div className="w-full h-full relative">
+                  <div className="w-full h-full absolute top-0 left-0 bg-white">
                     {iframeLoading && (
                       <div className="absolute inset-0 bg-white flex flex-col items-center justify-center gap-2 text-gray-400 text-xs font-semibold z-10">
                         <div className="w-6 h-6 border-4 border-green-400 border-t-transparent rounded-full animate-spin" />
                         Đang tối ưu hiển thị slide tài liệu...
                       </div>
                     )}
+                    {/* Bổ sung tham số sandbox/phân quyền giúp Google Slides hiển thị ổn định */}
                     <iframe 
                       src={lessonContent.slideUrl} 
-                      className="w-full h-full border-none absolute top-0 left-0 bg-white"
-                      allow="autoplay"
+                      className="w-full h-full border-0 absolute top-0 left-0 bg-white"
+                      allow="autoplay; encrypted-media"
+                      allowFullScreen={true}
                       onLoad={() => setIframeLoading(false)}
                     ></iframe>
                   </div>
