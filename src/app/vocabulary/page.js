@@ -85,7 +85,7 @@ function VocabularyContent() {
 
   const topic = VOCAB_TOPICS.find(t => String(t.id) === String(topicId));
 
-  // States tổng hệ thống
+  // States dữ liệu tổng hệ thống
   const [shuffledPool, setShuffledPool] = useState([]); 
   const [words, setWords] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -255,6 +255,15 @@ function VocabularyContent() {
     utterance.rate = type === 'word' ? 0.9 : 0.85;
     window.speechSynthesis.speak(utterance);
   };
+
+  useEffect(() => {
+    if (mode === 'listen' && shuffledPool.length > 0 && !loading) {
+      const timer = setTimeout(() => {
+        playAudio(shuffledPool[listenIndex]?.word, 'word');
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [listenIndex, mode, loading, voiceAccent]);
 
   const generateRoundCards = (pool, roundNumber) => {
     const itemsPerRound = 10;
@@ -679,7 +688,6 @@ function VocabularyContent() {
       );
 
     case 'typer':
-      // 🌟 ĐÃ CẬP NHẬT TÊN MỚI: ĐUA TỐC ĐỘ PHẢN XẠ (`mode=typer`)
       if (shuffledPool.length === 0) return null;
       const currentTyperWord = shuffledPool[typerIndex];
       const maskedTyperSentence = currentTyperWord?.example.replace(new RegExp(`\\b${currentTyperWord?.word}\\b`, 'gi'), '_____');

@@ -36,6 +36,7 @@ const VOCAB_SUBMENU = [
   { key: 'quiz', label: 'Trắc nghiệm từ vựng', icon: '✏️' },
   { key: 'match', label: 'Tìm cặp', icon: '🔗' },
   { key: 'listen', label: 'Nghe từ vựng', icon: '🎧' },
+  { key: 'typer', label: 'Đua tốc độ phản xạ', icon: '⚡' }, // 🌟 Đã tích hợp phân hệ trò chơi mới thành công
 ];
 
 const GRAMMAR_SUBMENU = [
@@ -56,7 +57,7 @@ const GRAMMAR_TOPICS = [
   { id: 10, title: 'Liên từ', subtitle: 'Conjunctions' },
   { id: 11, title: 'Cấu tạo câu', subtitle: 'Sentence Structures' },
   { id: 12, title: 'Hòa hợp chủ vị', subtitle: 'Subject-Verb Agreement' },
-  { id: 13, title: 'Các loại so sánh', subtitle: 'Comparisons' }, // 🌟 Đã cập nhật Bài 13 toàn cục
+  { id: 13, title: 'Các loại so sánh', subtitle: 'Comparisons' }, 
 ];
 
 const EXERCISE_SKILLS = [
