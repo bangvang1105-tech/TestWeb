@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Roboto } from 'next/font/google';
 import { db } from '@/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, setDoc, query, orderBy, limit } from 'firebase/firestore';
 
 const roboto = Roboto({
   weight: ['400', '500', '700', '900'],
@@ -12,7 +12,7 @@ const roboto = Roboto({
   display: 'swap',
 });
 
-const BRAND_COLOR = 'bg-green-400';
+const BRAND = '#4ade80';
 
 const VOCAB_TOPICS = [
   { id: 1, title: 'Hợp đồng & Đàm phán', subtitle: 'Contracts' },
@@ -55,7 +55,7 @@ const GRAMMAR_TOPICS = [
   { id: 9, title: 'Giới từ', subtitle: 'Prepositions' },
   { id: 10, title: 'Liên từ', subtitle: 'Conjunctions' },
   { id: 11, title: 'Cấu tạo câu', subtitle: 'Sentence Structures' },
-  { id: 12, title: 'Hòa hợp chủ vị', subtitle: 'Subject-Verb Agreement' },
+  { id: 12, text: 'Hòa hợp chủ vị', subtitle: 'Subject-Verb Agreement' },
 ];
 
 const EXERCISE_SKILLS = [
@@ -99,6 +99,10 @@ export default function HomePage() {
   const [userProgress, setUserProgress] = useState({});
   const [loadingProgress, setLoadingProgress] = useState(true);
 
+  // 🌟 THÊM MỚI STATES QUẢN LÝ CÁ NHÂN HÓA LỚP HỌC
+  const [userStreak, setUserStreak] = useState(1);
+  const [leaderboardData, setLeaderboardData] = useState([]);
+
   const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
 
   useEffect(() => {
@@ -107,24 +111,77 @@ export default function HomePage() {
       return;
     }
 
-    async function fetchProgress() {
+    async function initializeDashboardData() {
       try {
         setLoadingProgress(true);
+        
+        // 1. Fetch tiến trình học tập của user
         const querySnapshot = await getDocs(
           collection(db, 'users', CURRENT_USER_ID, 'progress')
         );
         const progressMap = {};
+        let completedCounter = 0;
         querySnapshot.forEach((docSnap) => {
-          progressMap[docSnap.id] = docSnap.data();
+          const data = docSnap.data();
+          progressMap[docSnap.id] = data;
+          if (data.status === 'completed') completedCounter++;
         });
         setUserProgress(progressMap);
+
+        // 2. 🌟 XỬ LÝ ĐIỂM DANH TÍNH STREAK TỰ ĐỘNG KHÔNG CẦN LÀM MỚI
+        const todayStr = new Date().toLocaleDateString('sv-SE'); // Định dạng chuẩn YYYY-MM-DD
+        const userRef = doc(db, 'users', CURRENT_USER_ID);
+        const userSnap = await getDoc(userRef);
+        
+        let currentStreak = 1;
+        if (userSnap.exists()) {
+          const userData = userSnap.data();
+          const lastActive = userData.lastActiveDate;
+          currentStreak = userData.streak || 1;
+
+          if (lastActive && lastActive !== todayStr) {
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = yesterday.toLocaleDateString('sv-SE');
+
+            if (lastActive === yesterdayStr) {
+              currentStreak += 1; // Học liên tục ngày hôm sau -> Tăng streak
+            } else {
+              currentStreak = 1;  // Bỏ ngắt quãng -> Reset chuỗi về 1
+            }
+          }
+        }
+        setUserStreak(currentStreak);
+
+        // Lưu ngược thông tin đồng bộ lên Firebase của học viên
+        await setDoc(userRef, {
+          streak: currentStreak,
+          lastActiveDate: todayStr,
+          completedCount: completedCounter // Đồng bộ số bài để tính Leaderboard
+        }, { merge: true });
+
+        // 3. 🌟 QUÉT DỮ LIỆU ĐỌC BẢNG XẾP HẠNG THỰC TẾ (Lấy top 5 học viên làm nhiều bài nhất)
+        const usersQuery = query(collection(db, 'users'), orderBy('completedCount', 'desc'), limit(5));
+        const usersSnapshot = await getDocs(usersQuery);
+        const ranks = [];
+        let index = 1;
+        usersSnapshot.forEach((uSnap) => {
+          const uData = uSnap.data();
+          ranks.push({
+            rank: index++,
+            name: uSnap.id, // Sử dụng ID tài khoản đăng nhập làm tên hiển thị công khai
+            count: uData.completedCount || 0
+          });
+        });
+        setLeaderboardData(ranks);
+
       } catch (err) {
-        console.error("Lỗi đồng bộ tiến trình học viên: ", err);
+        console.error("Lỗi xử lý dữ liệu cá nhân hóa: ", err);
       } finally {
         setLoadingProgress(false);
       }
     }
-    fetchProgress();
+    initializeDashboardData();
   }, [activeMenu, CURRENT_USER_ID, router]);
 
   const menuItems = ['Tổng quan', 'Khóa học', 'Ngữ pháp', 'Từ vựng', 'Bài tập', 'Luyện đề'];
@@ -167,59 +224,6 @@ export default function HomePage() {
 
   const handleExamNavigation = (bookKey, testId) => {
     router.push(`/exam?book=${bookKey}&test=${testId}`);
-  };
-
-  // Hàm dựng data trạng thái chung cho hệ bài thi cũ
-  const rawExerciseData = Array.from({ length: 10 }, (_, i) => ({ id: i + 1, title: `Đề Luyện tập số ${i + 1}` }));
-  const buildDisplayData = (rawData, prefixType) => {
-    return rawData.map(item => {
-      const targetLessonId = `${prefixType}_${item.id}`;
-      const progress = userProgress[targetLessonId];
-      let status = 'Chưa làm';
-      let scoreText = '0/10';
-      if (progress) {
-        if (progress.status === 'completed') {
-          status = 'Đã làm';
-          scoreText = `${progress.score}/${progress.totalQuestions || 10}`;
-        } else if (progress.status === 'in_progress') {
-          status = 'Đang làm';
-          scoreText = `0/${progress.totalQuestions || 10}`;
-        }
-      }
-      return { ...item, status, score: scoreText };
-    });
-  };
-
-  // Render các loại card cũ (Được tối ưu Responsive tự co giãn w-full thay vì kích thước cứng)
-  const renderCards = (rawDataList, type) => {
-    if (!rawDataList || !Array.isArray(rawDataList)) return <p className="text-gray-400 text-xs mt-4">Không tìm thấy danh sách.</p>;
-    if (loadingProgress) return <p className="text-gray-400 text-xs mt-4">Đang tải tiến trình...</p>;
-    const dataList = buildDisplayData(rawDataList, type);
-    return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-4 w-full">
-        {dataList.map((item) => (
-          <div key={item.id} className="w-full h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
-            <div className="flex justify-between items-start gap-2">
-              <h3 className="font-bold text-gray-800 text-sm line-clamp-1 flex-1">{item.title}</h3>
-              <span className="text-xs font-semibold px-2 py-0.5 bg-gray-100 text-gray-600 rounded">Điểm: {item.score}</span>
-            </div>
-            <div className="flex justify-between items-center mt-2">
-              <span className={`text-xs font-bold px-2 py-1 rounded-md ${item.status === 'Đã làm' ? 'bg-green-100 text-green-700' : item.status === 'Đang làm' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>{item.status}</span>
-              <div className="flex items-center gap-2">
-                {item.status === 'Chưa làm' && <button onClick={() => handleNavigation(type, item.id)} className="bg-green-400 text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:opacity-90 transition">Làm bài</button>}
-                {item.status === 'Đang làm' && <button onClick={() => handleNavigation(type, item.id)} className="bg-green-400 text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:opacity-90 transition whitespace-nowrap">Tiếp tục làm bài</button>}
-                {item.status === 'Đã làm' && (
-                  <>
-                    <button onClick={() => handleNavigation(type, item.id)} className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-transparent border border-green-400 text-green-400 hover:bg-green-50 transition whitespace-nowrap">Xem lại</button>
-                    <button onClick={() => handleNavigation(type, item.id)} className="bg-green-400 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg hover:opacity-90 transition whitespace-nowrap">Làm lại</button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
   };
 
   const renderVocabTopicCards = (mode) => {
@@ -331,7 +335,7 @@ export default function HomePage() {
 
         return (
           <div className="flex flex-col gap-7">
-            {/* Banner Chào Mừng */}
+            {/* Banner Chào Mừng Động */}
             <div className="bg-gradient-to-r from-green-400 to-emerald-500 rounded-2xl p-6 md:p-8 text-white flex flex-wrap justify-between items-center gap-5 shadow-lg shadow-green-400/10 relative overflow-hidden">
               <div className="absolute w-44 h-44 rounded-full bg-white/5 -top-10 -right-5"></div>
               <div className="z-10">
@@ -343,7 +347,7 @@ export default function HomePage() {
                 </p>
               </div>
               <div className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-full text-xs font-extrabold border border-white/25 shadow-sm z-10">
-                🔥 Chuỗi học: 5 ngày liên tục
+                🔥 Chuỗi học: {userStreak} ngày liên tục
               </div>
             </div>
 
@@ -391,23 +395,30 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Bảng vinh danh học viên */}
+              {/* Bảng vinh danh học viên thực tế đọc từ Firestore */}
               <div className="w-full lg:w-80 border border-gray-100 bg-white rounded-2xl p-5 shadow-sm">
-                <h3 className="text-xs font-black text-gray-800 uppercase tracking-wider mb-4">🏆 Top Học Viên Tuần</h3>
+                <h3 className="text-xs font-black text-gray-800 uppercase tracking-wider mb-4">🏆 Bảng Vàng Học Viên</h3>
                 <div className="flex flex-col gap-3">
-                  {[
-                    { rank: 1, name: 'Hồng Nhung', score: '985 TOEIC', icon: '🥇' },
-                    { rank: 2, name: 'Minh Quân', score: '945 TOEIC', icon: '🥈' },
-                    { rank: 3, name: 'Thanh Hải', score: '910 TOEIC', icon: '🥉' },
-                  ].map((student, index) => (
-                    <div key={index} className="flex items-center justify-between text-xs border-b border-gray-50 pb-2.5 last:border-0 last:pb-0">
-                      <div className="flex items-center gap-3">
-                        <span className={`w-6 h-6 rounded-full font-bold flex items-center justify-center text-[11px] ${index === 0 ? 'bg-amber-100 text-amber-800' : index === 1 ? 'bg-slate-100 text-slate-700' : 'bg-orange-50 text-orange-800'}`}>{student.rank}</span>
-                        <span className="font-semibold text-gray-600">{student.name}</span>
+                  {leaderboardData.length > 0 ? (
+                    leaderboardData.map((student) => (
+                      <div key={student.rank} className="flex items-center justify-between text-xs border-b border-gray-50 pb-2.5 last:border-0 last:pb-0">
+                        <div className="flex items-center gap-3">
+                          <span className={`w-6 h-6 rounded-full font-bold flex items-center justify-center text-[11px] 
+                            ${student.rank === 1 ? 'bg-amber-100 text-amber-800' : student.rank === 2 ? 'bg-slate-100 text-slate-700' : 'bg-orange-50 text-orange-800'}`}>
+                            {student.rank}
+                          </span>
+                          <span className={`font-semibold ${student.name === CURRENT_USER_ID ? 'text-green-500 font-bold' : 'text-gray-600'}`}>
+                            {student.name} {student.name === CURRENT_USER_ID && "(Bạn)"}
+                          </span>
+                        </div>
+                        <span className="font-extrabold text-gray-700 flex items-center gap-1">
+                          {student.count} bài done {student.rank === 1 ? '🥇' : student.rank === 2 ? '🥈' : student.rank === 3 ? '🥉' : ''}
+                        </span>
                       </div>
-                      <span className="font-extrabold text-gray-700 flex items-center gap-1">{student.score} {student.icon}</span>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <p className="text-gray-400 text-xs text-center font-medium py-4">Đang tính toán thứ hạng bài làm...</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -565,7 +576,7 @@ export default function HomePage() {
       </header>
 
       <div className="flex flex-1 pt-14">
-        {/* SIDEBAR (Ẩn trên điện thoại, tự hiện từ kích thước md trở lên) */}
+        {/* SIDEBAR */}
         <aside className="w-48 shadow-lg flex flex-col py-6 px-3 gap-1 fixed left-0 top-14 bottom-0 overflow-y-auto bg-green-400 hidden md:flex">
           {menuItems.map((item) => (
             <div key={item}>
@@ -623,7 +634,7 @@ export default function HomePage() {
           ))}
         </aside>
 
-        {/* MAIN CONTENT (Tự co giãn lề trái linh hoạt trên Mobile / Desktop) */}
+        {/* MAIN CONTENT */}
         <main className="flex-1 p-4 md:p-8 ml-0 md:ml-48 w-full overflow-x-hidden">
           <div className="max-w-5xl mx-auto rounded-xl bg-white p-4 md:p-6 shadow-sm border border-gray-100">
             <p className="text-xs text-gray-400 mb-4">
