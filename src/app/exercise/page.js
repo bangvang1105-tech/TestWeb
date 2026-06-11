@@ -40,7 +40,9 @@ function ExerciseContent() {
             header: true,
             skipEmptyLines: true,
             complete: (results) => { 
-              setData(results.data.filter(r => r.audiourl)); 
+              // ĐÃ SỬA: Cho phép load dữ liệu ngay cả khi thiếu link Audio (audiourl) để test UI
+              const validData = results.data.filter(r => r.audiourl || r.transcript || r.maskedsentence || r.optionA);
+              setData(validData); 
               setLoading(false); 
             }
           });
@@ -195,7 +197,7 @@ function ExerciseContent() {
             </div>
           </header>
 
-          <audio key={currentQ.audiourl} controls className="w-full h-12 mb-8 shadow-sm rounded-lg bg-gray-50">
+          <audio key={currentQ.audiourl || currentIndex} controls className="w-full h-12 mb-8 shadow-sm rounded-lg bg-gray-50">
             <source src={currentQ.audiourl} type="audio/mpeg" />
             Trình duyệt không hỗ trợ Audio.
           </audio>
