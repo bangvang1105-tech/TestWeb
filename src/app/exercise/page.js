@@ -8,6 +8,7 @@ import Papa from 'papaparse';
 function ExerciseContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  // Lấy mã bài tập từ URL, nếu không có sẽ mặc định là dictation_p1
   const partKey = searchParams.get('part') || 'dictation_p1';
   
   const [data, setData] = useState([]);
@@ -22,7 +23,7 @@ function ExerciseContent() {
   const [inputC, setInputC] = useState("");
   const [part3Inputs, setPart3Inputs] = useState([]);
 
-  // STATE: Part 5
+  // STATE: Dành riêng cho Mini-game Part 5
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [streak, setStreak] = useState(0);
 
@@ -30,35 +31,24 @@ function ExerciseContent() {
     async function loadData() {
       setLoading(true);
       try {
-        console.log("👉 BƯỚC 1: Đang tìm bài tập có mã là:", partKey);
         const docSnap = await getDoc(doc(db, 'exercise_lessons', partKey));
-        
         if (docSnap.exists()) {
-          console.log("✅ BƯỚC 2: Đã thấy Firebase! Link CSV là:", docSnap.data().exerciseUrl);
-          
           const response = await fetch(docSnap.data().exerciseUrl);
           const csvText = await response.text();
-          console.log("📄 BƯỚC 3: Dữ liệu tải về từ link (100 ký tự đầu):", csvText.substring(0, 100));
-          
           Papa.parse(csvText, {
             header: true,
             skipEmptyLines: true,
             complete: (results) => { 
-              console.log("📊 BƯỚC 4: Dữ liệu PapaParse đọc được:", results.data);
-              
               const validData = results.data.filter(r => r.id || r.question || r.transcript || r.maskedsentence || r.correctanswer || r.explanation);
-              console.log("🎯 BƯỚC 5: Dữ liệu sau khi lọc hợp lệ:", validData);
-              
               setData(validData); 
               setLoading(false); 
             }
           });
         } else {
-          console.log("❌ LỖI BƯỚC 2: Không tìm thấy Document nào tên là", partKey, "trong Firebase!");
           setLoading(false);
         }
       } catch (err) { 
-        console.error("🔥 LỖI NGHIÊM TRỌNG:", err); 
+        console.error(err); 
         setLoading(false); 
       }
     }
@@ -73,12 +63,12 @@ function ExerciseContent() {
     });
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-gray-500">Đang tải dữ liệu và kiểm tra lỗi... Mở F12 để xem log</div>;
-  if (data.length === 0) return <div className="min-h-screen flex items-center justify-center font-bold text-red-500 text-center px-4">Không có dữ liệu!<br/><span className="text-sm font-normal text-gray-500 mt-2 block">Hãy mở F12, sang tab Console để xem lỗi nằm ở bước nào.</span></div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-gray-500">Đang tải dữ liệu...</div>;
+  if (data.length === 0) return <div className="min-h-screen flex items-center justify-center font-bold text-red-500 text-center px-4">Không có dữ liệu!<br/><span className="text-sm font-normal text-gray-500 mt-2 block">Vui lòng kiểm tra lại đường link hoặc cấu hình Firebase.</span></div>;
 
   const currentQ = data[currentIndex];
   
-  // CHUẨN HÓA DỮ LIỆU
+  // CHUẨN HÓA DỮ LIỆU: Đảm bảo code không bị lỗi nếu Google Sheets tự đổi viết hoa/thường
   const normalizedQ = {};
   if (currentQ) {
     Object.keys(currentQ).forEach(key => {
@@ -88,7 +78,7 @@ function ExerciseContent() {
 
   const vocabList = getVocabList(normalizedQ.vocabulary);
   
-  // LOGIC ĐỘC QUYỀN: Đảm bảo chỉ 1 Part được nhận diện
+  // LOGIC ĐỘC QUYỀN: Nhận diện chính xác 100% người dùng đang ở Part nào
   let currentPart = 'PART 1';
   const pKey = partKey.toLowerCase();
 
@@ -203,7 +193,7 @@ function ExerciseContent() {
                   disabled={showResult}
                 />
                 {isWrong && (
-                  <span className="ml-2 text-sm text-red-700 font-bold bg-red-100 px-2 py-1 rounded-md border border-red-200">
+                  <span className="ml-2 text-sm text-red-700 font-bold bg-red-100 px-2 py-1 rounded-md border border-red-200 shadow-sm">
                     {part}
                   </span>
                 )}
@@ -215,7 +205,6 @@ function ExerciseContent() {
     );
   };
 
-  // Lấy màu sắc theo Part hiện tại
   const badgeColors = {
     'PART 1': 'bg-green-500',
     'PART 2': 'bg-blue-500',
@@ -230,7 +219,7 @@ function ExerciseContent() {
     <div className="min-h-screen bg-gray-50 py-10 px-4">
       <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8">
         
-        {/* CỘT CHÍNH: KHU VỰC HIỂN THỊ BÀI TẬP */}
+        {/* CỘT CHÍNH */}
         <div className="flex-1 bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
           <header className="flex justify-between items-center mb-6">
             <button onClick={() => router.back()} className="text-sm text-gray-400 font-bold hover:text-gray-600 transition">← Thoát</button>
@@ -247,7 +236,7 @@ function ExerciseContent() {
             </div>
           </header>
 
-          {/* TRÌNH PHÁT NHẠC (Bị ẩn khi ở Part 5) */}
+          {/* TRÌNH PHÁT NHẠC (Ẩn ở Part 5) */}
           {currentPart !== 'PART 5' && (
             <audio key={normalizedQ.audiourl || currentIndex} controls className="w-full h-12 mb-8 shadow-sm rounded-lg bg-gray-50">
               <source src={normalizedQ.audiourl} type="audio/mpeg" />
@@ -255,7 +244,7 @@ function ExerciseContent() {
             </audio>
           )}
 
-          {/* 1. GIAO DIỆN PART 1 */}
+          {/* PART 1 */}
           {currentPart === 'PART 1' && (
              <>
                <div className="mb-6 p-5 bg-gray-50 rounded-2xl border border-gray-100">
@@ -279,7 +268,7 @@ function ExerciseContent() {
              </>
           )}
 
-          {/* 2. GIAO DIỆN PART 2 */}
+          {/* PART 2 */}
           {currentPart === 'PART 2' && (
             <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 mb-6">
               <h3 className="font-bold text-gray-700 mb-4">Nghe và chép lại toàn bộ:</h3>
@@ -291,10 +280,10 @@ function ExerciseContent() {
             </div>
           )}
 
-          {/* 3. GIAO DIỆN PART 3 & PART 4 */}
+          {/* PART 3 & 4 */}
           {(currentPart === 'PART 3' || currentPart === 'PART 4') && renderClozeTest()}
 
-          {/* 4. GIAO DIỆN MINI-GAME PART 5 */}
+          {/* PART 5 */}
           {currentPart === 'PART 5' && (
             <div className="mb-6">
               <div className="bg-red-50 p-8 rounded-2xl border border-red-100 mb-8 shadow-sm">
@@ -333,7 +322,7 @@ function ExerciseContent() {
               </div>
 
                {showResult && normalizedQ.explanation && (
-                <div className="mt-6 p-5 bg-blue-50 border border-blue-200 rounded-2xl transition-all animate-fadeIn">
+                <div className="mt-6 p-5 bg-blue-50 border border-blue-200 rounded-2xl transition-all">
                   <h4 className="font-bold text-blue-800 mb-2 flex items-center gap-2">
                     💡 Giải thích chi tiết
                   </h4>
@@ -343,7 +332,7 @@ function ExerciseContent() {
             </div>
           )}
 
-          {/* THANH ĐIỀU HƯỚNG NÚT BẤM */}
+          {/* THANH ĐIỀU HƯỚNG */}
           {!showResult && currentPart !== 'PART 5' ? (
             <button 
               onClick={() => setShowResult(true)} 
@@ -363,7 +352,7 @@ function ExerciseContent() {
           ) : null}
         </div>
 
-        {/* CỘT PHỤ: BẢNG TỪ VỰNG DÙNG CHUNG */}
+        {/* CỘT PHỤ: BẢNG TỪ VỰNG */}
         {showResult && vocabList.length > 0 && (
           <div className="w-full md:w-80 bg-white p-6 rounded-2xl shadow-xl border border-gray-100 h-fit transition-all">
             <h3 className={`font-bold mb-4 uppercase text-sm text-center text-${themeColor.split('-')[1]}-600`}>
