@@ -27,11 +27,7 @@ function ExerciseContent() {
           Papa.parse(csvText, {
             header: true,
             skipEmptyLines: true,
-            complete: (results) => { 
-              // Lọc chỉ lấy các dòng có dữ liệu hợp lệ
-              setData(results.data.filter(r => r.audiourl)); 
-              setLoading(false); 
-            }
+            complete: (results) => { setData(results.data.filter(r => r.audiourl)); setLoading(false); }
           });
         }
       } catch (err) { console.error(err); setLoading(false); }
@@ -39,64 +35,70 @@ function ExerciseContent() {
     loadData();
   }, [partKey]);
 
-  if (loading) return <div className="text-center py-20">Đang tải...</div>;
-  if (data.length === 0) return <div className="text-center py-20">Dữ liệu trống hoặc link audio chưa chuẩn!</div>;
-
-  const currentQ = data[currentIndex];
-
-  const handleNext = () => {
-    setUserInput("");
-    setShowResult(false);
-    if (currentIndex < data.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    } else {
-      alert("Chúc mừng! Bạn đã hoàn thành toàn bộ bài tập!");
-    }
+  // Hàm xử lý danh sách từ vựng
+  const getVocabList = (vocabString) => {
+    if (!vocabString) return [];
+    return vocabString.split('|').map(item => {
+      const [word, mean] = item.split(':');
+      return { word: word.trim(), mean: mean.trim() };
+    });
   };
+
+  if (loading) return <div className="text-center py-20">Đang tải...</div>;
+  const currentQ = data[currentIndex];
+  const vocabList = getVocabList(currentQ?.vocabulary);
 
   return (
     <div className="min-h-screen bg-white py-10 px-4">
-      <div className="max-w-xl mx-auto p-8 rounded-2xl shadow-xl border border-gray-100 bg-white">
-        <header className="flex justify-between items-center mb-8">
-          <button onClick={() => router.back()} className="text-sm text-gray-400 font-bold hover:text-gray-600">← Thoát</button>
-          <div className="text-xs font-black text-green-500 uppercase tracking-widest">
-            {partKey.replace('_', ' ')} | Câu {currentIndex + 1}/{data.length}
+      <div className="max-w-4xl mx-auto flex flex-col md:flex-row gap-8">
+        {/* Cột chính: Bài tập */}
+        <div className="flex-1 bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
+          <header className="flex justify-between items-center mb-8">
+            <button onClick={() => router.back()} className="text-sm text-gray-400 font-bold">← Thoát</button>
+            <div className="text-xs font-black text-green-500 uppercase tracking-widest">CÂU {currentIndex + 1}/{data.length}</div>
+          </header>
+
+          <audio key={currentQ.audiourl} controls className="w-full h-10 mb-6"><source src={currentQ.audiourl} type="audio/mpeg" /></audio>
+
+          <div className="mb-6 p-5 bg-gray-50 rounded-2xl border border-gray-100">
+             <p className="text-gray-700 font-semibold text-lg">{currentQ.maskedsentence}</p>
+             {currentQ.hint && <p className="text-xs text-green-600 mt-3">💡 Gợi ý: {currentQ.hint}</p>}
           </div>
-        </header>
 
-        {/* Audio Player */}
-        <div className="mb-8">
-          <audio key={currentQ.audiourl} controls className="w-full h-12 shadow-sm rounded-lg">
-            <source src={currentQ.audiourl} type="audio/mpeg" />
-            Trình duyệt của bạn không hỗ trợ file này.
-          </audio>
-        </div>
+          <textarea
+            className="w-full p-4 rounded-2xl bg-white border-2 border-gray-100 mb-6 focus:border-green-400 outline-none transition-all text-sm" // Đã chỉnh chữ nhỏ hơn (text-sm)
+            rows="3"
+            placeholder="Gõ đáp án vào đây..."
+            value={userInput}
+            onChange={(e) => setUserInput(e.target.value)}
+          />
 
-        {/* Phần hiển thị câu hỏi và gợi ý */}
-        <div className="mb-6 p-5 bg-gray-50 rounded-2xl border border-gray-100">
-           <p className="text-gray-700 font-semibold text-lg">{currentQ.maskedsentence || "Lắng nghe câu và nhập đáp án:"}</p>
-           {currentQ.hint && <p className="text-xs text-green-600 mt-3 font-medium">💡 Gợi ý: {currentQ.hint}</p>}
-        </div>
-
-        <textarea
-          className="w-full p-4 rounded-2xl bg-white border-2 border-gray-100 mb-6 focus:border-green-400 outline-none transition-all"
-          rows="3"
-          placeholder="Gõ nội dung bạn nghe được tại đây..."
-          value={userInput}
-          onChange={(e) => setUserInput(e.target.value)}
-        />
-
-        {!showResult ? (
-          <button onClick={() => setShowResult(true)} className="w-full bg-green-500 text-white py-4 rounded-xl font-bold text-lg hover:bg-green-600 transition shadow-lg">Kiểm tra đáp án</button>
-        ) : (
-          <div className="space-y-4">
-            <div className={`p-5 rounded-2xl ${userInput.trim().toLowerCase() === currentQ.correctanswer.trim().toLowerCase() ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-              <p className="font-bold">{userInput.trim().toLowerCase() === currentQ.correctanswer.trim().toLowerCase() ? "Chính xác! 🎉" : "Chưa đúng."}</p>
-              <p className="text-sm mt-1">Đáp án: <span className="font-mono font-bold">{currentQ.correctanswer}</span></p>
+          {!showResult ? (
+            <button onClick={() => setShowResult(true)} className="w-full bg-green-500 text-white py-4 rounded-xl font-bold hover:bg-green-600">Kiểm tra đáp án</button>
+          ) : (
+            <div className="space-y-4">
+              <div className={`p-5 rounded-2xl ${userInput.trim().toLowerCase() === currentQ.correctanswer.trim().toLowerCase() ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                <p className="font-bold">{userInput.trim().toLowerCase() === currentQ.correctanswer.trim().toLowerCase() ? "Chính xác! 🎉" : "Chưa đúng."}</p>
+              </div>
+              <button onClick={() => { setUserInput(""); setShowResult(false); if(currentIndex < data.length-1) setCurrentIndex(currentIndex+1); }} className="w-full bg-gray-900 text-white py-4 rounded-xl font-bold">Câu tiếp theo →</button>
             </div>
-            <button onClick={handleNext} className="w-full bg-gray-900 text-white py-4 rounded-xl font-bold hover:bg-black transition">
-              {currentIndex < data.length - 1 ? "Câu tiếp theo →" : "Hoàn thành bài tập"}
-            </button>
+          )}
+        </div>
+
+        {/* Cột phụ: Bảng từ vựng (Chỉ hiện khi đã kiểm tra đáp án) */}
+        {showResult && vocabList.length > 0 && (
+          <div className="w-full md:w-80 bg-white p-6 rounded-2xl shadow-xl border border-gray-100 h-fit">
+            <h3 className="font-bold text-green-600 mb-4 uppercase text-sm text-center">Danh sách từ vựng</h3>
+            <table className="w-full text-sm">
+              <tbody>
+                {vocabList.map((item, i) => (
+                  <tr key={i} className="border-b">
+                    <td className="py-2 font-bold">{item.word}</td>
+                    <td className="py-2 text-gray-600">{item.mean}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
