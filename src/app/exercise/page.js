@@ -8,8 +8,14 @@ import Papa from 'papaparse';
 function ExerciseContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  // Lấy mã bài tập từ URL, nếu không có sẽ mặc định là dictation_p1
-  const partKey = searchParams.get('part') || 'dictation_p1';
+  
+  // Lấy mã bài tập từ URL
+  let partKey = searchParams.get('part') || 'dictation_p1';
+  
+  // MẸO CHUYỂN HƯỚNG TỪ KHÓA: Tự động map quiz_p5 sang test_p5
+  if (partKey === 'quiz_p5') {
+    partKey = 'test_p5';
+  }
   
   const [data, setData] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -68,7 +74,7 @@ function ExerciseContent() {
 
   const currentQ = data[currentIndex];
   
-  // CHUẨN HÓA DỮ LIỆU: Đảm bảo code không bị lỗi nếu Google Sheets tự đổi viết hoa/thường
+  // CHUẨN HÓA DỮ LIỆU
   const normalizedQ = {};
   if (currentQ) {
     Object.keys(currentQ).forEach(key => {
@@ -78,7 +84,7 @@ function ExerciseContent() {
 
   const vocabList = getVocabList(normalizedQ.vocabulary);
   
-  // LOGIC ĐỘC QUYỀN: Nhận diện chính xác 100% người dùng đang ở Part nào
+  // LOGIC ĐỘC QUYỀN
   let currentPart = 'PART 1';
   const pKey = partKey.toLowerCase();
 
