@@ -66,7 +66,8 @@ function ExerciseContent() {
           </div>
 
           <textarea
-            className="w-full p-4 rounded-2xl bg-white border-2 border-gray-100 mb-6 focus:border-green-400 outline-none transition-all text-sm" // Đã chỉnh chữ nhỏ hơn (text-sm)
+            // Đã thêm class: font-medium (làm đậm chữ) và text-gray-900 (làm đen chữ)
+            className="w-full p-4 rounded-2xl bg-white border-2 border-gray-100 mb-6 focus:border-green-400 outline-none transition-all text-sm font-medium text-gray-900 placeholder-gray-400" 
             rows="3"
             placeholder="Gõ đáp án vào đây..."
             value={userInput}
