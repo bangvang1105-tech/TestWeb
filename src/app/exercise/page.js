@@ -1,5 +1,5 @@
 'use client';
-import { Suspense, useState, useEffect } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { db } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -15,15 +15,19 @@ function ExerciseContent() {
   const [loading, setLoading] = useState(true);
   const [showResult, setShowResult] = useState(false);
 
-  // State cho giao diện Part 1
+  // STATE: Dành cho Part 1
   const [userInput, setUserInput] = useState("");
 
-  // State cho giao diện Part 2
+  // STATE: Dành cho Part 2
   const [inputQ, setInputQ] = useState("");
   const [inputA, setInputA] = useState("");
   const [inputB, setInputB] = useState("");
   const [inputC, setInputC] = useState("");
 
+  // STATE: Dành cho Part 3 (Lưu mảng các ô trống)
+  const [part3Inputs, setPart3Inputs] = useState([]);
+
+  // Lấy dữ liệu từ Firebase & Google Sheets
   useEffect(() => {
     async function loadData() {
       setLoading(true);
@@ -40,13 +44,18 @@ function ExerciseContent() {
               setLoading(false); 
             }
           });
+        } else {
+          setLoading(false);
         }
-      } catch (err) { console.error(err); setLoading(false); }
+      } catch (err) { 
+        console.error(err); 
+        setLoading(false); 
+      }
     }
     loadData();
   }, [partKey]);
 
-  // Hàm xử lý danh sách từ vựng
+  // Xử lý chuỗi từ vựng
   const getVocabList = (vocabString) => {
     if (!vocabString) return [];
     return vocabString.split('|').map(item => {
@@ -55,19 +64,25 @@ function ExerciseContent() {
     });
   };
 
-  if (loading) return <div className="text-center py-20 font-bold text-gray-500">Đang tải dữ liệu...</div>;
-  if (data.length === 0) return <div className="text-center py-20 text-red-500">Không có dữ liệu! Vui lòng kiểm tra lại link CSV.</div>;
+  // Các trạng thái khi chưa có dữ liệu
+  if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-gray-500">Đang tải dữ liệu...</div>;
+  if (data.length === 0) return <div className="min-h-screen flex items-center justify-center font-bold text-red-500">Không có dữ liệu! Vui lòng kiểm tra lại link bài tập.</div>;
 
   const currentQ = data[currentIndex];
   const vocabList = getVocabList(currentQ?.vocabulary);
   
-  // LOGIC THÔNG MINH: Nhận diện xem đây là Part 1 hay Part 2
+  // LOGIC NHẬN DIỆN THÔNG MINH (Dựa vào cột trong file Excel)
+  const isPart1 = currentQ.hasOwnProperty('maskedsentence');
   const isPart2 = currentQ.hasOwnProperty('optionA');
+  const isPart3 = currentQ.hasOwnProperty('transcript');
+
+  const checkMatch = (val, ans) => (val || "").trim().toLowerCase() === (ans || "").trim().toLowerCase();
 
   const handleNext = () => {
-    // Reset toàn bộ các ô chữ khi qua câu mới
+    // Reset toàn bộ form khi qua câu mới
     setUserInput("");
     setInputQ(""); setInputA(""); setInputB(""); setInputC("");
+    setPart3Inputs([]); 
     setShowResult(false);
     
     if (currentIndex < data.length - 1) {
@@ -77,9 +92,8 @@ function ExerciseContent() {
     }
   };
 
-  // Component nhỏ vẽ ô nhập liệu cho Part 2
-  const InputRow = ({ label, value, setValue, answer }) => {
-    const checkMatch = (val, ans) => val.trim().toLowerCase() === (ans || "").trim().toLowerCase();
+  // --- COMPONENT: Dùng vẽ 1 dòng nhập liệu cho Part 2 ---
+  const InputRowPart2 = ({ label, value, setValue, answer }) => {
     const isCorrect = showResult && checkMatch(value, answer);
     const isWrong = showResult && !checkMatch(value, answer);
 
@@ -109,6 +123,63 @@ function ExerciseContent() {
     );
   };
 
+  // --- COMPONENT: Vẽ giao diện đục lỗ cho Part 3 ---
+  const renderPart3 = () => {
+    if (!currentQ.transcript) return null;
+    
+    const parts = currentQ.transcript.split(/\[(.*?)\]/);
+    
+    return (
+      <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 mb-6 leading-loose text-gray-800 text-lg">
+        {parts.map((part, index) => {
+          if (index % 2 === 0) {
+            // Chữ bình thường
+            return (
+              <span key={index}>
+                {part.split('<br>').map((line, i, arr) => (
+                  <React.Fragment key={i}>
+                    {line}
+                    {i !== arr.length - 1 && <br />}
+                  </React.Fragment>
+                ))}
+              </span>
+            );
+          } else {
+            // Từ khóa cần điền (nằm trong [...])
+            const blankIndex = Math.floor(index / 2);
+            const isCorrect = showResult && checkMatch(part3Inputs[blankIndex], part);
+            const isWrong = showResult && !checkMatch(part3Inputs[blankIndex], part);
+
+            return (
+              <span key={index} className="inline-block relative mx-1">
+                <input
+                  type="text"
+                  className={`px-3 py-1 text-center border-b-2 outline-none font-bold text-gray-900 transition-all w-32
+                    ${!showResult ? 'border-gray-400 focus:border-purple-500 bg-transparent' : ''}
+                    ${isCorrect ? 'border-green-500 text-green-700 bg-green-50 rounded' : ''}
+                    ${isWrong ? 'border-red-500 text-red-700 bg-red-50 rounded' : ''}
+                  `}
+                  value={part3Inputs[blankIndex] || ""}
+                  onChange={(e) => {
+                    const newInputs = [...part3Inputs];
+                    newInputs[blankIndex] = e.target.value;
+                    setPart3Inputs(newInputs);
+                  }}
+                  disabled={showResult}
+                />
+                {isWrong && (
+                  <span className="absolute left-0 -bottom-6 w-full text-center text-xs text-red-600 font-bold whitespace-nowrap z-10">
+                    {part}
+                  </span>
+                )}
+              </span>
+            );
+          }
+        })}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-10 px-4">
       <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8">
@@ -116,76 +187,90 @@ function ExerciseContent() {
         {/* CỘT CHÍNH: BÀI TẬP */}
         <div className="flex-1 bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
           <header className="flex justify-between items-center mb-6">
-            <button onClick={() => router.back()} className="text-sm text-gray-400 font-bold hover:text-gray-600">← Thoát</button>
-            <div className={`text-xs font-black uppercase tracking-widest ${isPart2 ? 'text-blue-500' : 'text-green-500'}`}>
-              {isPart2 ? 'PART 2' : 'PART 1'} | CÂU {currentIndex + 1}/{data.length}
+            <button onClick={() => router.back()} className="text-sm text-gray-400 font-bold hover:text-gray-600 transition">← Thoát</button>
+            <div className={`text-xs font-black uppercase tracking-widest px-3 py-1 rounded-full bg-opacity-10
+              ${isPart1 ? 'text-green-600 bg-green-500' : isPart2 ? 'text-blue-600 bg-blue-500' : 'text-purple-600 bg-purple-500'}
+            `}>
+              {isPart1 ? 'PART 1' : isPart2 ? 'PART 2' : 'PART 3'} | CÂU {currentIndex + 1}/{data.length}
             </div>
           </header>
 
-          <audio key={currentQ.audiourl} controls className="w-full h-12 mb-8 shadow-sm rounded-lg">
+          <audio key={currentQ.audiourl} controls className="w-full h-12 mb-8 shadow-sm rounded-lg bg-gray-50">
             <source src={currentQ.audiourl} type="audio/mpeg" />
+            Trình duyệt không hỗ trợ Audio.
           </audio>
 
-          {/* RENDER GIAO DIỆN THEO LOẠI BÀI */}
-          {!isPart2 ? (
-            /* --- KHU VỰC GIAO DIỆN PART 1 --- */
-            <>
-              <div className="mb-6 p-5 bg-gray-50 rounded-2xl border border-gray-100">
-                 <p className="text-gray-700 font-semibold text-lg">{currentQ.maskedsentence}</p>
-                 {currentQ.hint && <p className="text-xs text-green-600 mt-3">💡 Gợi ý: {currentQ.hint}</p>}
-              </div>
-              <textarea
-                className="w-full p-4 rounded-2xl bg-white border-2 border-gray-200 mb-6 focus:border-green-400 outline-none transition-all text-sm font-medium text-gray-900 placeholder-gray-400" 
-                rows="3"
-                placeholder="Gõ đáp án vào đây..."
-                value={userInput}
-                onChange={(e) => setUserInput(e.target.value)}
-                disabled={showResult}
-              />
-              {!showResult ? (
-                <button onClick={() => setShowResult(true)} className="w-full bg-green-500 text-white py-4 rounded-xl font-bold hover:bg-green-600 transition shadow-lg">Kiểm tra đáp án</button>
-              ) : (
-                <div className="space-y-4">
-                  <div className={`p-5 rounded-2xl ${userInput.trim().toLowerCase() === currentQ.correctanswer.trim().toLowerCase() ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-                    <p className="font-bold">{userInput.trim().toLowerCase() === currentQ.correctanswer.trim().toLowerCase() ? "Chính xác! 🎉" : "Chưa đúng."}</p>
-                    <p className="text-sm mt-1">Đáp án: <span className="font-mono font-bold">{currentQ.correctanswer}</span></p>
-                  </div>
-                  <button onClick={handleNext} className="w-full bg-gray-900 text-white py-4 rounded-xl font-bold hover:bg-black transition">Câu tiếp theo →</button>
-                </div>
-              )}
-            </>
+          {/* RENDER GIAO DIỆN PART 1 */}
+          {isPart1 && (
+             <>
+               <div className="mb-6 p-5 bg-gray-50 rounded-2xl border border-gray-100">
+                  <p className="text-gray-700 font-semibold text-lg">{currentQ.maskedsentence}</p>
+                  {currentQ.hint && <p className="text-xs text-green-600 mt-3 font-medium">💡 Gợi ý: {currentQ.hint}</p>}
+               </div>
+               <textarea
+                 className="w-full p-4 rounded-2xl bg-white border-2 border-gray-100 mb-6 focus:border-green-400 outline-none transition-all text-sm font-medium text-gray-900 placeholder-gray-400" 
+                 rows="3"
+                 placeholder="Gõ đáp án vào đây..."
+                 value={userInput}
+                 onChange={(e) => setUserInput(e.target.value)}
+                 disabled={showResult}
+               />
+               {showResult && (
+                 <div className={`mb-6 p-5 rounded-2xl ${userInput.trim().toLowerCase() === currentQ.correctanswer.trim().toLowerCase() ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                   <p className="font-bold">{userInput.trim().toLowerCase() === currentQ.correctanswer.trim().toLowerCase() ? "Chính xác! 🎉" : "Chưa đúng."}</p>
+                   <p className="text-sm mt-1">Đáp án: <span className="font-mono font-bold">{currentQ.correctanswer}</span></p>
+                 </div>
+               )}
+             </>
+          )}
+
+          {/* RENDER GIAO DIỆN PART 2 */}
+          {isPart2 && (
+            <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 mb-6">
+              <h3 className="font-bold text-gray-700 mb-4">Nghe và chép lại toàn bộ:</h3>
+              <InputRowPart2 label="Q" value={inputQ} setValue={setInputQ} answer={currentQ.question} />
+              <hr className="my-4 border-gray-200" />
+              <InputRowPart2 label="A" value={inputA} setValue={setInputA} answer={currentQ.optionA} />
+              <InputRowPart2 label="B" value={inputB} setValue={setInputB} answer={currentQ.optionB} />
+              <InputRowPart2 label="C" value={inputC} setValue={setInputC} answer={currentQ.optionC} />
+            </div>
+          )}
+
+          {/* RENDER GIAO DIỆN PART 3 */}
+          {isPart3 && renderPart3()}
+
+          {/* NÚT ĐIỀU HƯỚNG */}
+          {!showResult ? (
+            <button 
+              onClick={() => setShowResult(true)} 
+              className={`w-full text-white py-4 rounded-xl font-bold transition shadow-lg
+                ${isPart1 ? 'bg-green-500 hover:bg-green-600' : isPart2 ? 'bg-blue-500 hover:bg-blue-600' : 'bg-purple-500 hover:bg-purple-600'}
+              `}
+            >
+              Kiểm tra đáp án
+            </button>
           ) : (
-            /* --- KHU VỰC GIAO DIỆN PART 2 --- */
-            <>
-              <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 mb-6">
-                <h3 className="font-bold text-gray-700 mb-4">Nghe và chép lại toàn bộ:</h3>
-                <InputRow label="Q" value={inputQ} setValue={setInputQ} answer={currentQ.question} />
-                <hr className="my-4 border-gray-200" />
-                <InputRow label="A" value={inputA} setValue={setInputA} answer={currentQ.optionA} />
-                <InputRow label="B" value={inputB} setValue={setInputB} answer={currentQ.optionB} />
-                <InputRow label="C" value={inputC} setValue={setInputC} answer={currentQ.optionC} />
-              </div>
-              {!showResult ? (
-                <button onClick={() => setShowResult(true)} className="w-full bg-blue-500 text-white py-4 rounded-xl font-bold hover:bg-blue-600 shadow-md">
-                  Kiểm tra chi tiết
-                </button>
-              ) : (
-                <button onClick={handleNext} className="w-full bg-gray-900 text-white py-4 rounded-xl font-bold hover:bg-black shadow-md">
-                  Câu tiếp theo →
-                </button>
-              )}
-            </>
+            <button 
+              onClick={handleNext} 
+              className="w-full bg-gray-900 text-white py-4 rounded-xl font-bold hover:bg-black transition shadow-lg"
+            >
+              {currentIndex < data.length - 1 ? "Câu tiếp theo →" : "Hoàn thành bài tập"}
+            </button>
           )}
         </div>
 
-        {/* CỘT PHỤ: BẢNG TỪ VỰNG DÙNG CHUNG CẢ 2 PART */}
+        {/* CỘT PHỤ: BẢNG TỪ VỰNG CHUNG */}
         {showResult && vocabList.length > 0 && (
           <div className="w-full md:w-80 bg-white p-6 rounded-2xl shadow-xl border border-gray-100 h-fit transition-all">
-            <h3 className={`font-bold mb-4 uppercase text-sm text-center ${isPart2 ? 'text-blue-600' : 'text-green-600'}`}>Danh sách từ vựng</h3>
+            <h3 className={`font-bold mb-4 uppercase text-sm text-center 
+               ${isPart1 ? 'text-green-600' : isPart2 ? 'text-blue-600' : 'text-purple-600'}
+            `}>
+              Danh sách từ vựng
+            </h3>
             <table className="w-full text-sm">
               <tbody>
                 {vocabList.map((item, i) => (
-                  <tr key={i} className="border-b border-gray-100">
+                  <tr key={i} className="border-b border-gray-100 last:border-0">
                     <td className="py-3 font-bold text-gray-800 pr-2">{item.word}</td>
                     <td className="py-3 text-gray-600">{item.mean}</td>
                   </tr>
@@ -201,5 +286,5 @@ function ExerciseContent() {
 }
 
 export default function Page() {
-  return <Suspense fallback={<div>Đang tải...</div>}><ExerciseContent /></Suspense>;
+  return <Suspense fallback={<div className="min-h-screen flex items-center justify-center font-bold text-gray-500">Đang khởi tạo...</div>}><ExerciseContent /></Suspense>;
 }
