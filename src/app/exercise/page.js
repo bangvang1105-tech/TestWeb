@@ -15,21 +15,16 @@ function ExerciseContent() {
   const [loading, setLoading] = useState(true);
   const [showResult, setShowResult] = useState(false);
 
-  // STATE: Dành cho Part 1
   const [userInput, setUserInput] = useState("");
-
-  // STATE: Dành cho Part 2
   const [inputQ, setInputQ] = useState("");
   const [inputA, setInputA] = useState("");
   const [inputB, setInputB] = useState("");
   const [inputC, setInputC] = useState("");
-
-  // STATE: Dành cho Part 3 & Part 4 (Lưu mảng các ô trống)
   const [part3Inputs, setPart3Inputs] = useState([]);
 
-  // STATE: Dành riêng cho Mini-game Part 5
+  // STATE: Part 5
   const [selectedAnswer, setSelectedAnswer] = useState(null);
-  const [streak, setStreak] = useState(0); // Đếm chuỗi Combo đúng liên tiếp
+  const [streak, setStreak] = useState(0);
 
   useEffect(() => {
     async function loadData() {
@@ -43,7 +38,6 @@ function ExerciseContent() {
             header: true,
             skipEmptyLines: true,
             complete: (results) => { 
-              // BỘ LỌC CẢI TIẾN: Chỉ cần dòng có id hoặc nội dung câu hỏi là duyệt để tránh lỗi "Không có dữ liệu"
               const validData = results.data.filter(r => r.id || r.question || r.transcript || r.maskedsentence || r.correctanswer || r.explanation);
               setData(validData); 
               setLoading(false); 
@@ -69,11 +63,11 @@ function ExerciseContent() {
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-gray-500">Đang tải dữ liệu...</div>;
-  if (data.length === 0) return <div className="min-h-screen flex items-center justify-center font-bold text-red-500 text-center px-4">Không có dữ liệu!<br/><span className="text-sm font-normal text-gray-500 mt-2 block">Vui lòng kiểm tra lại link bài tập hoặc đảm bảo bạn đã chọn định dạng "Comma-separated values (.csv)" khi Publish to Web.</span></div>;
+  if (data.length === 0) return <div className="min-h-screen flex items-center justify-center font-bold text-red-500 text-center px-4">Không có dữ liệu!<br/><span className="text-sm font-normal text-gray-500 mt-2 block">Vui lòng kiểm tra lại link bài tập.</span></div>;
 
   const currentQ = data[currentIndex];
   
-  // CHUẨN HÓA DỮ LIỆU: Ép toàn bộ các key trong object về chữ thường để triệt tiêu lỗi lệch cột do Google Sheets
+  // CHUẨN HÓA DỮ LIỆU
   const normalizedQ = {};
   if (currentQ) {
     Object.keys(currentQ).forEach(key => {
@@ -83,18 +77,23 @@ function ExerciseContent() {
 
   const vocabList = getVocabList(normalizedQ.vocabulary);
   
-  // LOGIC NHẬN DIỆN THÔNG MINH DỰA TRÊN DỮ LIỆU ĐÃ CHUẨN HÓA
-  const isPart1 = normalizedQ.hasOwnProperty('maskedsentence');
-  const isPart5 = normalizedQ.hasOwnProperty('explanation') || normalizedQ.hasOwnProperty('optiond') || partKey.toLowerCase().includes('p5');
-  const isPart2 = normalizedQ.hasOwnProperty('optiona') && !isPart5; 
-  const isClozeTest = normalizedQ.hasOwnProperty('transcript'); 
-  const isPart4 = isClozeTest && partKey.toLowerCase().includes('p4'); 
-  const isPart3 = isClozeTest && !isPart4;
+  // LOGIC ĐỘC QUYỀN: Đảm bảo chỉ 1 Part được nhận diện
+  let currentPart = 'PART 1';
+  const pKey = partKey.toLowerCase();
+
+  if (pKey.includes('p5') || normalizedQ.hasOwnProperty('explanation') || normalizedQ.hasOwnProperty('optiond')) {
+    currentPart = 'PART 5';
+  } else if (pKey.includes('p4') || (normalizedQ.hasOwnProperty('transcript') && pKey.includes('p4'))) {
+    currentPart = 'PART 4';
+  } else if (pKey.includes('p3') || normalizedQ.hasOwnProperty('transcript')) {
+    currentPart = 'PART 3';
+  } else if (pKey.includes('p2') || normalizedQ.hasOwnProperty('optiona')) {
+    currentPart = 'PART 2';
+  }
 
   const checkMatch = (val, ans) => (val || "").trim().toLowerCase() === (ans || "").trim().toLowerCase();
 
   const handleNext = () => {
-    // Reset toàn bộ form trạng thái khi chuyển câu mới
     setUserInput("");
     setInputQ(""); setInputA(""); setInputB(""); setInputC("");
     setPart3Inputs([]); 
@@ -109,7 +108,7 @@ function ExerciseContent() {
   };
 
   const handleSelectPart5 = (option) => {
-    if (showResult) return; // Khóa không cho chọn lại khi đã có kết quả
+    if (showResult) return; 
     setSelectedAnswer(option);
     setShowResult(true);
     
@@ -154,7 +153,7 @@ function ExerciseContent() {
   const renderClozeTest = () => {
     if (!normalizedQ.transcript) return null;
     const parts = normalizedQ.transcript.split(/\[(.*?)\]/);
-    const focusColor = isPart4 ? 'focus:border-orange-500' : 'focus:border-purple-500';
+    const focusColor = currentPart === 'PART 4' ? 'focus:border-orange-500' : 'focus:border-purple-500';
     
     return (
       <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 mb-6 leading-loose text-gray-800 text-lg">
@@ -205,6 +204,17 @@ function ExerciseContent() {
     );
   };
 
+  // Lấy màu sắc theo Part hiện tại
+  const badgeColors = {
+    'PART 1': 'bg-green-500',
+    'PART 2': 'bg-blue-500',
+    'PART 3': 'bg-purple-500',
+    'PART 4': 'bg-orange-500',
+    'PART 5': 'bg-red-500',
+  };
+
+  const themeColor = badgeColors[currentPart] || 'bg-gray-500';
+
   return (
     <div className="min-h-screen bg-gray-50 py-10 px-4">
       <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8">
@@ -215,35 +225,31 @@ function ExerciseContent() {
             <button onClick={() => router.back()} className="text-sm text-gray-400 font-bold hover:text-gray-600 transition">← Thoát</button>
             
             <div className="flex items-center gap-4">
-              {/* Hiệu ứng Combo cho Part 5 */}
-              {isPart5 && streak > 1 && (
+              {currentPart === 'PART 5' && streak > 1 && (
                 <div className="text-orange-500 font-black animate-pulse flex items-center gap-1">
                   🔥 Combo x{streak}
                 </div>
               )}
-              
-              <div className={`text-xs font-black uppercase tracking-widest px-3 py-1 rounded-full text-white shadow-sm
-                ${isPart1 ? 'bg-green-500' : isPart2 ? 'bg-blue-500' : isPart3 ? 'bg-purple-500' : isPart4 ? 'bg-orange-500' : 'bg-red-500'}
-              `}>
-                {isPart1 ? 'PART 1' : isPart2 ? 'PART 2' : isPart3 ? 'PART 3' : isPart4 ? 'PART 4' : 'PART 5'} | CÂU {currentIndex + 1}/{data.length}
+              <div className={`text-xs font-black uppercase tracking-widest px-3 py-1 rounded-full text-white shadow-sm ${themeColor}`}>
+                {currentPart} | CÂU {currentIndex + 1}/{data.length}
               </div>
             </div>
           </header>
 
-          {/* CHỈ HIỆN TRÌNH PHÁT NHẠC NẾU KHÔNG PHẢI PART 5 */}
-          {!isPart5 && (
+          {/* TRÌNH PHÁT NHẠC (Bị ẩn khi ở Part 5) */}
+          {currentPart !== 'PART 5' && (
             <audio key={normalizedQ.audiourl || currentIndex} controls className="w-full h-12 mb-8 shadow-sm rounded-lg bg-gray-50">
               <source src={normalizedQ.audiourl} type="audio/mpeg" />
               Trình duyệt không hỗ trợ Audio.
             </audio>
           )}
 
-          {/* GIAO DIỆN PART 1 */}
-          {isPart1 && (
+          {/* 1. GIAO DIỆN PART 1 */}
+          {currentPart === 'PART 1' && (
              <>
                <div className="mb-6 p-5 bg-gray-50 rounded-2xl border border-gray-100">
                   <p className="text-gray-700 font-semibold text-lg">{normalizedQ.maskedsentence}</p>
-                  {normalizedQ.hint && <p className="text-xs text-green-600 mt-3 font-medium">💡 Gợi ý: {normalizedQ.hint}</p>}
+                  {normalizedQ.hint && normalizedQ.hint !== "undefined" && <p className="text-xs text-green-600 mt-3 font-medium">💡 Gợi ý: {normalizedQ.hint}</p>}
                </div>
                <textarea
                  className="w-full p-4 rounded-2xl bg-white border-2 border-gray-100 mb-6 focus:border-green-400 outline-none transition-all text-sm font-medium text-gray-900 placeholder-gray-400" 
@@ -262,23 +268,23 @@ function ExerciseContent() {
              </>
           )}
 
-          {/* GIAO DIỆN PART 2 */}
-          {isPart2 && (
+          {/* 2. GIAO DIỆN PART 2 */}
+          {currentPart === 'PART 2' && (
             <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 mb-6">
               <h3 className="font-bold text-gray-700 mb-4">Nghe và chép lại toàn bộ:</h3>
               <InputRowPart2 label="Q" value={inputQ} setValue={setInputQ} answer={normalizedQ.question} />
               <hr className="my-4 border-gray-200" />
               <InputRowPart2 label="A" value={inputA} setValue={setInputA} answer={normalizedQ.optiona} />
-              <InputRowPart2 border-gray-200 label="B" value={inputB} setValue={setInputB} answer={normalizedQ.optionb} />
+              <InputRowPart2 label="B" value={inputB} setValue={setInputB} answer={normalizedQ.optionb} />
               <InputRowPart2 label="C" value={inputC} setValue={setInputC} answer={normalizedQ.optionc} />
             </div>
           )}
 
-          {/* GIAO DIỆN PART 3 & PART 4 */}
-          {(isPart3 || isPart4) && renderClozeTest()}
+          {/* 3. GIAO DIỆN PART 3 & PART 4 */}
+          {(currentPart === 'PART 3' || currentPart === 'PART 4') && renderClozeTest()}
 
-          {/* GIAO DIỆN MINI-GAME PART 5 */}
-          {isPart5 && (
+          {/* 4. GIAO DIỆN MINI-GAME PART 5 */}
+          {currentPart === 'PART 5' && (
             <div className="mb-6">
               <div className="bg-red-50 p-8 rounded-2xl border border-red-100 mb-8 shadow-sm">
                 <p className="text-xl font-bold text-gray-900 leading-relaxed text-center">
@@ -326,13 +332,11 @@ function ExerciseContent() {
             </div>
           )}
 
-          {/* THANH ĐIỀU HƯỚNG NÚT BẤM */}
-          {!showResult && !isPart5 ? (
+          {/* THANH ĐIỀU HƯỚNG NÚT BẤM (Chỉ hiện cho Part 1-4 hoặc nút Next chung) */}
+          {!showResult && currentPart !== 'PART 5' ? (
             <button 
               onClick={() => setShowResult(true)} 
-              className={`w-full text-white py-4 rounded-xl font-bold transition shadow-lg
-                ${isPart1 ? 'bg-green-500 hover:bg-green-600' : isPart2 ? 'bg-blue-500 hover:bg-blue-600' : isPart3 ? 'bg-purple-500 hover:bg-purple-600' : 'bg-orange-500 hover:bg-orange-600'}
-              `}
+              className={`w-full text-white py-4 rounded-xl font-bold transition shadow-lg ${themeColor} hover:opacity-90`}
             >
               Kiểm tra đáp án
             </button>
@@ -340,7 +344,7 @@ function ExerciseContent() {
             <button 
               onClick={handleNext} 
               className={`w-full py-4 rounded-xl font-bold transition shadow-lg mt-4 text-white
-                ${isPart5 ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-900 hover:bg-black'}
+                ${currentPart === 'PART 5' ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-900 hover:bg-black'}
               `}
             >
               {currentIndex < data.length - 1 ? "Câu tiếp theo →" : "Hoàn thành bài tập"}
@@ -348,12 +352,10 @@ function ExerciseContent() {
           ) : null}
         </div>
 
-        {/* CỘT PHỤ: BẢNG TỪ VỰNG DÙNG CHUNG CHƠI CHO CẢ 5 PARTS */}
+        {/* CỘT PHỤ: BẢNG TỪ VỰNG DÙNG CHUNG */}
         {showResult && vocabList.length > 0 && (
           <div className="w-full md:w-80 bg-white p-6 rounded-2xl shadow-xl border border-gray-100 h-fit transition-all">
-            <h3 className={`font-bold mb-4 uppercase text-sm text-center 
-               ${isPart1 ? 'text-green-600' : isPart2 ? 'text-blue-600' : isPart3 ? 'text-purple-600' : isPart4 ? 'text-orange-600' : 'text-red-600'}
-            `}>
+            <h3 className={`font-bold mb-4 uppercase text-sm text-center text-${themeColor.split('-')[1]}-600`}>
               Danh sách từ vựng
             </h3>
             <table className="w-full text-sm">
