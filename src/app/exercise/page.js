@@ -115,7 +115,6 @@ function ExerciseContent() {
     );
   };
 
-  // --- COMPONENT ĐÃ ĐƯỢC CẬP NHẬT: Giao diện đục lỗ dùng chung cho Part 3 & Part 4 ---
   const renderClozeTest = () => {
     if (!currentQ.transcript) return null;
     const parts = currentQ.transcript.split(/\[(.*?)\]/);
@@ -142,7 +141,8 @@ function ExerciseContent() {
             const isWrong = showResult && !checkMatch(part3Inputs[blankIndex], part);
 
             return (
-              <span key={index} className="inline-block relative mx-1">
+              // ĐÃ SỬA: Đổi sang inline-flex để đáp án đúng nằm gọn gàng bên phải ô nhập liệu
+              <span key={index} className="inline-flex items-center mx-1 align-middle">
                 <input
                   type="text"
                   className={`px-3 py-1 text-center border-b-2 outline-none font-bold text-gray-900 transition-all w-32
@@ -158,9 +158,9 @@ function ExerciseContent() {
                   }}
                   disabled={showResult}
                 />
-                {/* ĐÃ SỬA: Biến phần này thành Tooltip nổi bật, có màu nền, đổ bóng và căn giữa để không đè lên chữ */}
+                {/* ĐÃ SỬA: Đáp án đúng hiện trực tiếp bên cạnh thay vì dùng absolute để không bị đè chữ */}
                 {isWrong && (
-                  <span className="absolute left-1/2 -translate-x-1/2 top-full mt-2 px-2 py-1 bg-red-50 border border-red-200 rounded shadow-md text-xs text-red-700 font-bold whitespace-nowrap z-50">
+                  <span className="ml-2 text-sm text-red-700 font-bold bg-red-100 px-2 py-1 rounded-md border border-red-200">
                     {part}
                   </span>
                 )}
@@ -179,8 +179,9 @@ function ExerciseContent() {
         <div className="flex-1 bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
           <header className="flex justify-between items-center mb-6">
             <button onClick={() => router.back()} className="text-sm text-gray-400 font-bold hover:text-gray-600 transition">← Thoát</button>
-            <div className={`text-xs font-black uppercase tracking-widest px-3 py-1 rounded-full bg-opacity-10
-              ${isPart1 ? 'text-green-600 bg-green-500' : isPart2 ? 'text-blue-600 bg-blue-500' : isPart3 ? 'text-purple-600 bg-purple-500' : 'text-orange-600 bg-orange-500'}
+            {/* ĐÃ SỬA: Thêm text-white để màu nhãn (Badge) hiển thị chữ trắng nổi bật, bỏ đi bg-opacity */}
+            <div className={`text-xs font-black uppercase tracking-widest px-3 py-1 rounded-full text-white
+              ${isPart1 ? 'bg-green-500' : isPart2 ? 'bg-blue-500' : isPart3 ? 'bg-purple-500' : 'bg-orange-500'}
             `}>
               {isPart1 ? 'PART 1' : isPart2 ? 'PART 2' : isPart3 ? 'PART 3' : 'PART 4'} | CÂU {currentIndex + 1}/{data.length}
             </div>
