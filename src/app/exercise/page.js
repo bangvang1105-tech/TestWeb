@@ -64,11 +64,10 @@ function ExerciseContent() {
   const currentQ = data[currentIndex];
   const vocabList = getVocabList(currentQ?.vocabulary);
   
-  // LOGIC NHẬN DIỆN THÔNG MINH
   const isPart1 = currentQ.hasOwnProperty('maskedsentence');
   const isPart2 = currentQ.hasOwnProperty('optionA');
-  const isClozeTest = currentQ.hasOwnProperty('transcript'); // Dùng chung cho Part 3 & 4
-  const isPart4 = isClozeTest && partKey.includes('p4'); // Nếu URL là p4 thì là Part 4
+  const isClozeTest = currentQ.hasOwnProperty('transcript'); 
+  const isPart4 = isClozeTest && partKey.includes('p4'); 
   const isPart3 = isClozeTest && !isPart4;
 
   const checkMatch = (val, ans) => (val || "").trim().toLowerCase() === (ans || "").trim().toLowerCase();
@@ -116,12 +115,11 @@ function ExerciseContent() {
     );
   };
 
-  // --- COMPONENT: Giao diện đục lỗ dùng chung cho Part 3 & Part 4 ---
+  // --- COMPONENT ĐÃ ĐƯỢC CẬP NHẬT: Giao diện đục lỗ dùng chung cho Part 3 & Part 4 ---
   const renderClozeTest = () => {
     if (!currentQ.transcript) return null;
     const parts = currentQ.transcript.split(/\[(.*?)\]/);
     
-    // Đổi màu focus tùy theo Part 3 hay Part 4
     const focusColor = isPart4 ? 'focus:border-orange-500' : 'focus:border-purple-500';
     
     return (
@@ -160,8 +158,9 @@ function ExerciseContent() {
                   }}
                   disabled={showResult}
                 />
+                {/* ĐÃ SỬA: Biến phần này thành Tooltip nổi bật, có màu nền, đổ bóng và căn giữa để không đè lên chữ */}
                 {isWrong && (
-                  <span className="absolute left-0 -bottom-6 w-full text-center text-xs text-red-600 font-bold whitespace-nowrap z-10">
+                  <span className="absolute left-1/2 -translate-x-1/2 top-full mt-2 px-2 py-1 bg-red-50 border border-red-200 rounded shadow-md text-xs text-red-700 font-bold whitespace-nowrap z-50">
                     {part}
                   </span>
                 )}
