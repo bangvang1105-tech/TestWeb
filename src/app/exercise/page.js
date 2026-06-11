@@ -30,24 +30,35 @@ function ExerciseContent() {
     async function loadData() {
       setLoading(true);
       try {
+        console.log("👉 BƯỚC 1: Đang tìm bài tập có mã là:", partKey);
         const docSnap = await getDoc(doc(db, 'exercise_lessons', partKey));
+        
         if (docSnap.exists()) {
+          console.log("✅ BƯỚC 2: Đã thấy Firebase! Link CSV là:", docSnap.data().exerciseUrl);
+          
           const response = await fetch(docSnap.data().exerciseUrl);
           const csvText = await response.text();
+          console.log("📄 BƯỚC 3: Dữ liệu tải về từ link (100 ký tự đầu):", csvText.substring(0, 100));
+          
           Papa.parse(csvText, {
             header: true,
             skipEmptyLines: true,
             complete: (results) => { 
+              console.log("📊 BƯỚC 4: Dữ liệu PapaParse đọc được:", results.data);
+              
               const validData = results.data.filter(r => r.id || r.question || r.transcript || r.maskedsentence || r.correctanswer || r.explanation);
+              console.log("🎯 BƯỚC 5: Dữ liệu sau khi lọc hợp lệ:", validData);
+              
               setData(validData); 
               setLoading(false); 
             }
           });
         } else {
+          console.log("❌ LỖI BƯỚC 2: Không tìm thấy Document nào tên là", partKey, "trong Firebase!");
           setLoading(false);
         }
       } catch (err) { 
-        console.error(err); 
+        console.error("🔥 LỖI NGHIÊM TRỌNG:", err); 
         setLoading(false); 
       }
     }
@@ -62,8 +73,8 @@ function ExerciseContent() {
     });
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-gray-500">Đang tải dữ liệu...</div>;
-  if (data.length === 0) return <div className="min-h-screen flex items-center justify-center font-bold text-red-500 text-center px-4">Không có dữ liệu!<br/><span className="text-sm font-normal text-gray-500 mt-2 block">Vui lòng kiểm tra lại link bài tập.</span></div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-gray-500">Đang tải dữ liệu và kiểm tra lỗi... Mở F12 để xem log</div>;
+  if (data.length === 0) return <div className="min-h-screen flex items-center justify-center font-bold text-red-500 text-center px-4">Không có dữ liệu!<br/><span className="text-sm font-normal text-gray-500 mt-2 block">Hãy mở F12, sang tab Console để xem lỗi nằm ở bước nào.</span></div>;
 
   const currentQ = data[currentIndex];
   
@@ -332,7 +343,7 @@ function ExerciseContent() {
             </div>
           )}
 
-          {/* THANH ĐIỀU HƯỚNG NÚT BẤM (Chỉ hiện cho Part 1-4 hoặc nút Next chung) */}
+          {/* THANH ĐIỀU HƯỚNG NÚT BẤM */}
           {!showResult && currentPart !== 'PART 5' ? (
             <button 
               onClick={() => setShowResult(true)} 
