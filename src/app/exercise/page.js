@@ -15,11 +15,16 @@ function ExerciseContent() {
   const [loading, setLoading] = useState(true);
   const [showResult, setShowResult] = useState(false);
 
+  // STATE: Dành cho Part 1
   const [userInput, setUserInput] = useState("");
+
+  // STATE: Dành cho Part 2
   const [inputQ, setInputQ] = useState("");
   const [inputA, setInputA] = useState("");
   const [inputB, setInputB] = useState("");
   const [inputC, setInputC] = useState("");
+
+  // STATE: Dành cho Part 3 & Part 4 (Lưu mảng các ô trống)
   const [part3Inputs, setPart3Inputs] = useState([]);
 
   // STATE: Dành riêng cho Mini-game Part 5
@@ -38,8 +43,8 @@ function ExerciseContent() {
             header: true,
             skipEmptyLines: true,
             complete: (results) => { 
-              // Lọc dữ liệu hợp lệ (Chấp nhận cả file có explanation của Part 5)
-              const validData = results.data.filter(r => r.audiourl || r.transcript || r.maskedsentence || r.optionA || r.explanation);
+              // BỘ LỌC CẢI TIẾN: Chỉ cần dòng có id hoặc nội dung câu hỏi là duyệt để tránh lỗi "Không có dữ liệu"
+              const validData = results.data.filter(r => r.id || r.question || r.transcript || r.maskedsentence || r.correctanswer || r.explanation);
               setData(validData); 
               setLoading(false); 
             }
@@ -64,23 +69,32 @@ function ExerciseContent() {
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-gray-500">Đang tải dữ liệu...</div>;
-  if (data.length === 0) return <div className="min-h-screen flex items-center justify-center font-bold text-red-500">Không có dữ liệu! Vui lòng kiểm tra lại link bài tập.</div>;
+  if (data.length === 0) return <div className="min-h-screen flex items-center justify-center font-bold text-red-500 text-center px-4">Không có dữ liệu!<br/><span className="text-sm font-normal text-gray-500 mt-2 block">Vui lòng kiểm tra lại link bài tập hoặc đảm bảo bạn đã chọn định dạng "Comma-separated values (.csv)" khi Publish to Web.</span></div>;
 
   const currentQ = data[currentIndex];
-  const vocabList = getVocabList(currentQ?.vocabulary);
   
-  // LOGIC NHẬN DIỆN THÔNG MINH CHO TẤT CẢ CÁC PART
-  const isPart1 = currentQ.hasOwnProperty('maskedsentence');
-  const isPart5 = currentQ.hasOwnProperty('explanation') || currentQ.hasOwnProperty('optionD');
-  const isPart2 = currentQ.hasOwnProperty('optionA') && !isPart5; 
-  const isClozeTest = currentQ.hasOwnProperty('transcript'); 
-  const isPart4 = isClozeTest && partKey.includes('p4'); 
+  // CHUẨN HÓA DỮ LIỆU: Ép toàn bộ các key trong object về chữ thường để triệt tiêu lỗi lệch cột do Google Sheets
+  const normalizedQ = {};
+  if (currentQ) {
+    Object.keys(currentQ).forEach(key => {
+      normalizedQ[key.trim().toLowerCase()] = currentQ[key];
+    });
+  }
+
+  const vocabList = getVocabList(normalizedQ.vocabulary);
+  
+  // LOGIC NHẬN DIỆN THÔNG MINH DỰA TRÊN DỮ LIỆU ĐÃ CHUẨN HÓA
+  const isPart1 = normalizedQ.hasOwnProperty('maskedsentence');
+  const isPart5 = normalizedQ.hasOwnProperty('explanation') || normalizedQ.hasOwnProperty('optiond') || partKey.toLowerCase().includes('p5');
+  const isPart2 = normalizedQ.hasOwnProperty('optiona') && !isPart5; 
+  const isClozeTest = normalizedQ.hasOwnProperty('transcript'); 
+  const isPart4 = isClozeTest && partKey.toLowerCase().includes('p4'); 
   const isPart3 = isClozeTest && !isPart4;
 
   const checkMatch = (val, ans) => (val || "").trim().toLowerCase() === (ans || "").trim().toLowerCase();
 
   const handleNext = () => {
-    // Reset form states
+    // Reset toàn bộ form trạng thái khi chuyển câu mới
     setUserInput("");
     setInputQ(""); setInputA(""); setInputB(""); setInputC("");
     setPart3Inputs([]); 
@@ -94,16 +108,16 @@ function ExerciseContent() {
     }
   };
 
-  // Hàm xử lý khi click chọn đáp án Part 5 (1 chạm)
   const handleSelectPart5 = (option) => {
-    if (showResult) return; // Nếu đã trả lời thì khóa không cho chọn lại
+    if (showResult) return; // Khóa không cho chọn lại khi đã có kết quả
     setSelectedAnswer(option);
     setShowResult(true);
     
-    if (option === currentQ.correctOption) {
-      setStreak(prev => prev + 1); // Tăng combo
+    const correctAns = (normalizedQ.correctoption || "").trim().toUpperCase();
+    if (option === correctAns) {
+      setStreak(prev => prev + 1);
     } else {
-      setStreak(0); // Sai thì đứt combo
+      setStreak(0);
     }
   };
 
@@ -138,8 +152,8 @@ function ExerciseContent() {
   };
 
   const renderClozeTest = () => {
-    if (!currentQ.transcript) return null;
-    const parts = currentQ.transcript.split(/\[(.*?)\]/);
+    if (!normalizedQ.transcript) return null;
+    const parts = normalizedQ.transcript.split(/\[(.*?)\]/);
     const focusColor = isPart4 ? 'focus:border-orange-500' : 'focus:border-purple-500';
     
     return (
@@ -195,12 +209,13 @@ function ExerciseContent() {
     <div className="min-h-screen bg-gray-50 py-10 px-4">
       <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8">
         
+        {/* CỘT CHÍNH: KHU VỰC HIỂN THỊ BÀI TẬP */}
         <div className="flex-1 bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
           <header className="flex justify-between items-center mb-6">
             <button onClick={() => router.back()} className="text-sm text-gray-400 font-bold hover:text-gray-600 transition">← Thoát</button>
             
             <div className="flex items-center gap-4">
-              {/* STREAK COMBO (Chỉ hiện ở Part 5 khi trả lời đúng > 1) */}
+              {/* Hiệu ứng Combo cho Part 5 */}
               {isPart5 && streak > 1 && (
                 <div className="text-orange-500 font-black animate-pulse flex items-center gap-1">
                   🔥 Combo x{streak}
@@ -215,19 +230,20 @@ function ExerciseContent() {
             </div>
           </header>
 
-          {/* CHỈ RENDER AUDIO NẾU KHÔNG PHẢI PART 5 */}
+          {/* CHỈ HIỆN TRÌNH PHÁT NHẠC NẾU KHÔNG PHẢI PART 5 */}
           {!isPart5 && (
-            <audio key={currentQ.audiourl || currentIndex} controls className="w-full h-12 mb-8 shadow-sm rounded-lg bg-gray-50">
-              <source src={currentQ.audiourl} type="audio/mpeg" />
+            <audio key={normalizedQ.audiourl || currentIndex} controls className="w-full h-12 mb-8 shadow-sm rounded-lg bg-gray-50">
+              <source src={normalizedQ.audiourl} type="audio/mpeg" />
               Trình duyệt không hỗ trợ Audio.
             </audio>
           )}
 
+          {/* GIAO DIỆN PART 1 */}
           {isPart1 && (
              <>
                <div className="mb-6 p-5 bg-gray-50 rounded-2xl border border-gray-100">
-                  <p className="text-gray-700 font-semibold text-lg">{currentQ.maskedsentence}</p>
-                  {currentQ.hint && <p className="text-xs text-green-600 mt-3 font-medium">💡 Gợi ý: {currentQ.hint}</p>}
+                  <p className="text-gray-700 font-semibold text-lg">{normalizedQ.maskedsentence}</p>
+                  {normalizedQ.hint && <p className="text-xs text-green-600 mt-3 font-medium">💡 Gợi ý: {normalizedQ.hint}</p>}
                </div>
                <textarea
                  className="w-full p-4 rounded-2xl bg-white border-2 border-gray-100 mb-6 focus:border-green-400 outline-none transition-all text-sm font-medium text-gray-900 placeholder-gray-400" 
@@ -238,41 +254,41 @@ function ExerciseContent() {
                  disabled={showResult}
                />
                {showResult && (
-                 <div className={`mb-6 p-5 rounded-2xl ${userInput.trim().toLowerCase() === currentQ.correctanswer.trim().toLowerCase() ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-                   <p className="font-bold">{userInput.trim().toLowerCase() === currentQ.correctanswer.trim().toLowerCase() ? "Chính xác! 🎉" : "Chưa đúng."}</p>
-                   <p className="text-sm mt-1">Đáp án: <span className="font-mono font-bold">{currentQ.correctanswer}</span></p>
+                 <div className={`mb-6 p-5 rounded-2xl ${userInput.trim().toLowerCase() === (normalizedQ.correctanswer || "").trim().toLowerCase() ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                   <p className="font-bold">{userInput.trim().toLowerCase() === (normalizedQ.correctanswer || "").trim().toLowerCase() ? "Chính xác! 🎉" : "Chưa đúng."}</p>
+                   <p className="text-sm mt-1">Đáp án: <span className="font-mono font-bold">{normalizedQ.correctanswer}</span></p>
                  </div>
                )}
              </>
           )}
 
+          {/* GIAO DIỆN PART 2 */}
           {isPart2 && (
             <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 mb-6">
               <h3 className="font-bold text-gray-700 mb-4">Nghe và chép lại toàn bộ:</h3>
-              <InputRowPart2 label="Q" value={inputQ} setValue={setInputQ} answer={currentQ.question} />
+              <InputRowPart2 label="Q" value={inputQ} setValue={setInputQ} answer={normalizedQ.question} />
               <hr className="my-4 border-gray-200" />
-              <InputRowPart2 label="A" value={inputA} setValue={setInputA} answer={currentQ.optionA} />
-              <InputRowPart2 label="B" value={inputB} setValue={setInputB} answer={currentQ.optionB} />
-              <InputRowPart2 label="C" value={inputC} setValue={setInputC} answer={currentQ.optionC} />
+              <InputRowPart2 label="A" value={inputA} setValue={setInputA} answer={normalizedQ.optiona} />
+              <InputRowPart2 border-gray-200 label="B" value={inputB} setValue={setInputB} answer={normalizedQ.optionb} />
+              <InputRowPart2 label="C" value={inputC} setValue={setInputC} answer={normalizedQ.optionc} />
             </div>
           )}
 
+          {/* GIAO DIỆN PART 3 & PART 4 */}
           {(isPart3 || isPart4) && renderClozeTest()}
 
-          {/* RENDER GIAO DIỆN MINI-GAME PART 5 */}
+          {/* GIAO DIỆN MINI-GAME PART 5 */}
           {isPart5 && (
             <div className="mb-6">
-              {/* Khung chứa câu hỏi */}
               <div className="bg-red-50 p-8 rounded-2xl border border-red-100 mb-8 shadow-sm">
                 <p className="text-xl font-bold text-gray-900 leading-relaxed text-center">
-                  {currentQ.question}
+                  {normalizedQ.question}
                 </p>
               </div>
 
-              {/* 4 Nút đáp án */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {['A', 'B', 'C', 'D'].map(opt => {
-                  const isCorrectAns = currentQ.correctOption === opt;
+                  const isCorrectAns = (normalizedQ.correctoption || "").trim().toUpperCase() === opt;
                   const isSelected = selectedAnswer === opt;
                   
                   let btnClass = "p-5 border-2 rounded-2xl text-left font-medium transition-all duration-300 text-gray-800 text-lg shadow-sm ";
@@ -293,25 +309,24 @@ function ExerciseContent() {
                       disabled={showResult}
                     >
                       <span className="font-black mr-3 text-gray-400">{opt}.</span> 
-                      {currentQ[`option${opt}`]}
+                      {normalizedQ[`option${opt.toLowerCase()}`]}
                     </button>
                   );
                 })}
               </div>
 
-               {/* Khung Giải thích (Chỉ hiện khi đã chọn) */}
-               {showResult && currentQ.explanation && (
-                <div className="mt-6 p-5 bg-blue-50 border border-blue-200 rounded-2xl transition-all">
+               {showResult && normalizedQ.explanation && (
+                <div className="mt-6 p-5 bg-blue-50 border border-blue-200 rounded-2xl transition-all animate-fadeIn">
                   <h4 className="font-bold text-blue-800 mb-2 flex items-center gap-2">
                     💡 Giải thích chi tiết
                   </h4>
-                  <p className="text-blue-900 leading-relaxed">{currentQ.explanation}</p>
+                  <p className="text-blue-900 leading-relaxed">{normalizedQ.explanation}</p>
                 </div>
               )}
             </div>
           )}
 
-          {/* NÚT ĐIỀU HƯỚNG */}
+          {/* THANH ĐIỀU HƯỚNG NÚT BẤM */}
           {!showResult && !isPart5 ? (
             <button 
               onClick={() => setShowResult(true)} 
@@ -324,8 +339,8 @@ function ExerciseContent() {
           ) : showResult ? (
             <button 
               onClick={handleNext} 
-              className={`w-full py-4 rounded-xl font-bold transition shadow-lg mt-4
-                ${isPart5 ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-gray-900 hover:bg-black text-white'}
+              className={`w-full py-4 rounded-xl font-bold transition shadow-lg mt-4 text-white
+                ${isPart5 ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-900 hover:bg-black'}
               `}
             >
               {currentIndex < data.length - 1 ? "Câu tiếp theo →" : "Hoàn thành bài tập"}
@@ -333,7 +348,7 @@ function ExerciseContent() {
           ) : null}
         </div>
 
-        {/* CỘT PHỤ: BẢNG TỪ VỰNG CHUNG */}
+        {/* CỘT PHỤ: BẢNG TỪ VỰNG DÙNG CHUNG CHƠI CHO CẢ 5 PARTS */}
         {showResult && vocabList.length > 0 && (
           <div className="w-full md:w-80 bg-white p-6 rounded-2xl shadow-xl border border-gray-100 h-fit transition-all">
             <h3 className={`font-bold mb-4 uppercase text-sm text-center 
