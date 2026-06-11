@@ -17,6 +17,7 @@ function ExerciseContent() {
   const [showResult, setShowResult] = useState(false);
   const [audioUrl, setAudioUrl] = useState("");
 
+  // 1. Tải dữ liệu từ Firestore và CSV
   useEffect(() => {
     async function loadData() {
       setLoading(true);
@@ -36,7 +37,7 @@ function ExerciseContent() {
     loadData();
   }, [partKey]);
 
-  // CƠ CHẾ TẢI AUDIO AN TOÀN (Fix lỗi 500)
+  // 2. Tải Audio an toàn (Fix lỗi 500 Google Drive)
   useEffect(() => {
     async function fetchAudio() {
       if (data[currentIndex]?.audiourl) {
@@ -59,8 +60,16 @@ function ExerciseContent() {
   const handleNext = () => {
     setUserInput("");
     setShowResult(false);
-    if (currentIndex < data.length - 1) setCurrentIndex(currentIndex + 1);
-    else alert("Chúc mừng! Bạn đã hoàn thành toàn bộ bài tập!");
+    if (currentIndex < data.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+      // Tự động phát nhạc khi sang câu mới
+      setTimeout(() => {
+        const audio = document.querySelector('audio');
+        if (audio) audio.play();
+      }, 500);
+    } else {
+      alert("Chúc mừng! Bạn đã hoàn thành toàn bộ bài tập!");
+    }
   };
 
   return (
@@ -76,11 +85,11 @@ function ExerciseContent() {
         {/* Audio Player với cơ chế xử lý Blob */}
         <div className="mb-8">
           {audioUrl ? (
-            <audio key={audioUrl} controls className="w-full h-12">
+            <audio key={audioUrl} controls className="w-full h-12 shadow-sm rounded-lg">
               <source src={audioUrl} type="audio/mpeg" />
             </audio>
           ) : (
-            <div className="p-4 bg-gray-100 text-center text-sm text-gray-400">Đang tải âm thanh...</div>
+            <div className="p-4 bg-gray-100 text-center text-sm text-gray-400 rounded-lg">Đang tải âm thanh...</div>
           )}
         </div>
 
@@ -98,7 +107,12 @@ function ExerciseContent() {
         />
 
         {!showResult ? (
-          <button onClick={() => setShowResult(true)} className="w-full bg-green-500 text-white py-4 rounded-xl font-bold text-lg hover:bg-green-600 transition shadow-lg">Kiểm tra đáp án</button>
+          <button 
+            onClick={() => setShowResult(true)} 
+            className="w-full bg-green-500 text-white py-4 rounded-xl font-bold text-lg hover:bg-green-600 transition shadow-lg"
+          >
+            Kiểm tra đáp án
+          </button>
         ) : (
           <div className="space-y-4">
             <div className={`p-5 rounded-2xl ${userInput.trim().toLowerCase() === currentQ.correctanswer.trim().toLowerCase() ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
