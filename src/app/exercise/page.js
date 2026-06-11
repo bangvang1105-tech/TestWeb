@@ -15,19 +15,13 @@ function ExerciseContent() {
   const [loading, setLoading] = useState(true);
   const [showResult, setShowResult] = useState(false);
 
-  // STATE: Dành cho Part 1
   const [userInput, setUserInput] = useState("");
-
-  // STATE: Dành cho Part 2
   const [inputQ, setInputQ] = useState("");
   const [inputA, setInputA] = useState("");
   const [inputB, setInputB] = useState("");
   const [inputC, setInputC] = useState("");
-
-  // STATE: Dành cho Part 3 (Lưu mảng các ô trống)
   const [part3Inputs, setPart3Inputs] = useState([]);
 
-  // Lấy dữ liệu từ Firebase & Google Sheets
   useEffect(() => {
     async function loadData() {
       setLoading(true);
@@ -40,7 +34,6 @@ function ExerciseContent() {
             header: true,
             skipEmptyLines: true,
             complete: (results) => { 
-              // ĐÃ SỬA: Cho phép load dữ liệu ngay cả khi thiếu link Audio (audiourl) để test UI
               const validData = results.data.filter(r => r.audiourl || r.transcript || r.maskedsentence || r.optionA);
               setData(validData); 
               setLoading(false); 
@@ -57,7 +50,6 @@ function ExerciseContent() {
     loadData();
   }, [partKey]);
 
-  // Xử lý chuỗi từ vựng
   const getVocabList = (vocabString) => {
     if (!vocabString) return [];
     return vocabString.split('|').map(item => {
@@ -66,22 +58,22 @@ function ExerciseContent() {
     });
   };
 
-  // Các trạng thái khi chưa có dữ liệu
   if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-gray-500">Đang tải dữ liệu...</div>;
   if (data.length === 0) return <div className="min-h-screen flex items-center justify-center font-bold text-red-500">Không có dữ liệu! Vui lòng kiểm tra lại link bài tập.</div>;
 
   const currentQ = data[currentIndex];
   const vocabList = getVocabList(currentQ?.vocabulary);
   
-  // LOGIC NHẬN DIỆN THÔNG MINH (Dựa vào cột trong file Excel)
+  // LOGIC NHẬN DIỆN THÔNG MINH
   const isPart1 = currentQ.hasOwnProperty('maskedsentence');
   const isPart2 = currentQ.hasOwnProperty('optionA');
-  const isPart3 = currentQ.hasOwnProperty('transcript');
+  const isClozeTest = currentQ.hasOwnProperty('transcript'); // Dùng chung cho Part 3 & 4
+  const isPart4 = isClozeTest && partKey.includes('p4'); // Nếu URL là p4 thì là Part 4
+  const isPart3 = isClozeTest && !isPart4;
 
   const checkMatch = (val, ans) => (val || "").trim().toLowerCase() === (ans || "").trim().toLowerCase();
 
   const handleNext = () => {
-    // Reset toàn bộ form khi qua câu mới
     setUserInput("");
     setInputQ(""); setInputA(""); setInputB(""); setInputC("");
     setPart3Inputs([]); 
@@ -94,7 +86,6 @@ function ExerciseContent() {
     }
   };
 
-  // --- COMPONENT: Dùng vẽ 1 dòng nhập liệu cho Part 2 ---
   const InputRowPart2 = ({ label, value, setValue, answer }) => {
     const isCorrect = showResult && checkMatch(value, answer);
     const isWrong = showResult && !checkMatch(value, answer);
@@ -125,17 +116,18 @@ function ExerciseContent() {
     );
   };
 
-  // --- COMPONENT: Vẽ giao diện đục lỗ cho Part 3 ---
-  const renderPart3 = () => {
+  // --- COMPONENT: Giao diện đục lỗ dùng chung cho Part 3 & Part 4 ---
+  const renderClozeTest = () => {
     if (!currentQ.transcript) return null;
-    
     const parts = currentQ.transcript.split(/\[(.*?)\]/);
+    
+    // Đổi màu focus tùy theo Part 3 hay Part 4
+    const focusColor = isPart4 ? 'focus:border-orange-500' : 'focus:border-purple-500';
     
     return (
       <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 mb-6 leading-loose text-gray-800 text-lg">
         {parts.map((part, index) => {
           if (index % 2 === 0) {
-            // Chữ bình thường
             return (
               <span key={index}>
                 {part.split('<br>').map((line, i, arr) => (
@@ -147,7 +139,6 @@ function ExerciseContent() {
               </span>
             );
           } else {
-            // Từ khóa cần điền (nằm trong [...])
             const blankIndex = Math.floor(index / 2);
             const isCorrect = showResult && checkMatch(part3Inputs[blankIndex], part);
             const isWrong = showResult && !checkMatch(part3Inputs[blankIndex], part);
@@ -157,7 +148,7 @@ function ExerciseContent() {
                 <input
                   type="text"
                   className={`px-3 py-1 text-center border-b-2 outline-none font-bold text-gray-900 transition-all w-32
-                    ${!showResult ? 'border-gray-400 focus:border-purple-500 bg-transparent' : ''}
+                    ${!showResult ? `border-gray-400 bg-transparent ${focusColor}` : ''}
                     ${isCorrect ? 'border-green-500 text-green-700 bg-green-50 rounded' : ''}
                     ${isWrong ? 'border-red-500 text-red-700 bg-red-50 rounded' : ''}
                   `}
@@ -186,14 +177,13 @@ function ExerciseContent() {
     <div className="min-h-screen bg-gray-50 py-10 px-4">
       <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8">
         
-        {/* CỘT CHÍNH: BÀI TẬP */}
         <div className="flex-1 bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
           <header className="flex justify-between items-center mb-6">
             <button onClick={() => router.back()} className="text-sm text-gray-400 font-bold hover:text-gray-600 transition">← Thoát</button>
             <div className={`text-xs font-black uppercase tracking-widest px-3 py-1 rounded-full bg-opacity-10
-              ${isPart1 ? 'text-green-600 bg-green-500' : isPart2 ? 'text-blue-600 bg-blue-500' : 'text-purple-600 bg-purple-500'}
+              ${isPart1 ? 'text-green-600 bg-green-500' : isPart2 ? 'text-blue-600 bg-blue-500' : isPart3 ? 'text-purple-600 bg-purple-500' : 'text-orange-600 bg-orange-500'}
             `}>
-              {isPart1 ? 'PART 1' : isPart2 ? 'PART 2' : 'PART 3'} | CÂU {currentIndex + 1}/{data.length}
+              {isPart1 ? 'PART 1' : isPart2 ? 'PART 2' : isPart3 ? 'PART 3' : 'PART 4'} | CÂU {currentIndex + 1}/{data.length}
             </div>
           </header>
 
@@ -202,7 +192,6 @@ function ExerciseContent() {
             Trình duyệt không hỗ trợ Audio.
           </audio>
 
-          {/* RENDER GIAO DIỆN PART 1 */}
           {isPart1 && (
              <>
                <div className="mb-6 p-5 bg-gray-50 rounded-2xl border border-gray-100">
@@ -226,7 +215,6 @@ function ExerciseContent() {
              </>
           )}
 
-          {/* RENDER GIAO DIỆN PART 2 */}
           {isPart2 && (
             <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 mb-6">
               <h3 className="font-bold text-gray-700 mb-4">Nghe và chép lại toàn bộ:</h3>
@@ -238,15 +226,13 @@ function ExerciseContent() {
             </div>
           )}
 
-          {/* RENDER GIAO DIỆN PART 3 */}
-          {isPart3 && renderPart3()}
+          {(isPart3 || isPart4) && renderClozeTest()}
 
-          {/* NÚT ĐIỀU HƯỚNG */}
           {!showResult ? (
             <button 
               onClick={() => setShowResult(true)} 
               className={`w-full text-white py-4 rounded-xl font-bold transition shadow-lg
-                ${isPart1 ? 'bg-green-500 hover:bg-green-600' : isPart2 ? 'bg-blue-500 hover:bg-blue-600' : 'bg-purple-500 hover:bg-purple-600'}
+                ${isPart1 ? 'bg-green-500 hover:bg-green-600' : isPart2 ? 'bg-blue-500 hover:bg-blue-600' : isPart3 ? 'bg-purple-500 hover:bg-purple-600' : 'bg-orange-500 hover:bg-orange-600'}
               `}
             >
               Kiểm tra đáp án
@@ -261,11 +247,10 @@ function ExerciseContent() {
           )}
         </div>
 
-        {/* CỘT PHỤ: BẢNG TỪ VỰNG CHUNG */}
         {showResult && vocabList.length > 0 && (
           <div className="w-full md:w-80 bg-white p-6 rounded-2xl shadow-xl border border-gray-100 h-fit transition-all">
             <h3 className={`font-bold mb-4 uppercase text-sm text-center 
-               ${isPart1 ? 'text-green-600' : isPart2 ? 'text-blue-600' : 'text-purple-600'}
+               ${isPart1 ? 'text-green-600' : isPart2 ? 'text-blue-600' : isPart3 ? 'text-purple-600' : 'text-orange-600'}
             `}>
               Danh sách từ vựng
             </h3>
