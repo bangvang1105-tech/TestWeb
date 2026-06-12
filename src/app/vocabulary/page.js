@@ -77,6 +77,23 @@ function shuffleArray(array) {
   return array;
 }
 
+// 🌟 HÀM TẠO CARDS TÌM CẶP THEO ROUND CỤ THỂ
+function generateMatchCardsForRound(fullPool, roundIndex, itemsPerRound = 10) {
+  const start = roundIndex * itemsPerRound;
+  const end = start + itemsPerRound;
+  const roundWords = fullPool.slice(start, end);
+  
+  let generatedCards = [];
+  roundWords.forEach((item, index) => {
+    // Lưu ý: pairId phải là duy nhất trên phạm vi toàn cục hoặc xử lý cẩn thận.
+    // Ở đây, ta dùng index nội bộ của round nhưng kết hợp với uniqueId để phân biệt.
+    const globalId = start + index; 
+    generatedCards.push({ uniqueId: `w_${roundIndex}_${index}`, pairId: globalId, content: item.word, type: 'word' });
+    generatedCards.push({ uniqueId: `m_${roundIndex}_${index}`, pairId: globalId, content: item.meaning, type: 'meaning' });
+  });
+  return shuffleArray(generatedCards);
+}
+
 function VocabularyContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -92,17 +109,21 @@ function VocabularyContent() {
   const [error, setError] = useState(null);
 
   // States các chế độ học (Dùng chung tên index để dễ lưu)
+  // Trong chế độ 'match', currentIndex đại diện cho số Vòng (Round 0, 1, 2, 3...)
   const [currentIndex, setCurrentIndex] = useState(0);
   
   const [isFlipped, setIsFlipped] = useState(false); 
 
-  const [currentRound, setCurrentRound] = useState(1); 
+  // States chế độ Tìm Cặp (Matching)
   const [matchCards, setMatchCards] = useState([]);
   const [selectedCards, setSelectedCards] = useState([]);
-  const [matchedCards, setMatchedCards] = useState([]);
+  const [matchedCards, setMatchedCards] = useState([]); // Chứa ID của các thẻ đã lật đúng trong round HIỆN TẠI
   const [wrongCards, setWrongCards] = useState([]); 
   const [correctCards, setCorrectCards] = useState([]); 
   const [isChecking, setIsChecking] = useState(false);
+
+  // Mảng lưu tổng điểm của các vòng match đã hoàn thành
+  const [matchRoundCompletion, setMatchRoundCompletion] = useState([]);
 
   const [userAnswer, setUserAnswer] = useState('');
   const [listenChecked, setListenChecked] = useState(false);
@@ -164,6 +185,11 @@ function VocabularyContent() {
         setIsGameOver(false);
         setLaserEffect(false);
 
+        // Reset state match
+        setSelectedCards([]);
+        setMatchedCards([]);
+        setMatchRoundCompletion([]);
+
         // Lấy dữ liệu từ file csv
         const docSnap = await getDoc(doc(db, 'vocab_lessons', String(topicId)));
         if (!docSnap.exists()) throw new Error('Chưa cấu hình dữ liệu bài học.');
@@ -210,14 +236,13 @@ function VocabularyContent() {
 
         // Chuẩn bị dữ liệu riêng cho từng mode
         if (mode === 'match') {
-          const itemsPerRound = 10;
-          const roundWords = randomizedPool.slice(0, itemsPerRound);
-          let generatedCards = [];
-          roundWords.forEach((item, index) => {
-            generatedCards.push({ uniqueId: `w_1_${index}`, pairId: index, content: item.word, type: 'word' });
-            generatedCards.push({ uniqueId: `m_1_${index}`, pairId: index, content: item.meaning, type: 'meaning' });
-          });
-          setMatchCards(shuffleArray(generatedCards));
+          // Lưu tiến trình vòng đã qua
+          let prevCompletions = [];
+          for (let i = 0; i < savedIndex; i++) prevCompletions.push(i);
+          setMatchRoundCompletion(prevCompletions);
+
+          // Tạo thẻ cho vòng hiện tại
+          setMatchCards(generateMatchCardsForRound(randomizedPool, savedIndex));
         }
 
         if (mode === 'quiz') {
@@ -252,19 +277,23 @@ function VocabularyContent() {
   useEffect(() => {
     async function saveProgress() {
       if (!CURRENT_USER_ID || loading || words.length === 0) return;
+      
+      const totalElements = mode === 'match' ? Math.ceil(words.length / 10) : words.length;
+
       // Chỉ lưu "đang học" nếu chưa tới câu cuối
-      if (currentIndex > 0 && currentIndex < words.length - 1) {
+      if (currentIndex > 0 && currentIndex < totalElements - 1) {
         let currentScore = 0;
         if (mode === 'quiz') currentScore = quizScore;
         if (mode === 'typer') currentScore = typerScore;
         if (mode === 'invaders') currentScore = gameScore;
+        if (mode === 'match') currentScore = matchRoundCompletion.length * 10; // 1 vòng hoàn thành = 10 điểm
 
         try {
           await setDoc(doc(db, 'users', CURRENT_USER_ID, 'progress', `vocab_${mode}_${topicId}`), {
             status: 'in_progress',
             currentIndex: currentIndex,
             score: currentScore,
-            totalQuestions: words.length,
+            totalQuestions: totalElements,
             updatedAt: new Date().toISOString()
           }, { merge: true });
         } catch (error) {
@@ -273,7 +302,7 @@ function VocabularyContent() {
       }
     }
     saveProgress();
-  }, [currentIndex, CURRENT_USER_ID, mode, topicId, loading, words.length, quizScore, typerScore, gameScore]);
+  }, [currentIndex, CURRENT_USER_ID, mode, topicId, loading, words.length, quizScore, typerScore, gameScore, matchRoundCompletion]);
 
 
   // TIMER COUNTDOWN (Đua tốc độ phản xạ)
@@ -355,15 +384,17 @@ function VocabularyContent() {
       router.back();
       return;
     }
-    const scoreToSave = finalScore !== null ? finalScore : words.length;
-    const totalToSave = shuffledPool.length;
+    
+    // Tổng số câu hỏi linh hoạt theo chế độ
+    const totalElements = mode === 'match' ? Math.ceil(words.length / 10) : words.length;
+    const scoreToSave = finalScore !== null ? finalScore : totalElements;
     
     try {
       await setDoc(doc(db, 'users', CURRENT_USER_ID, 'progress', `vocab_${mode}_${topicId}`), {
         status: 'completed',
-        currentIndex: 0, // Reset index khi hoàn thành
+        currentIndex: 0, 
         score: scoreToSave,
-        totalQuestions: totalToSave,
+        totalQuestions: totalElements,
         updatedAt: new Date().toISOString()
       }, { merge: true });
       alert(`🎉 Hoàn thành bài học!`);
@@ -390,6 +421,17 @@ function VocabularyContent() {
     setSelectedOption(null);
     setQuizChecked(false);
   };
+
+  // 🌟 HÀM ĐIỀU HƯỚNG TÌM CẶP
+  const goToMatchRound = (roundIdx) => {
+    // Lưu ý: Trong chế độ match, học sinh chỉ nên lật các vòng đã mở khóa. 
+    // Tạm thời cho phép nhảy tùy do giống các Part khác theo yêu cầu của user.
+    setCurrentIndex(roundIdx);
+    setSelectedCards([]);
+    setMatchedCards([]); // Xóa bài đã lật của vòng cũ
+    setMatchCards(generateMatchCardsForRound(shuffledPool, roundIdx));
+  };
+
 
   const handleCheckListenAnswer = () => {
     if (!userAnswer.trim()) return;
@@ -421,6 +463,7 @@ function VocabularyContent() {
     else handleFinishSession(typerScore + 1);
   };
 
+  // 🌟 CẬP NHẬT LOGIC LẬT BÀI TÌM CẶP THEO ROUND
   const handleCardClick = (card) => {
     if (isChecking || matchedCards.includes(card.uniqueId) || selectedCards.some(c => c.uniqueId === card.uniqueId)) return;
     const newSelection = [...selectedCards, card];
@@ -429,18 +472,32 @@ function VocabularyContent() {
     if (newSelection.length === 2) {
       setIsChecking(true);
       const [first, second] = newSelection;
+      
+      // Nếu lật 2 thẻ khác loại (1 word, 1 meaning) và cùng chung pairId
       if (first.pairId === second.pairId && first.type !== second.type) {
         setCorrectCards([first.uniqueId, second.uniqueId]);
         setTimeout(() => {
           setMatchedCards(prev => {
             const updated = [...prev, first.uniqueId, second.uniqueId];
+            
+            // KIỂM TRA ĐÃ HOÀN THÀNH VÒNG HIỆN TẠI CHƯA
             if (updated.length === matchCards.length) {
-              const nextRound = currentRound + 1;
+              
+              if (!matchRoundCompletion.includes(currentIndex)) {
+                setMatchRoundCompletion(prevComp => [...prevComp, currentIndex]);
+              }
+
+              const nextRoundIndex = currentIndex + 1;
+              const totalRounds = Math.ceil(shuffledPool.length / 10);
+
               setTimeout(() => {
-                if (nextRound <= 5 && (nextRound - 1) * 10 < shuffledPool.length) {
-                  setCurrentRound(nextRound);
-                  generateRoundCards(shuffledPool, nextRound);
-                } else handleFinishSession();
+                if (nextRoundIndex < totalRounds) {
+                  // Sang vòng tiếp theo tự động
+                  goToMatchRound(nextRoundIndex);
+                } else {
+                  // Đã hết tất cả các vòng -> Lưu hoàn thành
+                  handleFinishSession(totalRounds);
+                }
               }, 600);
             }
             return updated;
@@ -558,7 +615,6 @@ function VocabularyContent() {
                 <div className="w-full bg-gray-50 rounded-2xl p-4 border text-sm font-bold text-gray-800">{currentListenWord?.meaning}</div>
                 <p className="text-gray-600 italic text-xs">"{listenChecked ? currentListenWord?.example : maskedExample}"</p>
                 
-                {/* HIỂN THỊ Ô INPUT ĐÃ ĐƯỢC LÀM TỐI VÀ ĐẬM CHỮ */}
                 <input 
                   type="text" 
                   value={userAnswer} 
@@ -572,7 +628,6 @@ function VocabularyContent() {
                   `} 
                 />
 
-                {/* BẢNG BÁO LỖI NẾU HỌC SINH GÕ SAI */}
                 {listenChecked && listenResult === 'wrong' && (
                   <div className="w-full mt-2 p-3 bg-red-100 border border-red-200 rounded-xl">
                     <p className="text-xs text-red-600 font-bold mb-1">Đáp án đúng là:</p>
@@ -672,28 +727,85 @@ function VocabularyContent() {
       );
 
     case 'match':
+      // Tính toán tổng số vòng (ví dụ 50 từ chia cho 10 = 5 vòng)
+      const totalRounds = Math.ceil(shuffledPool.length / 10);
+      
       return (
         <div className={`${roboto.className} min-h-screen bg-gray-50 flex flex-col antialiased`}>
           <header className="bg-green-400 p-3.5 px-5 flex items-center justify-between shadow-md">
             <button onClick={handleExit} className="bg-white/20 border-none rounded-lg p-1.5 px-3 text-white text-xs font-bold cursor-pointer">← Thôi học</button>
             <span className="text-white font-black text-sm text-center flex-1">🔗 Tìm cặp từ vựng — {topic?.title}</span>
           </header>
-          <div className="flex-1 max-w-4xl w-full mx-auto p-4 flex flex-col justify-center gap-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5 w-full">
-              {matchCards.map((card) => {
-                const isSelected = selectedCards.some(c => c.uniqueId === card.uniqueId);
-                const isMatched = matchedCards.includes(card.uniqueId);
-                const isCorrect = correctCards.includes(card.uniqueId);
-                const isWrong = wrongCards.includes(card.uniqueId);
-                let cls = 'bg-white border-gray-200 text-gray-700 hover:border-amber-300';
-                if (isSelected) cls = 'bg-amber-50 border-amber-400 text-amber-700 shadow';
-                if (isCorrect) cls = 'bg-green-50 border-green-500 text-green-700 shadow-md';
-                if (isWrong) cls = 'bg-red-50 border-red-500 text-red-700';
-                return (
-                  <div key={card.uniqueId} onClick={() => handleCardClick(card)} className={`h-24 rounded-2xl p-3 flex items-center justify-center text-center font-bold text-xs border cursor-pointer select-none transition-all duration-200 ${isMatched ? 'opacity-0 scale-90 pointer-events-none' : ''} ${cls}`}><span className="line-clamp-3 leading-relaxed">{card.content}</span></div>
-                );
-              })}
+          
+          <div className="flex-1 flex flex-col lg:flex-row p-4 max-w-6xl w-full mx-auto gap-8 items-start justify-center mt-6">
+            
+            {/* 🌟 BẢNG MENU ĐIỀU HƯỚNG TÌM CẶP */}
+            <div className="w-full lg:w-80 bg-white p-6 rounded-2xl shadow-xl border border-gray-100 h-fit">
+              <h3 className="font-bold mb-4 uppercase text-sm text-center text-green-500">Tiến trình</h3>
+              <div className="grid grid-cols-2 gap-3">
+                {Array.from({ length: totalRounds }).map((_, i) => {
+                  const isCompleted = matchRoundCompletion.includes(i);
+                  const isCurrent = currentIndex === i;
+                  
+                  let btnStyle = 'bg-gray-100 text-gray-600 hover:bg-gray-200';
+                  if (isCurrent) btnStyle = 'bg-green-500 text-white shadow-md scale-[1.02]';
+                  else if (isCompleted) btnStyle = 'bg-green-100 text-green-700 border border-green-200';
+                  
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => goToMatchRound(i)}
+                      className={`py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${btnStyle}`}
+                    >
+                      {isCompleted && !isCurrent && <span>✅</span>} Vòng {i + 1}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
+
+            <div className="flex-1 w-full max-w-4xl flex flex-col gap-4">
+              <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-2 flex justify-between items-center">
+                <span className="font-bold text-gray-700">Đang lật: Vòng {currentIndex + 1} / {totalRounds}</span>
+                <span className="text-sm font-semibold text-green-600 bg-green-50 px-3 py-1 rounded-full">Lật để tìm nghĩa</span>
+              </div>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5 w-full">
+                {matchCards.map((card) => {
+                  const isSelected = selectedCards.some(c => c.uniqueId === card.uniqueId);
+                  const isMatched = matchedCards.includes(card.uniqueId);
+                  const isCorrect = correctCards.includes(card.uniqueId);
+                  const isWrong = wrongCards.includes(card.uniqueId);
+                  let cls = 'bg-white border-gray-200 text-gray-700 hover:border-amber-300';
+                  if (isSelected) cls = 'bg-amber-50 border-amber-400 text-amber-700 shadow';
+                  if (isCorrect) cls = 'bg-green-50 border-green-500 text-green-700 shadow-md';
+                  if (isWrong) cls = 'bg-red-50 border-red-500 text-red-700';
+                  
+                  return (
+                    <div 
+                      key={card.uniqueId} 
+                      onClick={() => handleCardClick(card)} 
+                      className={`h-28 rounded-2xl p-3 flex items-center justify-center text-center font-bold text-sm border-2 cursor-pointer select-none transition-all duration-300 ${isMatched ? 'opacity-0 scale-75 pointer-events-none' : 'hover:scale-[1.02]'} ${cls}`}
+                    >
+                      <span className="line-clamp-3 leading-relaxed">{card.content}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* THANH NÚT TRỞ LẠI */}
+              <div className="flex gap-4 w-full mt-4">
+                {currentIndex > 0 && (
+                  <button 
+                    onClick={() => goToMatchRound(currentIndex - 1)} 
+                    className="w-full bg-white border border-gray-200 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-50 shadow-sm transition"
+                  >
+                    ← Trở lại vòng trước
+                  </button>
+                )}
+              </div>
+            </div>
+
           </div>
         </div>
       );
