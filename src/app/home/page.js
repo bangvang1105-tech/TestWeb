@@ -193,68 +193,95 @@ export default function HomePage() {
     if (item !== 'Luyện đề') setExamBook(null);
   };
 
-  const handleNavigation = (type, id) => {
-    router.push(`/lesson?type=${type}&id=${id}`);
+  const handleNavigation = (type, id, params = '') => {
+    router.push(`/lesson?type=${type}&id=${id}${params}`);
   };
 
-  const handleVocabTopicNavigation = (mode, topicId) => {
-    router.push(`/vocabulary?mode=${mode}&topic=${topicId}`);
+  const handleVocabTopicNavigation = (mode, topicId, params = '') => {
+    router.push(`/vocabulary?mode=${mode}&topic=${topicId}${params}`);
   };
 
-  const handleGrammarTopicNavigation = (mode, topicId) => {
-    router.push(`/grammar?mode=${mode}&topic=${topicId}`);
+  const handleGrammarTopicNavigation = (mode, topicId, params = '') => {
+    router.push(`/grammar?mode=${mode}&topic=${topicId}${params}`);
   };
 
-  const handleExerciseNavigation = (partKey) => {
+  const handleExerciseNavigation = (partKey, params = '') => {
     if (partKey === 'grammar_list') {
       setExercisePart(partKey);
       return;
     }
-    router.push(`/exercise?part=${partKey}`);
+    // Chuyển hướng đến bài tập Part 1-7
+    router.push(`/exercise?part=${partKey}${params}`);
   };
 
-  const handleExamNavigation = (bookKey, testId) => {
-    router.push(`/exam?book=${bookKey}&test=${testId}`);
+  const handleExamNavigation = (bookKey, testId, params = '') => {
+    router.push(`/exam?book=${bookKey}&test=${testId}${params}`);
   };
 
+  const handleHistoryNavigation = (type, mode, topicId) => {
+    // Điều hướng sang trang xem lịch sử (History)
+    router.push(`/history?type=${type}&mode=${mode}&id=${topicId}`);
+  }
+
+  // 🌟 HÀM TẠO DỮ LIỆU HIỂN THỊ BAO GỒM 3 TRẠNG THÁI
   const buildDisplayData = (rawData, prefixType) => {
     return rawData.map(item => {
-      const targetLessonId = `${prefixType}_${item.id}`;
+      const targetLessonId = `${prefixType}_${item.id || item.key}`;
       const progress = userProgress[targetLessonId];
-      let status = 'Chưa làm';
-      let scoreText = '0/10';
+      let status = 'not_started';
+      
       if (progress) {
         if (progress.status === 'completed') {
-          status = 'Đã làm';
-          scoreText = `${progress.score}/${progress.totalQuestions || 10}`;
+          status = 'completed';
         } else if (progress.status === 'in_progress') {
-          status = 'Đang làm';
-          scoreText = `0/${progress.totalQuestions || 10}`;
+          status = 'in_progress';
         }
       }
-      return { ...item, status, score: scoreText };
+      return { ...item, status };
     });
+  };
+
+  // KẾT LIỀN GIAO DIỆN THEO 3 TRƯỜNG HỢP NÚT BẤM VÀ LABEL
+  const renderStatusLabel = (status) => {
+    if (status === 'not_started') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-gray-100 text-gray-500 uppercase tracking-wide">⚪ Chưa học</span>;
+    if (status === 'in_progress') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-blue-50 text-blue-600 uppercase tracking-wide">⏳ Đang học</span>;
+    if (status === 'completed') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-green-50 text-green-600 uppercase tracking-wide">✅ Đã học xong</span>;
+    return null;
   };
 
   const renderGrammarExerciseCards = () => {
     if (loadingProgress) return <p className="text-gray-400 text-xs mt-4">Đang tải tiến trình...</p>;
     const dataList = buildDisplayData(GRAMMAR_TOPICS, 'grammar_practice');
+    
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-4 w-full">
         {dataList.map((item) => (
-          <div key={item.id} className="w-full h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
-            <div className="flex justify-between items-start gap-2">
-              <div className="flex-1">
-                <h3 className="font-bold text-gray-800 text-sm line-clamp-1">{item.title}</h3>
-                <p className="text-[11px] text-gray-400 mt-0.5">{item.subtitle}</p>
-              </div>
-              <span className="text-xs font-semibold px-2 py-0.5 bg-gray-100 text-gray-600 rounded">Điểm: {item.score}</span>
+          <div key={item.id} className="w-full min-h-[160px] rounded-2xl border border-gray-200 bg-white shadow-sm p-5 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
+            <div className="mb-3">
+              <h3 className="font-bold text-gray-800 text-sm line-clamp-1">{item.title}</h3>
+              <p className="text-[11px] text-gray-400 mt-0.5">{item.subtitle}</p>
             </div>
-            <div className="flex justify-between items-center mt-2">
-              <span className={`text-xs font-bold px-2 py-1 rounded-md ${item.status === 'Đã làm' ? 'bg-green-100 text-green-700' : item.status === 'Đang làm' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>{item.status}</span>
-              <button onClick={() => handleNavigation('grammar_practice', item.id)} className="bg-green-400 text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:opacity-90 transition">
-                {item.status === 'Chưa làm' ? 'Làm bài' : item.status === 'Đang làm' ? 'Tiếp tục' : 'Làm lại'}
-              </button>
+            
+            <div className="mb-4">
+              {renderStatusLabel(item.status)}
+            </div>
+
+            <div className="mt-auto flex flex-col gap-2">
+              {item.status === 'not_started' && (
+                <button onClick={() => handleNavigation('grammar_practice', item.id)} className="w-full py-2.5 rounded-xl font-bold text-xs bg-gray-900 text-white hover:bg-black transition-all">Làm bài</button>
+              )}
+              {item.status === 'in_progress' && (
+                <div className="flex gap-2">
+                  <button onClick={() => handleNavigation('grammar_practice', item.id, '&resume=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-blue-500 text-white hover:bg-blue-600 transition-all">Tiếp tục làm</button>
+                  <button onClick={() => handleNavigation('grammar_practice', item.id, '&restart=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all">Làm lại</button>
+                </div>
+              )}
+              {item.status === 'completed' && (
+                <div className="flex gap-2">
+                  <button onClick={() => handleHistoryNavigation('grammar', 'practice', item.id)} className="flex-1 py-2.5 rounded-xl font-bold text-xs border border-gray-200 text-gray-600 hover:bg-gray-50 transition-all">Lịch sử</button>
+                  <button onClick={() => handleNavigation('grammar_practice', item.id, '&restart=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-green-500 text-white hover:bg-green-600 transition-all">Ôn lại</button>
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -263,17 +290,38 @@ export default function HomePage() {
   };
 
   const renderVocabTopicCards = (mode) => {
+    if (loadingProgress) return <p className="text-gray-400 text-xs mt-4">Đang tải tiến trình...</p>;
+    const dataList = buildDisplayData(VOCAB_TOPICS, `vocab_${mode}`);
+
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-4 w-full">
-        {VOCAB_TOPICS.map((topic) => (
-          <div key={topic.id} className="w-full h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
-            <div className="flex justify-between items-start gap-2">
-              <div className="flex-1"><h3 className="font-bold text-gray-800 text-sm line-clamp-1">{topic.title}</h3><p className="text-xs text-gray-400 mt-0.5">{topic.subtitle}</p></div>
-              <span className="text-xs font-semibold px-2 py-0.5 bg-green-50 text-green-600 rounded border border-green-100">Chủ đề {topic.id}</span>
+        {dataList.map((topic) => (
+          <div key={topic.id} className="w-full min-h-[160px] rounded-2xl border border-gray-200 bg-white shadow-sm p-5 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
+            <div className="mb-3">
+              <h3 className="font-bold text-gray-800 text-sm line-clamp-1">Chủ đề {topic.id}: {topic.title}</h3>
+              <p className="text-[11px] text-gray-400 mt-0.5">{topic.subtitle}</p>
             </div>
-            <div className="flex justify-between items-center mt-2">
-              <span className="text-xs font-bold px-2 py-1 rounded-md bg-gray-100 text-gray-500">Chưa học</span>
-              <button onClick={() => handleVocabTopicNavigation(mode, topic.id)} className="bg-green-400 text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:opacity-90 transition">Bắt đầu</button>
+            
+            <div className="mb-4">
+              {renderStatusLabel(topic.status)}
+            </div>
+
+            <div className="mt-auto flex flex-col gap-2">
+              {topic.status === 'not_started' && (
+                <button onClick={() => handleVocabTopicNavigation(mode, topic.id)} className="w-full py-2.5 rounded-xl font-bold text-xs bg-gray-900 text-white hover:bg-black transition-all">Làm bài</button>
+              )}
+              {topic.status === 'in_progress' && (
+                <div className="flex gap-2">
+                  <button onClick={() => handleVocabTopicNavigation(mode, topic.id, '&resume=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-blue-500 text-white hover:bg-blue-600 transition-all">Tiếp tục làm</button>
+                  <button onClick={() => handleVocabTopicNavigation(mode, topic.id, '&restart=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all">Làm lại</button>
+                </div>
+              )}
+              {topic.status === 'completed' && (
+                <div className="flex gap-2">
+                  <button onClick={() => handleHistoryNavigation('vocab', mode, topic.id)} className="flex-1 py-2.5 rounded-xl font-bold text-xs border border-gray-200 text-gray-600 hover:bg-gray-50 transition-all">Lịch sử</button>
+                  <button onClick={() => handleVocabTopicNavigation(mode, topic.id, '&restart=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-green-500 text-white hover:bg-green-600 transition-all">Ôn lại</button>
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -282,17 +330,38 @@ export default function HomePage() {
   };
 
   const renderGrammarTopicCards = (mode) => {
+    if (loadingProgress) return <p className="text-gray-400 text-xs mt-4">Đang tải tiến trình...</p>;
+    const dataList = buildDisplayData(GRAMMAR_TOPICS, `grammar_${mode}`);
+
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-4 w-full">
-        {GRAMMAR_TOPICS.map((topic) => (
-          <div key={topic.id} className="w-full h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
-            <div className="flex justify-between items-start gap-2">
-              <div className="flex-1"><h3 className="font-bold text-gray-800 text-sm line-clamp-1">{topic.title}</h3><p className="text-xs text-gray-400 mt-0.5">{topic.subtitle}</p></div>
-              <span className="text-xs font-semibold px-2 py-0.5 bg-green-50 text-green-600 rounded border border-green-100">Bài {topic.id}</span>
+        {dataList.map((topic) => (
+          <div key={topic.id} className="w-full min-h-[160px] rounded-2xl border border-gray-200 bg-white shadow-sm p-5 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
+            <div className="mb-3">
+              <h3 className="font-bold text-gray-800 text-sm line-clamp-1">Bài {topic.id}: {topic.title}</h3>
+              <p className="text-[11px] text-gray-400 mt-0.5">{topic.subtitle}</p>
             </div>
-            <div className="flex justify-between items-center mt-2">
-              <span className="text-xs font-bold px-2 py-1 rounded-md bg-gray-100 text-gray-500">Chưa học</span>
-              <button onClick={() => handleGrammarTopicNavigation(mode, topic.id)} className="bg-green-400 text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:opacity-90 transition">Xem ngay</button>
+            
+            <div className="mb-4">
+              {renderStatusLabel(topic.status)}
+            </div>
+
+            <div className="mt-auto flex flex-col gap-2">
+              {topic.status === 'not_started' && (
+                <button onClick={() => handleGrammarTopicNavigation(mode, topic.id)} className="w-full py-2.5 rounded-xl font-bold text-xs bg-gray-900 text-white hover:bg-black transition-all">Làm bài</button>
+              )}
+              {topic.status === 'in_progress' && (
+                <div className="flex gap-2">
+                  <button onClick={() => handleGrammarTopicNavigation(mode, topic.id, '&resume=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-blue-500 text-white hover:bg-blue-600 transition-all">Tiếp tục làm</button>
+                  <button onClick={() => handleGrammarTopicNavigation(mode, topic.id, '&restart=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all">Làm lại</button>
+                </div>
+              )}
+              {topic.status === 'completed' && (
+                <div className="flex gap-2">
+                  <button onClick={() => handleHistoryNavigation('grammar', mode, topic.id)} className="flex-1 py-2.5 rounded-xl font-bold text-xs border border-gray-200 text-gray-600 hover:bg-gray-50 transition-all">Lịch sử</button>
+                  <button onClick={() => handleGrammarTopicNavigation(mode, topic.id, '&restart=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-green-500 text-white hover:bg-green-600 transition-all">Ôn lại</button>
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -301,17 +370,39 @@ export default function HomePage() {
   };
 
   const renderExercisePartCards = (skillKey) => {
+    if (loadingProgress) return <p className="text-gray-400 text-xs mt-4">Đang tải tiến trình...</p>;
     const parts = EXERCISE_PARTS[skillKey] || [];
+    const dataList = buildDisplayData(parts, 'exercise');
+
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-4 w-full">
-        {parts.map((part) => (
-          <div key={part.key} className="w-full h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
-            <div className="flex justify-between items-start gap-2">
-              <div className="flex-1"><h3 className="font-bold text-gray-800 text-sm line-clamp-1">{part.label}</h3><p className="text-xs text-gray-400 mt-0.5">{part.detail}</p></div>
+        {dataList.map((part) => (
+          <div key={part.key} className="w-full min-h-[160px] rounded-2xl border border-gray-200 bg-white shadow-sm p-5 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
+            <div className="mb-3">
+              <h3 className="font-bold text-gray-800 text-sm line-clamp-1">{part.label}</h3>
+              <p className="text-[11px] text-gray-400 mt-0.5">{part.detail}</p>
             </div>
-            <div className="flex justify-between items-center mt-2">
-              <span className="text-xs font-bold px-2 py-1 rounded-md bg-gray-100 text-gray-500">Chưa làm</span>
-              <button onClick={() => handleExerciseNavigation(part.key)} className="bg-green-400 text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:opacity-90 transition">Vào luyện tập</button>
+            
+            <div className="mb-4">
+              {renderStatusLabel(part.status)}
+            </div>
+
+            <div className="mt-auto flex flex-col gap-2">
+              {part.status === 'not_started' && (
+                <button onClick={() => handleExerciseNavigation(part.key)} className="w-full py-2.5 rounded-xl font-bold text-xs bg-gray-900 text-white hover:bg-black transition-all">Làm bài</button>
+              )}
+              {part.status === 'in_progress' && (
+                <div className="flex gap-2">
+                  <button onClick={() => handleExerciseNavigation(part.key, '&resume=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-blue-500 text-white hover:bg-blue-600 transition-all">Tiếp tục làm</button>
+                  <button onClick={() => handleExerciseNavigation(part.key, '&restart=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all">Làm lại</button>
+                </div>
+              )}
+              {part.status === 'completed' && (
+                <div className="flex gap-2">
+                  <button onClick={() => handleHistoryNavigation('exercise', 'part', part.key)} className="flex-1 py-2.5 rounded-xl font-bold text-xs border border-gray-200 text-gray-600 hover:bg-gray-50 transition-all">Lịch sử</button>
+                  <button onClick={() => handleExerciseNavigation(part.key, '&restart=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-green-500 text-white hover:bg-green-600 transition-all">Ôn lại</button>
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -320,18 +411,39 @@ export default function HomePage() {
   };
 
   const renderExamTestCards = (bookKey) => {
-    const tests = Array.from({ length: 10 }, (_, i) => i + 1);
+    if (loadingProgress) return <p className="text-gray-400 text-xs mt-4">Đang tải tiến trình...</p>;
+    const tests = Array.from({ length: 10 }, (_, i) => ({ id: i + 1, key: `${bookKey}_test_${i + 1}` }));
+    const dataList = buildDisplayData(tests, 'exam');
+
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-4 w-full">
-        {tests.map((testNum) => (
-          <div key={testNum} className="w-full h-[114px] rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
-            <div className="flex justify-between items-start gap-2">
-              <div className="flex-1"><h3 className="font-bold text-gray-800 text-sm">Đề khảo sát số {testNum}</h3><p className="text-xs text-gray-400 mt-0.5">Mã đề: {bookKey.toUpperCase()} _ TEST {testNum}</p></div>
-              <span className="text-xs font-semibold px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded border border-emerald-100">200 Câu</span>
+        {dataList.map((test) => (
+          <div key={test.key} className="w-full min-h-[160px] rounded-2xl border border-gray-200 bg-white shadow-sm p-5 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
+            <div className="mb-3">
+              <h3 className="font-bold text-gray-800 text-sm">Đề khảo sát số {test.id}</h3>
+              <p className="text-[11px] text-gray-400 mt-0.5">Mã đề: {bookKey.toUpperCase()} _ TEST {test.id}</p>
             </div>
-            <div className="flex justify-between items-center mt-2">
-              <span className="text-xs font-bold px-2 py-1 rounded-md bg-gray-100 text-gray-500">Chưa thi</span>
-              <button onClick={() => handleExamNavigation(bookKey, testNum)} className="bg-green-400 text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:opacity-90 transition">Bắt đầu làm</button>
+            
+            <div className="mb-4">
+              {renderStatusLabel(test.status)}
+            </div>
+
+            <div className="mt-auto flex flex-col gap-2">
+              {test.status === 'not_started' && (
+                <button onClick={() => handleExamNavigation(bookKey, test.id)} className="w-full py-2.5 rounded-xl font-bold text-xs bg-gray-900 text-white hover:bg-black transition-all">Bắt đầu thi</button>
+              )}
+              {test.status === 'in_progress' && (
+                <div className="flex gap-2">
+                  <button onClick={() => handleExamNavigation(bookKey, test.id, '&resume=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-blue-500 text-white hover:bg-blue-600 transition-all">Tiếp tục thi</button>
+                  <button onClick={() => handleExamNavigation(bookKey, test.id, '&restart=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all">Thi lại</button>
+                </div>
+              )}
+              {test.status === 'completed' && (
+                <div className="flex gap-2">
+                  <button onClick={() => handleHistoryNavigation('exam', bookKey, test.id)} className="flex-1 py-2.5 rounded-xl font-bold text-xs border border-gray-200 text-gray-600 hover:bg-gray-50 transition-all">Bảng điểm</button>
+                  <button onClick={() => handleExamNavigation(bookKey, test.id, '&restart=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-green-500 text-white hover:bg-green-600 transition-all">Thi lại</button>
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -393,6 +505,7 @@ export default function HomePage() {
                       <h4 className="font-extrabold text-gray-800 text-sm mt-2">{recentIncomplete[0].replace('_', ' ').toUpperCase()}</h4>
                       <p className="text-xs text-gray-500 mt-0.5">Bấm nút để tiếp tục lưu và nạp điểm bài tập này.</p>
                     </div>
+                    {/* Tạm thời fallback router chung chung */}
                     <button onClick={() => { const [type, id] = recentIncomplete[0].split('_'); router.push(`/lesson?type=${type}&id=${id}`); }} className="bg-amber-500 shadow-sm shadow-amber-500/10 text-white font-bold text-xs px-4 py-2.5 rounded-xl hover:opacity-95 transition">Làm tiếp bài →</button>
                   </div>
                 ) : (

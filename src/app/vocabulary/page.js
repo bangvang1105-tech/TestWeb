@@ -82,20 +82,20 @@ function VocabularyContent() {
   const searchParams = useSearchParams();
   const mode = searchParams.get('mode') || 'learn'; 
   const topicId = searchParams.get('topic'); 
+  const isResume = searchParams.get('resume') === 'true';
 
   const topic = VOCAB_TOPICS.find(t => String(t.id) === String(topicId));
 
-  // States dữ liệu
   const [shuffledPool, setShuffledPool] = useState([]); 
   const [words, setWords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // States chế độ Flashcards
+  // States các chế độ học (Dùng chung tên index để dễ lưu)
   const [currentIndex, setCurrentIndex] = useState(0);
+  
   const [isFlipped, setIsFlipped] = useState(false); 
 
-  // States chế độ Tìm Cặp (Matching)
   const [currentRound, setCurrentRound] = useState(1); 
   const [matchCards, setMatchCards] = useState([]);
   const [selectedCards, setSelectedCards] = useState([]);
@@ -104,29 +104,21 @@ function VocabularyContent() {
   const [correctCards, setCorrectCards] = useState([]); 
   const [isChecking, setIsChecking] = useState(false);
 
-  // States chế độ Nghe từ vựng
-  const [listenIndex, setListenIndex] = useState(0);
   const [userAnswer, setUserAnswer] = useState('');
   const [listenChecked, setListenChecked] = useState(false);
   const [listenResult, setListenResult] = useState(null); 
   const [voiceAccent, setVoiceAccent] = useState('en-US'); 
 
-  // States chế độ Trắc nghiệm
   const [quizQuestions, setQuizQuestions] = useState([]);
-  const [quizIndex, setQuizIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState(null);
   const [quizChecked, setQuizChecked] = useState(false);
   const [quizScore, setQuizScore] = useState(0);
 
-  // States chế độ ĐUA TỐC ĐỘ PHẢN XẠ 
-  const [typerIndex, setTyperIndex] = useState(0);
   const [typerInput, setTyperInput] = useState('');
   const [typerScore, setTyperScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(15); 
   const [isTyperFinished, setIsTyperFinished] = useState(false);
 
-  // States chế độ VƯỢT CHƯỚNG NGẠI VẬT
-  const [gameIndex, setGameIndex] = useState(0);
   const [gameInput, setGameInput] = useState('');
   const [gameScore, setGameScore] = useState(0);
   const [gameHealth, setGameHealth] = useState(3); 
@@ -137,10 +129,10 @@ function VocabularyContent() {
   const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
   
   const gameLoopRef = useRef(null);
-  const gameIndexRef = useRef(gameIndex);
+  const gameIndexRef = useRef(currentIndex);
   const shuffledPoolRef = useRef(shuffledPool);
 
-  useEffect(() => { gameIndexRef.current = gameIndex; }, [gameIndex]);
+  useEffect(() => { gameIndexRef.current = currentIndex; }, [currentIndex]);
   useEffect(() => { shuffledPoolRef.current = shuffledPool; }, [shuffledPool]);
 
   // ĐỒNG BỘ DỮ LIỆU BAN ĐẦU
@@ -151,25 +143,20 @@ function VocabularyContent() {
       try {
         setLoading(true);
         setError(null);
+        
+        // Reset states
         setIsFlipped(false);
         setCurrentIndex(0);
-        setListenIndex(0);
         setUserAnswer('');
         setListenChecked(false);
         setListenResult(null);
-        
-        setQuizIndex(0);
         setSelectedOption(null);
         setQuizChecked(false);
         setQuizScore(0);
-
-        setTyperIndex(0);
         setTyperInput('');
         setTyperScore(0);
         setTimeLeft(15);
         setIsTyperFinished(false);
-
-        setGameIndex(0);
         setGameInput('');
         setGameScore(0);
         setGameHealth(3);
@@ -177,6 +164,7 @@ function VocabularyContent() {
         setIsGameOver(false);
         setLaserEffect(false);
 
+        // Lấy dữ liệu từ file csv (giữ nguyên logic gốc của bạn)
         const docSnap = await getDoc(doc(db, 'vocab_lessons', String(topicId)));
         if (!docSnap.exists()) throw new Error('Chưa cấu hình dữ liệu bài học.');
 
@@ -204,6 +192,23 @@ function VocabularyContent() {
         const randomizedPool = shuffleArray([...parsedData]);
         setShuffledPool(randomizedPool);
 
+        // Xử lý học tiếp (Resume)
+        let savedIndex = 0;
+        let savedScore = 0;
+        if (CURRENT_USER_ID && isResume) {
+          const progressSnap = await getDoc(doc(db, 'users', CURRENT_USER_ID, 'progress', `vocab_${mode}_${topicId}`));
+          if (progressSnap.exists()) {
+             const progData = progressSnap.data();
+             if (progData.currentIndex) savedIndex = progData.currentIndex;
+             if (progData.score) savedScore = progData.score;
+          }
+        }
+        setCurrentIndex(savedIndex);
+        if (mode === 'quiz') setQuizScore(savedScore);
+        if (mode === 'typer') setTyperScore(savedScore);
+        if (mode === 'invaders') setGameScore(savedScore);
+
+        // Chuẩn bị dữ liệu riêng cho từng mode
         if (mode === 'match') {
           const itemsPerRound = 10;
           const roundWords = randomizedPool.slice(0, itemsPerRound);
@@ -241,7 +246,35 @@ function VocabularyContent() {
     }
 
     fetchAndParseExcelData();
-  }, [topicId, mode]);
+  }, [topicId, mode, isResume]);
+
+  // 🌟 LƯU TIẾN TRÌNH KHI ĐANG HỌC (Lưu mỗi khi currentIndex thay đổi)
+  useEffect(() => {
+    async function saveProgress() {
+      if (!CURRENT_USER_ID || loading || words.length === 0) return;
+      // Chỉ lưu "đang học" nếu chưa tới câu cuối
+      if (currentIndex > 0 && currentIndex < words.length - 1) {
+        let currentScore = 0;
+        if (mode === 'quiz') currentScore = quizScore;
+        if (mode === 'typer') currentScore = typerScore;
+        if (mode === 'invaders') currentScore = gameScore;
+
+        try {
+          await setDoc(doc(db, 'users', CURRENT_USER_ID, 'progress', `vocab_${mode}_${topicId}`), {
+            status: 'in_progress',
+            currentIndex: currentIndex,
+            score: currentScore,
+            totalQuestions: words.length,
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+        } catch (error) {
+          console.error("Lỗi khi lưu tiến trình tạm thời:", error);
+        }
+      }
+    }
+    saveProgress();
+  }, [currentIndex, CURRENT_USER_ID, mode, topicId, loading, words.length, quizScore, typerScore, gameScore]);
+
 
   // TIMER COUNTDOWN 
   useEffect(() => {
@@ -265,7 +298,7 @@ function VocabularyContent() {
       });
     }, 160);
     return () => clearInterval(gameLoopRef.current);
-  }, [mode, isGameOver, loading, shuffledPool, gameIndex, gameScore]);
+  }, [mode, isGameOver, loading, shuffledPool, currentIndex, gameScore]);
 
   const handleWordCrash = () => {
     setGameHealth((prevHealth) => {
@@ -284,7 +317,7 @@ function VocabularyContent() {
 
   const goToNextInvadersWord = () => {
     const currentIndexVal = gameIndexRef.current;
-    if (currentIndexVal < shuffledPoolRef.current.length - 1) setGameIndex(prev => prev + 1);
+    if (currentIndexVal < shuffledPoolRef.current.length - 1) setCurrentIndex(prev => prev + 1);
     else {
       setIsGameOver(true);
       clearInterval(gameLoopRef.current);
@@ -295,7 +328,7 @@ function VocabularyContent() {
   const handleInvadersInputChange = (e) => {
     const val = e.target.value;
     setGameInput(val);
-    const target = shuffledPool[gameIndex]?.word.toLowerCase().trim();
+    const target = shuffledPool[currentIndex]?.word.toLowerCase().trim();
     if (val.toLowerCase().trim() === target) {
       setLaserEffect(true);
       setGameScore(p => p + 1);
@@ -319,7 +352,7 @@ function VocabularyContent() {
 
   const handleFinishSession = async (finalScore = null) => {
     if (!CURRENT_USER_ID) {
-      router.push('/home');
+      router.back();
       return;
     }
     const scoreToSave = finalScore !== null ? finalScore : words.length;
@@ -328,39 +361,39 @@ function VocabularyContent() {
     try {
       await setDoc(doc(db, 'users', CURRENT_USER_ID, 'progress', `vocab_${mode}_${topicId}`), {
         status: 'completed',
+        currentIndex: 0, // Reset index khi hoàn thành
         score: scoreToSave,
         totalQuestions: totalToSave,
         updatedAt: new Date().toISOString()
       }, { merge: true });
       alert(`🎉 Hoàn thành bài học!`);
-      router.push('/home');
+      router.back();
     } catch (err) {
-      router.push('/home');
+      router.back();
     }
   };
 
-  // 🌟 HÀM ĐIỀU HƯỚNG MỚI CHO FLASHCARD, LISTEN, VÀ QUIZ
   const goToFlashcard = (idx) => {
     setIsFlipped(false);
     setCurrentIndex(idx);
   };
 
   const goToListen = (idx) => {
-    setListenIndex(idx);
+    setCurrentIndex(idx);
     setUserAnswer('');
     setListenChecked(false);
     setListenResult(null);
   };
 
   const goToQuiz = (idx) => {
-    setQuizIndex(idx);
+    setCurrentIndex(idx);
     setSelectedOption(null);
     setQuizChecked(false);
   };
 
   const handleCheckListenAnswer = () => {
     if (!userAnswer.trim()) return;
-    const correctAnswer = shuffledPool[listenIndex]?.word.toLowerCase().trim();
+    const correctAnswer = shuffledPool[currentIndex]?.word.toLowerCase().trim();
     setListenChecked(true);
     setListenResult(userAnswer.toLowerCase().trim() === correctAnswer ? 'correct' : 'wrong');
   };
@@ -368,13 +401,13 @@ function VocabularyContent() {
   const handleCheckQuizAnswer = () => {
     if (!selectedOption || quizChecked) return;
     setQuizChecked(true);
-    if (selectedOption === quizQuestions[quizIndex].correctAnswer) setQuizScore(p => p + 1);
+    if (selectedOption === quizQuestions[currentIndex].correctAnswer) setQuizScore(p => p + 1);
   };
 
   const handleTyperInputChange = (e) => {
     const val = e.target.value;
     setTyperInput(val);
-    const target = shuffledPool[typerIndex]?.word.toLowerCase().trim();
+    const target = shuffledPool[currentIndex]?.word.toLowerCase().trim();
     if (val.toLowerCase().trim() === target) {
       setTyperScore(p => p + 1);
       handleNextTyperWord();
@@ -384,7 +417,7 @@ function VocabularyContent() {
   const handleNextTyperWord = () => {
     setTyperInput('');
     setTimeLeft(15);
-    if (typerIndex < shuffledPool.length - 1) setTyperIndex(p => p + 1);
+    if (currentIndex < shuffledPool.length - 1) setCurrentIndex(p => p + 1);
     else handleFinishSession(typerScore + 1);
   };
 
@@ -423,6 +456,11 @@ function VocabularyContent() {
     }
   };
 
+  // Nút thoái chung, đảm bảo dữ liệu lưu trữ
+  const handleExit = () => {
+    router.back();
+  };
+
   if (loading) return <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center text-gray-400 text-xs font-bold gap-3"><div className="w-8 h-8 border-4 border-green-400 border-t-transparent rounded-full animate-spin" />Đang nạp dữ liệu từ vựng...</div>;
 
   switch (mode) {
@@ -431,15 +469,12 @@ function VocabularyContent() {
       return (
         <div className={`${roboto.className} min-h-screen bg-gray-50 flex flex-col antialiased`}>
           <header className="bg-green-400 p-3.5 px-5 flex items-center justify-between shadow-md">
-            <button onClick={() => router.back()} className="bg-white/20 border-none rounded-lg p-1.5 px-3 text-white text-xs font-bold cursor-pointer">← Thoát</button>
+            <button onClick={handleExit} className="bg-white/20 border-none rounded-lg p-1.5 px-3 text-white text-xs font-bold cursor-pointer">← Thoát</button>
             <span className="text-white font-black text-sm text-center flex-1">🃏 Flashcards — {topic?.title}</span>
             <span className="text-white text-xs font-bold bg-white/20 px-3 py-1 rounded-full">{currentIndex + 1}/{words.length}</span>
           </header>
           
-          {/* Bố cục 2 Cột cho Flashcard */}
           <div className="flex-1 flex flex-col lg:flex-row p-4 max-w-6xl w-full mx-auto gap-8 items-start justify-center mt-6">
-            
-            {/* Bảng Menu Điều Hướng */}
             <div className="w-full lg:w-80 bg-white p-6 rounded-2xl shadow-xl border border-gray-100 h-fit">
               <h3 className="font-bold mb-4 uppercase text-sm text-center text-green-500">Danh sách từ vựng</h3>
               <div className="grid grid-cols-5 gap-2">
@@ -459,7 +494,6 @@ function VocabularyContent() {
               </div>
             </div>
 
-            {/* Nội dung lật thẻ */}
             <div className="flex-1 w-full max-w-xl flex flex-col gap-6">
               <div onClick={() => setIsFlipped(!isFlipped)} className="w-full h-80 cursor-pointer [perspective:1000px] select-none">
                 <div className={`relative w-full h-full duration-500 [transform-style:preserve-3d] ${isFlipped ? '[transform:rotateY(180deg)]' : ''}`}>
@@ -490,19 +524,16 @@ function VocabularyContent() {
       );
 
     case 'listen':
-      const currentListenWord = shuffledPool[listenIndex];
+      const currentListenWord = shuffledPool[currentIndex];
       const maskedExample = currentListenWord?.example.replace(new RegExp(`\\b${currentListenWord?.word}\\b`, 'gi'), '[...]');
       return (
         <div className={`${roboto.className} min-h-screen bg-gray-50 flex flex-col antialiased`}>
           <header className="bg-green-400 p-3.5 px-5 flex items-center justify-between shadow-md">
-            <button onClick={() => router.back()} className="bg-white/20 rounded-lg p-1.5 px-3 text-white text-xs font-bold">← Thoát</button>
+            <button onClick={handleExit} className="bg-white/20 rounded-lg p-1.5 px-3 text-white text-xs font-bold">← Thoát</button>
             <span className="text-white font-black text-sm text-center flex-1">🎧 Luyện nghe — {topic?.title}</span>
           </header>
           
-          {/* Bố cục 2 Cột cho Luyện Nghe */}
           <div className="flex-1 flex flex-col lg:flex-row p-4 max-w-6xl w-full mx-auto gap-8 items-start justify-center mt-6">
-            
-            {/* Bảng Menu Điều Hướng */}
             <div className="w-full lg:w-80 bg-white p-6 rounded-2xl shadow-xl border border-gray-100 h-fit">
               <h3 className="font-bold mb-4 uppercase text-sm text-center text-green-500">Danh sách câu</h3>
               <div className="grid grid-cols-5 gap-2">
@@ -511,7 +542,7 @@ function VocabularyContent() {
                     key={i}
                     onClick={() => goToListen(i)}
                     className={`py-2 rounded-lg font-bold text-sm transition-all ${
-                      listenIndex === i 
+                      currentIndex === i 
                         ? 'bg-green-500 text-white shadow-md scale-105' 
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
@@ -531,17 +562,17 @@ function VocabularyContent() {
               </div>
               
               <div className="flex gap-4 w-full">
-                {listenIndex > 0 && (
-                  <button onClick={() => goToListen(listenIndex - 1)} className="px-6 py-4 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 shadow-sm transition">← Trở lại</button>
+                {currentIndex > 0 && (
+                  <button onClick={() => goToListen(currentIndex - 1)} className="px-6 py-4 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 shadow-sm transition">← Trở lại</button>
                 )}
                 <button onClick={() => {
                   if (!listenChecked) handleCheckListenAnswer();
                   else {
-                    if (listenIndex < shuffledPool.length - 1) goToListen(listenIndex + 1);
+                    if (currentIndex < shuffledPool.length - 1) goToListen(currentIndex + 1);
                     else handleFinishSession();
                   }
                 }} className="flex-1 bg-green-400 hover:bg-green-500 text-white font-bold text-sm p-4 rounded-xl shadow-md border-none cursor-pointer transition">
-                  {!listenChecked ? 'Kiểm tra đáp án ✔' : listenIndex < shuffledPool.length - 1 ? 'Từ tiếp theo →' : 'Hoàn thành bài tập'}
+                  {!listenChecked ? 'Kiểm tra đáp án ✔' : currentIndex < shuffledPool.length - 1 ? 'Từ tiếp theo →' : 'Hoàn thành bài tập'}
                 </button>
               </div>
             </div>
@@ -551,18 +582,15 @@ function VocabularyContent() {
 
     case 'quiz':
       if (quizQuestions.length === 0) return null;
-      const currentQuestion = quizQuestions[quizIndex];
+      const currentQuestion = quizQuestions[currentIndex];
       return (
         <div className={`${roboto.className} min-h-screen bg-gray-50 flex flex-col antialiased`}>
           <header className="bg-green-400 p-3.5 px-5 flex items-center justify-between shadow-md">
-            <button onClick={() => router.back()} className="bg-white/20 rounded-lg p-1.5 px-3 text-white text-xs font-bold">← Thoát</button>
+            <button onClick={handleExit} className="bg-white/20 rounded-lg p-1.5 px-3 text-white text-xs font-bold">← Thoát</button>
             <span className="text-white font-black text-sm text-center flex-1">📝 Trắc nghiệm — {topic?.title}</span>
           </header>
           
-          {/* Bố cục 2 Cột cho Trắc nghiệm */}
           <div className="flex-1 flex flex-col lg:flex-row p-4 max-w-6xl w-full mx-auto gap-8 items-start justify-center mt-6">
-            
-            {/* Bảng Menu Điều Hướng */}
             <div className="w-full lg:w-80 bg-white p-6 rounded-2xl shadow-xl border border-gray-100 h-fit">
               <h3 className="font-bold mb-4 uppercase text-sm text-center text-green-500">Bảng câu hỏi</h3>
               <div className="grid grid-cols-5 gap-2">
@@ -571,7 +599,7 @@ function VocabularyContent() {
                     key={i}
                     onClick={() => goToQuiz(i)}
                     className={`py-2 rounded-lg font-bold text-sm transition-all ${
-                      quizIndex === i 
+                      currentIndex === i 
                         ? 'bg-green-500 text-white shadow-md scale-105' 
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
@@ -605,17 +633,17 @@ function VocabularyContent() {
               </div>
               
               <div className="flex gap-4 w-full mt-2">
-                {quizIndex > 0 && (
-                  <button onClick={() => goToQuiz(quizIndex - 1)} className="px-6 py-4 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 shadow-sm transition">← Trở lại</button>
+                {currentIndex > 0 && (
+                  <button onClick={() => goToQuiz(currentIndex - 1)} className="px-6 py-4 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 shadow-sm transition">← Trở lại</button>
                 )}
                 <button onClick={() => {
                   if (!quizChecked) handleCheckQuizAnswer();
                   else {
-                    if (quizIndex < quizQuestions.length - 1) goToQuiz(quizIndex + 1);
+                    if (currentIndex < quizQuestions.length - 1) goToQuiz(currentIndex + 1);
                     else handleFinishSession(quizScore);
                   }
                 }} disabled={!selectedOption && !quizChecked} className="flex-1 bg-green-400 hover:bg-green-500 text-white font-bold text-sm p-4 rounded-xl shadow-md border-none cursor-pointer transition disabled:opacity-50">
-                  {!quizChecked ? 'Kiểm tra câu trả lời' : quizIndex < quizQuestions.length - 1 ? 'Câu tiếp theo →' : 'Hoàn thành bài tập'}
+                  {!quizChecked ? 'Kiểm tra câu trả lời' : currentIndex < quizQuestions.length - 1 ? 'Câu tiếp theo →' : 'Hoàn thành bài tập'}
                 </button>
               </div>
             </div>
@@ -627,7 +655,7 @@ function VocabularyContent() {
       return (
         <div className={`${roboto.className} min-h-screen bg-gray-50 flex flex-col antialiased`}>
           <header className="bg-green-400 p-3.5 px-5 flex items-center justify-between shadow-md">
-            <button onClick={() => router.back()} className="bg-white/20 border-none rounded-lg p-1.5 px-3 text-white text-xs font-bold cursor-pointer">← Thôi học</button>
+            <button onClick={handleExit} className="bg-white/20 border-none rounded-lg p-1.5 px-3 text-white text-xs font-bold cursor-pointer">← Thôi học</button>
             <span className="text-white font-black text-sm text-center flex-1">🔗 Tìm cặp từ vựng — {topic?.title}</span>
           </header>
           <div className="flex-1 max-w-4xl w-full mx-auto p-4 flex flex-col justify-center gap-4">
@@ -652,15 +680,15 @@ function VocabularyContent() {
 
     case 'typer':
       if (shuffledPool.length === 0) return null;
-      const currentTyperWord = shuffledPool[typerIndex];
+      const currentTyperWord = shuffledPool[currentIndex];
       const maskedTyperSentence = currentTyperWord?.example.replace(new RegExp(`\\b${currentTyperWord?.word}\\b`, 'gi'), '_____');
 
       return (
         <div className={`${roboto.className} min-h-screen bg-gray-50 flex flex-col antialiased`}>
           <header className="bg-green-400 p-3.5 px-5 flex items-center justify-between shadow-md">
-            <button onClick={() => router.back()} className="bg-white/20 border-none rounded-lg p-1.5 px-3 text-white text-xs font-bold cursor-pointer">← Bỏ cuộc</button>
+            <button onClick={handleExit} className="bg-white/20 border-none rounded-lg p-1.5 px-3 text-white text-xs font-bold cursor-pointer">← Bỏ cuộc</button>
             <span className="text-white font-black text-sm text-center flex-1">⚡ Đua tốc độ phản xạ — {topic?.title}</span>
-            <span className="text-white text-xs font-bold bg-emerald-600 px-3 py-1.5 rounded-full">Từ: {typerIndex + 1}/{shuffledPool.length}</span>
+            <span className="text-white text-xs font-bold bg-emerald-600 px-3 py-1.5 rounded-full">Từ: {currentIndex + 1}/{shuffledPool.length}</span>
           </header>
 
           <div className="flex-1 max-w-xl w-full mx-auto p-4 flex flex-col justify-center gap-6">
@@ -702,15 +730,15 @@ function VocabularyContent() {
 
     case 'invaders':
       if (shuffledPool.length === 0) return null;
-      const currentActiveTarget = shuffledPool[gameIndex];
+      const currentActiveTarget = shuffledPool[currentIndex];
       const maskedArcadeSentence = currentActiveTarget?.example.replace(new RegExp(`\\b${currentActiveTarget?.word}\\b`, 'gi'), '_____');
 
       return (
         <div className={`${roboto.className} min-h-screen bg-slate-950 flex flex-col antialiased text-white select-none`}>
           <header className="bg-slate-900 p-3.5 px-5 flex items-center justify-between border-b border-slate-800 shadow-xl">
-            <button onClick={() => router.back()} className="bg-white/10 rounded-lg p-1.5 px-3 text-gray-300 text-xs font-bold border-none cursor-pointer">🛬 Rút lui</button>
+            <button onClick={handleExit} className="bg-white/10 rounded-lg p-1.5 px-3 text-gray-300 text-xs font-bold border-none cursor-pointer">🛬 Rút lui</button>
             <span className="text-green-400 font-black text-sm tracking-widest uppercase">🛡️ Hệ thống phòng thủ: {topic?.title}</span>
-            <span className="text-gray-400 text-xs font-mono">Khối: {gameIndex + 1}/{shuffledPool.length}</span>
+            <span className="text-gray-400 text-xs font-mono">Khối: {currentIndex + 1}/{shuffledPool.length}</span>
           </header>
 
           <div className="flex-1 max-w-xl w-full mx-auto p-4 flex flex-col justify-between gap-4">
