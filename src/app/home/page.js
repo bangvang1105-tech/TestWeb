@@ -74,9 +74,9 @@ const EXERCISE_PARTS = {
     { key: 'dictation_p4', label: 'Nghe chép chính tả Part 4', detail: 'Bài nói ngắn (Short Talks)' },
   ],
   reading: [
-    { key: 'quiz_p5', label: 'Trắc nghiệm Part 5', detail: 'Câu chưa hoàn chỉnh' },
-    { key: 'quiz_p6', label: 'Trắc nghiệm Part 6', detail: 'Hoàn thành đoạn văn' },
-    { key: 'quiz_p7', label: 'Trắc nghiệm Part 7', detail: 'Đọc hiểu đoạn văn' },
+    { key: 'test_p5', label: 'Trắc nghiệm Part 5', detail: 'Câu chưa hoàn chỉnh' }, // Đã sửa tên quy chuẩn test_p5
+    { key: 'test_p6', label: 'Trắc nghiệm Part 6', detail: 'Hoàn thành đoạn văn' }, // Đã sửa tên quy chuẩn test_p6
+    { key: 'test_p7', label: 'Trắc nghiệm Part 7', detail: 'Đọc hiểu đoạn văn' }, // Đã sửa tên quy chuẩn test_p7
     { key: 'grammar_list', label: 'Luyện tập Ngữ pháp', detail: 'Trọn bộ 13 chuyên đề trọng tâm' }
   ]
 };
@@ -210,7 +210,6 @@ export default function HomePage() {
       setExercisePart(partKey);
       return;
     }
-    // Chuyển hướng đến bài tập Part 1-7
     router.push(`/exercise?part=${partKey}${params}`);
   };
 
@@ -219,14 +218,16 @@ export default function HomePage() {
   };
 
   const handleHistoryNavigation = (type, mode, topicId) => {
-    // Điều hướng sang trang xem lịch sử (History)
     router.push(`/history?type=${type}&mode=${mode}&id=${topicId}`);
   }
 
   // 🌟 HÀM TẠO DỮ LIỆU HIỂN THỊ BAO GỒM 3 TRẠNG THÁI
   const buildDisplayData = (rawData, prefixType) => {
     return rawData.map(item => {
-      const targetLessonId = `${prefixType}_${item.id || item.key}`;
+      // Logic gán ID đặc biệt quan trọng cho Bài tập (Part) để khớp với data trên Firebase
+      // Nếu là Bài Tập (ví dụ: dictation_p1, test_p5), ta sẽ lấy trực tiếp chuỗi 'exercise_test_p5'
+      const targetLessonId = prefixType === 'exercise' ? `exercise_${item.key}` : `${prefixType}_${item.id || item.key}`;
+      
       const progress = userProgress[targetLessonId];
       let status = 'not_started';
       
