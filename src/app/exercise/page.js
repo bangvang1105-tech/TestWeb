@@ -228,12 +228,13 @@ function ExerciseContent() {
   };
 
   // --- COMPONENT RENDER PART 2 ---
-  const InputRowPart2 = ({ label, value, setValue, answer }) => {
+  // Sử dụng hàm render inline thay vì tạo Component mới để tránh lỗi re-render làm mất focus khi gõ
+  const renderPart2InputRow = (label, value, setValue, answer) => {
     const isCorrect = showResult && checkMatch(value, answer);
     const isWrong = showResult && !checkMatch(value, answer);
 
     return (
-      <div className="mb-4">
+      <div className="mb-4" key={label}>
         <div className="flex items-center gap-3">
           <span className={`font-bold text-lg w-6 ${label === 'Q' ? 'text-blue-600' : 'text-gray-600'}`}>{label}.</span>
           <input
@@ -477,7 +478,6 @@ function ExerciseContent() {
     <div className="min-h-screen bg-gray-50 py-10 px-4">
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-6">
         
-        {/* CỘT TRÁI: BẢNG LƯỚI ĐIỀU HƯỚNG CÂU HỎI */}
         <div className="w-full lg:w-72 bg-white p-6 rounded-2xl shadow-xl border border-gray-100 h-fit">
           <h3 className={`font-bold mb-4 uppercase text-sm text-center text-${themeColor.split('-')[1] || 'blue'}-600`}>Bảng câu hỏi</h3>
           <div className="grid grid-cols-5 gap-2">
@@ -492,7 +492,6 @@ function ExerciseContent() {
           </div>
         </div>
 
-        {/* CỘT GIỮA: KHU VỰC HIỂN THỊ BÀI TẬP */}
         <div className="flex-1 bg-white p-8 rounded-2xl shadow-xl border border-gray-100 flex flex-col">
           <header className="flex justify-between items-center mb-6">
             <button onClick={() => router.back()} className="text-sm text-gray-400 font-bold hover:text-gray-600 transition">← Thoát</button>
@@ -503,12 +502,11 @@ function ExerciseContent() {
                 </div>
               )}
               <div className={`text-xs font-black uppercase tracking-widest px-3 py-1 rounded-full text-white shadow-sm ${themeColor}`}>
-                {currentPart} | ĐOẠN {currentIndex + 1}/{data.length}
+                {currentPart} | BÀI TẬP {currentIndex + 1}/{data.length}
               </div>
             </div>
           </header>
 
-          {/* AUDIO CHO PART 1, 2, 3, 4 */}
           {currentPart !== 'PART 5' && currentPart !== 'PART 6' && currentPart !== 'PART 7' && (
             <audio key={normalizedQ.audiourl || currentIndex} controls className="w-full h-12 mb-8 shadow-sm rounded-lg bg-gray-50">
               <source src={normalizedQ.audiourl} type="audio/mpeg" />
@@ -516,7 +514,6 @@ function ExerciseContent() {
             </audio>
           )}
 
-          {/* RENDER THEO TỪNG PART */}
           {currentPart === 'PART 1' && (
              <>
                <div className="mb-6 p-5 bg-gray-50 rounded-2xl border border-gray-100">
@@ -539,11 +536,11 @@ function ExerciseContent() {
           {currentPart === 'PART 2' && (
             <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 mb-6">
               <h3 className="font-bold text-gray-700 mb-4">Nghe và chép lại toàn bộ:</h3>
-              <InputRowPart2 label="Q" value={inputQ} setValue={setInputQ} answer={normalizedQ.question} />
+              {renderPart2InputRow("Q", inputQ, setInputQ, normalizedQ.question)}
               <hr className="my-4 border-gray-200" />
-              <InputRowPart2 label="A" value={inputA} setValue={setInputA} answer={normalizedQ.optiona} />
-              <InputRowPart2 label="B" value={inputB} setValue={setInputB} answer={normalizedQ.optionb} />
-              <InputRowPart2 label="C" value={inputC} setValue={setInputC} answer={normalizedQ.optionc} />
+              {renderPart2InputRow("A", inputA, setInputA, normalizedQ.optiona)}
+              {renderPart2InputRow("B", inputB, setInputB, normalizedQ.optionb)}
+              {renderPart2InputRow("C", inputC, setInputC, normalizedQ.optionc)}
             </div>
           )}
 
@@ -584,7 +581,7 @@ function ExerciseContent() {
           {currentPart === 'PART 6' && renderPart6Document()}
           {currentPart === 'PART 7' && renderPart7()}
 
-          {/* BẢN DỊCH CHUNG CHO P6, P7 NẾU SHOWRESULT */}
+          {/* BẢN DỊCH CHUNG NẾU SHOWRESULT */}
           {showResult && (currentPart === 'PART 6' || currentPart === 'PART 7') && normalizedQ.translation && (
             <div className="mt-2 p-6 bg-slate-50 border border-slate-200 rounded-2xl transition-all shadow-sm">
               <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2 text-base">🇻🇳 Bản dịch Tiếng Việt toàn văn</h4>
@@ -626,7 +623,6 @@ function ExerciseContent() {
             </table>
           </div>
         )}
-        
       </div>
     </div>
   );
