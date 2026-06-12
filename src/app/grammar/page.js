@@ -4,7 +4,7 @@ import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Roboto } from 'next/font/google';
 import { db } from '@/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 const roboto = Roboto({
   weight: ['400', '500', '700', '900'],
@@ -48,6 +48,8 @@ function GrammarContent() {
   const [loading, setLoading] = useState(true);
   const [iframeLoading, setIframeLoading] = useState(true); 
 
+  const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
+
   useEffect(() => {
     if (!topicId) return;
     async function fetchLessonData() {
@@ -66,6 +68,55 @@ function GrammarContent() {
     }
     fetchLessonData();
   }, [topicId, mode]);
+
+  // 🌟 LƯU TIẾN TRÌNH: ĐÁNH DẤU "ĐANG HỌC" NGAY KHI MỞ TRANG
+  useEffect(() => {
+    async function markInProgress() {
+      if (!CURRENT_USER_ID || loading) return;
+      
+      try {
+        // Chỉ ghi nhận "Đang học" nếu trước đó chưa hoàn thành
+        const progressRef = doc(db, 'users', CURRENT_USER_ID, 'progress', `grammar_${mode}_${topicId}`);
+        const progressSnap = await getDoc(progressRef);
+        
+        if (!progressSnap.exists() || progressSnap.data().status !== 'completed') {
+          await setDoc(progressRef, {
+            status: 'in_progress',
+            score: 0, // Bài giảng chay không tính điểm
+            totalQuestions: 1, 
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+        }
+      } catch (error) {
+        console.error("Lỗi khi lưu tiến trình tạm thời:", error);
+      }
+    }
+    markInProgress();
+  }, [CURRENT_USER_ID, mode, topicId, loading]);
+
+  // 🌟 LƯU TIẾN TRÌNH: HOÀN THÀNH BÀI HỌC VÀ CHUYỂN HƯỚNG
+  const handleFinishLesson = async () => {
+    if (!CURRENT_USER_ID) {
+      router.back();
+      return;
+    }
+
+    try {
+      await setDoc(doc(db, 'users', CURRENT_USER_ID, 'progress', `grammar_${mode}_${topicId}`), {
+        status: 'completed',
+        score: 1, // Điểm tối đa giả định
+        totalQuestions: 1,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      
+      alert(`🎉 Bạn đã hoàn thành lý thuyết bài ${topicId}! Hãy luyện tập ngay nhé.`);
+      // Tự động chuyển hướng sang luyện tập ngữ pháp
+      router.push(`/lesson?type=grammar_practice&id=${topicId}`);
+    } catch (err) {
+      console.error(err);
+      router.back();
+    }
+  };
 
   const handlePracticeNow = () => {
     router.push(`/lesson?type=grammar_practice&id=${topicId}`);
@@ -129,15 +180,25 @@ function GrammarContent() {
           )}
         </div>
 
-        {/* FOOTER ĐIỀU HƯỚNG BÀI TẬP LIÊN KẾT */}
+        {/* 🌟 NÚT HOÀN THÀNH BÀI HỌC VÀ ĐIỀU HƯỚNG TỚI LUYỆN TẬP */}
         <div className="bg-white border border-gray-100 rounded-2xl p-4 flex flex-col sm:flex-row gap-4 items-center justify-between shadow-sm">
           <div className="text-center sm:text-left">
             <h4 className="text-gray-800 font-extrabold text-sm m-0">Đã nắm vững lý thuyết chuyên đề?</h4>
-            <p className="text-gray-400 text-xs m-0 mt-0.5">Bứt phá điểm số bằng cách rèn luyện bộ câu hỏi trắc nghiệm ngay.</p>
+            <p className="text-gray-400 text-xs m-0 mt-0.5">Xác nhận hoàn thành bài học để bứt phá với các câu hỏi trắc nghiệm ngay.</p>
           </div>
           <div className="flex gap-2.5 w-full sm:w-auto">
-            <button onClick={() => router.back()} className="flex-1 sm:flex-none bg-gray-100 text-gray-500 font-bold text-xs p-2.5 px-5 rounded-xl cursor-pointer hover:bg-gray-200 transition">Quay lại danh mục</button>
-            <button onClick={handlePracticeNow} className="flex-1 sm:flex-none bg-orange-400 shadow-md shadow-orange-400/20 text-white font-bold text-xs p-2.5 px-6 rounded-xl cursor-pointer hover:opacity-95 transition">Luyện tập ngay 🚀</button>
+            <button 
+              onClick={() => router.back()} 
+              className="flex-1 sm:flex-none bg-gray-100 text-gray-500 font-bold text-xs p-3 px-5 rounded-xl cursor-pointer hover:bg-gray-200 transition shadow-sm"
+            >
+              Xem lại sau
+            </button>
+            <button 
+              onClick={handleFinishLesson} 
+              className="flex-1 sm:flex-none bg-green-500 shadow-md shadow-green-500/30 text-white font-bold text-xs p-3 px-6 rounded-xl cursor-pointer hover:bg-green-600 transition"
+            >
+              Hoàn thành & Luyện tập ngay 🚀
+            </button>
           </div>
         </div>
 
