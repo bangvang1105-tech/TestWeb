@@ -9,11 +9,8 @@ function ExerciseContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  // Lấy mã bài tập từ URL
   let partKey = searchParams.get('part') || 'dictation_p1';
   
-  // 🌟 GIẢI PHÁP TRIỆT ĐỂ CHO MỌI PART TRONG TƯƠNG LAI:
-  // Tự động biến đổi mọi chữ "quiz_" thành "test_" (Áp dụng cho p5, p6, p7...)
   if (partKey.includes('quiz_')) {
     partKey = partKey.replace('quiz_', 'test_');
   }
@@ -30,11 +27,9 @@ function ExerciseContent() {
   const [inputC, setInputC] = useState("");
   const [part3Inputs, setPart3Inputs] = useState([]);
 
-  // STATE: Dành riêng cho Part 5
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [streak, setStreak] = useState(0);
 
-  // STATE: Dành riêng cho Part 6 (Lưu trữ đáp án được chọn của 4 câu: 1, 2, 3, 4)
   const [part6Answers, setPart6Answers] = useState({ 1: '', 2: '', 3: '', 4: '' });
 
   useEffect(() => {
@@ -92,7 +87,6 @@ function ExerciseContent() {
 
   const vocabList = getVocabList(normalizedQ.vocabulary);
   
-  // LOGIC NHẬN DIỆN ĐỘC QUYỀN CHÍNH XÁC CẢ 6 PARTS
   let currentPart = 'PART 1';
   const pKey = partKey.toLowerCase();
 
@@ -270,6 +264,9 @@ function ExerciseContent() {
               const isCorrect = showResult && selected === correctLetter;
               const isWrong = showResult && selected !== correctLetter;
               
+              // 🌟 TÌM NỘI DUNG ĐẦY ĐỦ CỦA ĐÁP ÁN ĐÚNG
+              const correctFullText = options.find(opt => opt.toUpperCase().startsWith(`${correctLetter}.`)) || correctLetter;
+
               return (
                 <span key={index} className="inline-block mx-1 align-middle relative group z-10">
                   <select
@@ -296,10 +293,13 @@ function ExerciseContent() {
                     })}
                   </select>
 
+                  {/* 🌟 CẬP NHẬT: HIỂN THỊ FULL TEXT ĐÁP ÁN ĐÚNG */}
                   {isWrong && normalizedQ[expKey] && (
                     <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block z-50 bg-red-600 text-white text-xs font-semibold p-3 rounded-xl shadow-xl w-64 text-center leading-normal">
-                      <span className="block font-black border-b border-red-400 pb-1 mb-1">CÂU {qNum} ĐÁP ÁN ĐÚNG: {correctLetter}</span>
-                      {normalizedQ[expKey]}
+                      <span className="block font-black border-b border-red-400 pb-1 mb-1">
+                        CÂU {qNum} ĐÁP ÁN ĐÚNG:<br/>{correctFullText}
+                      </span>
+                      <span className="block pt-1">{normalizedQ[expKey]}</span>
                     </div>
                   )}
                 </span>
@@ -459,7 +459,7 @@ function ExerciseContent() {
             </div>
           )}
 
-          {/* THANH ĐIỀU HƯỚNG NÚT BẤM */}
+          {/* THANH ĐIỀU HƯỚNG */}
           {!showResult && currentPart !== 'PART 5' ? (
             <button 
               onClick={() => setShowResult(true)} 
@@ -474,7 +474,7 @@ function ExerciseContent() {
                 ${currentPart === 'PART 5' ? 'bg-red-500 hover:bg-red-600' : currentPart === 'PART 6' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-gray-900 hover:bg-black'}
               `}
             >
-              {currentIndex < data.length - 1 ? "Câu tiếp theo →" : "Hoàn thành bài tập"}
+              {currentIndex < data.length - 1 ? "Đoạn văn tiếp theo →" : "Hoàn thành bài tập"}
             </button>
           ) : null}
         </div>
