@@ -557,7 +557,28 @@ function VocabularyContent() {
                 <button onClick={() => playAudio(currentListenWord?.word, 'word')} className="w-20 h-20 bg-green-50 text-green-500 hover:bg-green-100 rounded-full flex items-center justify-center text-3xl border-none cursor-pointer transition-transform active:scale-95">🔊</button>
                 <div className="w-full bg-gray-50 rounded-2xl p-4 border text-sm font-bold text-gray-800">{currentListenWord?.meaning}</div>
                 <p className="text-gray-600 italic text-xs">"{listenChecked ? currentListenWord?.example : maskedExample}"</p>
-                <input type="text" value={userAnswer} disabled={listenChecked} onChange={(e) => setUserAnswer(e.target.value)} placeholder="Gõ từ tiếng Anh nghe được..." className="w-full p-4 border-2 focus:border-green-400 outline-none rounded-xl text-center font-bold text-sm transition-all" />
+                
+                {/* HIỂN THỊ Ô INPUT ĐÃ ĐƯỢC LÀM TỐI VÀ ĐẬM CHỮ */}
+                <input 
+                  type="text" 
+                  value={userAnswer} 
+                  disabled={listenChecked} 
+                  onChange={(e) => setUserAnswer(e.target.value)} 
+                  placeholder="Gõ từ tiếng Anh nghe được..." 
+                  className={`w-full p-4 border-2 outline-none rounded-xl text-center font-black text-lg transition-all shadow-inner
+                    ${!listenChecked ? 'bg-gray-50 text-gray-900 border-gray-200 focus:border-green-400 focus:bg-white focus:shadow-md' : ''}
+                    ${listenChecked && listenResult === 'correct' ? 'bg-green-50 text-green-700 border-green-500' : ''}
+                    ${listenChecked && listenResult === 'wrong' ? 'bg-red-50 text-red-700 border-red-500' : ''}
+                  `} 
+                />
+
+                {/* BẢNG BÁO LỖI NẾU HỌC SINH GÕ SAI */}
+                {listenChecked && listenResult === 'wrong' && (
+                  <div className="w-full mt-2 p-3 bg-red-100 border border-red-200 rounded-xl">
+                    <p className="text-xs text-red-600 font-bold mb-1">Đáp án đúng là:</p>
+                    <p className="text-lg font-black text-red-800 tracking-wide">{currentListenWord?.word}</p>
+                  </div>
+                )}
               </div>
               
               <div className="flex gap-4 w-full">
