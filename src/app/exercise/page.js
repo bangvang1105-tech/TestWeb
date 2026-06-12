@@ -104,19 +104,15 @@ function ExerciseContent() {
 
   const checkMatch = (val, ans) => (val || "").trim().toLowerCase() === (ans || "").trim().toLowerCase();
 
-  const handleNext = () => {
+  // 🌟 HÀM ĐIỀU HƯỚNG TỔNG QUÁT: Nhảy đến câu bất kỳ
+  const goToQuestion = (index) => {
     setUserInput("");
     setInputQ(""); setInputA(""); setInputB(""); setInputC("");
     setPart3Inputs([]); 
     setSelectedAnswer(null);
     setPart6Answers({ 1: '', 2: '', 3: '', 4: '' });
     setShowResult(false);
-    
-    if (currentIndex < data.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    } else {
-      alert("🎉 Tuyệt vời! Bạn đã hoàn thành toàn bộ bài tập!");
-    }
+    setCurrentIndex(index);
   };
 
   const handleSelectPart5 = (option) => {
@@ -264,7 +260,6 @@ function ExerciseContent() {
               const isCorrect = showResult && selected === correctLetter;
               const isWrong = showResult && selected !== correctLetter;
               
-              // 🌟 TÌM NỘI DUNG ĐẦY ĐỦ CỦA ĐÁP ÁN ĐÚNG
               const correctFullText = options.find(opt => opt.toUpperCase().startsWith(`${correctLetter}.`)) || correctLetter;
 
               return (
@@ -293,7 +288,6 @@ function ExerciseContent() {
                     })}
                   </select>
 
-                  {/* 🌟 CẬP NHẬT: HIỂN THỊ FULL TEXT ĐÁP ÁN ĐÚNG */}
                   {isWrong && normalizedQ[expKey] && (
                     <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block z-50 bg-red-600 text-white text-xs font-semibold p-3 rounded-xl shadow-xl w-64 text-center leading-normal">
                       <span className="block font-black border-b border-red-400 pb-1 mb-1">
@@ -326,9 +320,32 @@ function ExerciseContent() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-10 px-4">
-      <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8">
+      {/* Nới rộng container để chứa vừa 3 cột */}
+      <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-6">
         
-        {/* CỘT CHÍNH */}
+        {/* 🌟 CỘT TRÁI: BẢNG LƯỚI ĐIỀU HƯỚNG CÂU HỎI */}
+        <div className="w-full lg:w-72 bg-white p-6 rounded-2xl shadow-xl border border-gray-100 h-fit">
+          <h3 className={`font-bold mb-4 uppercase text-sm text-center text-${themeColor.split('-')[1] || 'blue'}-600`}>
+            Bảng câu hỏi
+          </h3>
+          <div className="grid grid-cols-5 gap-2">
+            {data.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => goToQuestion(i)}
+                className={`py-2 rounded-lg font-bold text-sm transition-all ${
+                  currentIndex === i 
+                    ? `${themeColor} text-white shadow-md scale-105` 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {i + 1}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 🌟 CỘT GIỮA: KHU VỰC HIỂN THỊ BÀI TẬP */}
         <div className="flex-1 bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
           <header className="flex justify-between items-center mb-6">
             <button onClick={() => router.back()} className="text-sm text-gray-400 font-bold hover:text-gray-600 transition">← Thoát</button>
@@ -459,29 +476,45 @@ function ExerciseContent() {
             </div>
           )}
 
-          {/* THANH ĐIỀU HƯỚNG */}
-          {!showResult && currentPart !== 'PART 5' ? (
-            <button 
-              onClick={() => setShowResult(true)} 
-              className={`w-full text-white py-4 rounded-xl font-bold transition shadow-lg ${themeColor} hover:opacity-90`}
-            >
-              {currentPart === 'PART 6' ? 'Nộp báo cáo & Chấm điểm 📋' : 'Kiểm tra đáp án'}
-            </button>
-          ) : showResult ? (
-            <button 
-              onClick={handleNext} 
-              className={`w-full py-4 rounded-xl font-bold transition shadow-lg mt-4 text-white
-                ${currentPart === 'PART 5' ? 'bg-red-500 hover:bg-red-600' : currentPart === 'PART 6' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-gray-900 hover:bg-black'}
-              `}
-            >
-              {currentIndex < data.length - 1 ? "Đoạn văn tiếp theo →" : "Hoàn thành bài tập"}
-            </button>
-          ) : null}
+          {/* 🌟 THANH ĐIỀU HƯỚNG NÚT BẤM (ĐÃ NÂNG CẤP) */}
+          <div className="flex gap-4 mt-8">
+            {currentIndex > 0 && (
+              <button 
+                onClick={() => goToQuestion(currentIndex - 1)} 
+                className="px-6 py-4 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition"
+              >
+                ← Trở lại
+              </button>
+            )}
+
+            {!showResult && currentPart !== 'PART 5' ? (
+              <button 
+                onClick={() => setShowResult(true)} 
+                className={`flex-1 text-white py-4 rounded-xl font-bold transition shadow-lg ${themeColor} hover:opacity-90`}
+              >
+                {currentPart === 'PART 6' ? 'Nộp báo cáo & Chấm điểm 📋' : 'Kiểm tra đáp án'}
+              </button>
+            ) : showResult ? (
+              <button 
+                onClick={() => {
+                  if (currentIndex < data.length - 1) goToQuestion(currentIndex + 1);
+                  else alert("🎉 Tuyệt vời! Bạn đã hoàn thành toàn bộ bài tập!");
+                }} 
+                className={`flex-1 py-4 rounded-xl font-bold transition shadow-lg text-white
+                  ${currentPart === 'PART 5' ? 'bg-red-500 hover:bg-red-600' : currentPart === 'PART 6' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-gray-900 hover:bg-black'}
+                `}
+              >
+                {currentIndex < data.length - 1 ? "Câu tiếp theo →" : "Hoàn thành bài tập"}
+              </button>
+            ) : (
+              <div className="flex-1"></div>
+            )}
+          </div>
         </div>
 
-        {/* CỘT PHỤ: BẢNG TỪ VỰNG */}
+        {/* CỘT PHỤ BÊN PHẢI: BẢNG TỪ VỰNG */}
         {showResult && vocabList.length > 0 && (
-          <div className="w-full md:w-80 bg-white p-6 rounded-2xl shadow-xl border border-gray-100 h-fit transition-all">
+          <div className="w-full lg:w-80 bg-white p-6 rounded-2xl shadow-xl border border-gray-100 h-fit transition-all">
             <h3 className={`font-bold mb-4 uppercase text-sm text-center text-${themeColor.split('-')[1] || 'emerald'}-600`}>
               Danh sách từ vựng
             </h3>
