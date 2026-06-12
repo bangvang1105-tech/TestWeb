@@ -2,7 +2,7 @@
 import React, { Suspense, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { db } from '@/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import Papa from 'papaparse';
 
 function ExerciseContent() {
@@ -10,6 +10,8 @@ function ExerciseContent() {
   const searchParams = useSearchParams();
   
   let partKey = searchParams.get('part') || 'dictation_p1';
+  const isResume = searchParams.get('resume') === 'true';
+  const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
   
   if (partKey.includes('quiz_')) {
     partKey = partKey.replace('quiz_', 'test_');
@@ -31,7 +33,11 @@ function ExerciseContent() {
   const [streak, setStreak] = useState(0);
 
   const [part6Answers, setPart6Answers] = useState({ 1: '', 2: '', 3: '', 4: '' });
+  
+  // Tích lũy điểm (Dành cho Part 5, 6, 7 sau này)
+  const [totalScore, setTotalScore] = useState(0);
 
+  // ĐỒNG BỘ DỮ LIỆU BAN ĐẦU VÀ LẤY TIẾN TRÌNH CŨ (NẾU CÓ)
   useEffect(() => {
     async function loadData() {
       setLoading(true);
@@ -43,9 +49,23 @@ function ExerciseContent() {
           Papa.parse(csvText, {
             header: true,
             skipEmptyLines: true,
-            complete: (results) => { 
+            complete: async (results) => { 
               const validData = results.data.filter(r => r.id || r.question || r.transcript || r.maskedsentence || r.correctanswer || r.explanation || r.content);
               setData(validData); 
+              
+              // 🌟 XỬ LÝ HỌC TIẾP (RESUME) TỪ FIREBASE
+              let savedIndex = 0;
+              let savedScore = 0;
+              if (CURRENT_USER_ID && isResume) {
+                const progressSnap = await getDoc(doc(db, 'users', CURRENT_USER_ID, 'progress', `exercise_part_${partKey}`));
+                if (progressSnap.exists()) {
+                   const progData = progressSnap.data();
+                   if (progData.currentIndex) savedIndex = progData.currentIndex;
+                   if (progData.score) savedScore = progData.score;
+                }
+              }
+              setCurrentIndex(savedIndex);
+              setTotalScore(savedScore);
               setLoading(false); 
             }
           });
@@ -58,7 +78,54 @@ function ExerciseContent() {
       }
     }
     loadData();
-  }, [partKey]);
+  }, [partKey, isResume, CURRENT_USER_ID]);
+
+  // 🌟 TỰ ĐỘNG LƯU TIẾN TRÌNH (ĐANG HỌC) MỖI KHI ĐỔI CÂU
+  useEffect(() => {
+    async function saveProgress() {
+      if (!CURRENT_USER_ID || loading || data.length === 0) return;
+      
+      // Chỉ lưu trạng thái 'in_progress' nếu đang ở giữa bài (từ câu 2 trở đi và chưa tới câu cuối)
+      // (Nếu vừa vào câu 1 đã thoát thì coi như chưa học)
+      if (currentIndex > 0 && currentIndex < data.length - 1) {
+        try {
+          await setDoc(doc(db, 'users', CURRENT_USER_ID, 'progress', `exercise_part_${partKey}`), {
+            status: 'in_progress',
+            currentIndex: currentIndex,
+            score: totalScore,
+            totalQuestions: data.length,
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+        } catch (error) {
+          console.error("Lỗi khi lưu tiến trình:", error);
+        }
+      }
+    }
+    saveProgress();
+  }, [currentIndex, CURRENT_USER_ID, partKey, loading, data.length, totalScore]);
+
+  // 🌟 LƯU TRẠNG THÁI HOÀN THÀNH KHI KẾT THÚC BÀI
+  const handleFinishExercise = async () => {
+    if (!CURRENT_USER_ID) {
+      alert("🎉 Tuyệt vời! Bạn đã hoàn thành toàn bộ bài tập!");
+      router.back();
+      return;
+    }
+    
+    try {
+      await setDoc(doc(db, 'users', CURRENT_USER_ID, 'progress', `exercise_part_${partKey}`), {
+        status: 'completed',
+        currentIndex: 0, // Trả về 0 để nếu ôn lại thì bắt đầu từ đầu
+        score: totalScore,
+        totalQuestions: data.length,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      alert("🎉 Tuyệt vời! Bạn đã hoàn thành toàn bộ bài tập!");
+      router.back();
+    } catch (err) {
+      router.back();
+    }
+  };
 
   const getVocabList = (vocabString) => {
     if (!vocabString) return [];
@@ -104,7 +171,6 @@ function ExerciseContent() {
 
   const checkMatch = (val, ans) => (val || "").trim().toLowerCase() === (ans || "").trim().toLowerCase();
 
-  // 🌟 HÀM ĐIỀU HƯỚNG TỔNG QUÁT: Nhảy đến câu bất kỳ
   const goToQuestion = (index) => {
     setUserInput("");
     setInputQ(""); setInputA(""); setInputB(""); setInputC("");
@@ -123,8 +189,28 @@ function ExerciseContent() {
     const correctAns = (normalizedQ.correctoption || "").trim().toUpperCase();
     if (option === correctAns) {
       setStreak(prev => prev + 1);
+      setTotalScore(prev => prev + 1); // Cộng điểm nếu đúng
     } else {
       setStreak(0);
+    }
+  };
+
+  // Logic nộp bài Part 6 (Kiểm tra 4 ô và tính điểm)
+  const handleSubmitPart6 = () => {
+    setShowResult(true);
+    let correctCount = 0;
+    [1, 2, 3, 4].forEach(qNum => {
+       const correctLetter = (normalizedQ[`q${qNum}_correct`] || "").trim().toUpperCase();
+       if (part6Answers[qNum] === correctLetter) correctCount++;
+    });
+    setTotalScore(prev => prev + correctCount);
+  };
+
+  const handleNext = () => {
+    if (currentIndex < data.length - 1) {
+      goToQuestion(currentIndex + 1);
+    } else {
+      handleFinishExercise();
     }
   };
 
@@ -320,10 +406,9 @@ function ExerciseContent() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-10 px-4">
-      {/* Nới rộng container để chứa vừa 3 cột */}
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-6">
         
-        {/* 🌟 CỘT TRÁI: BẢNG LƯỚI ĐIỀU HƯỚNG CÂU HỎI */}
+        {/* CỘT TRÁI: BẢNG LƯỚI ĐIỀU HƯỚNG CÂU HỎI */}
         <div className="w-full lg:w-72 bg-white p-6 rounded-2xl shadow-xl border border-gray-100 h-fit">
           <h3 className={`font-bold mb-4 uppercase text-sm text-center text-${themeColor.split('-')[1] || 'blue'}-600`}>
             Bảng câu hỏi
@@ -345,7 +430,7 @@ function ExerciseContent() {
           </div>
         </div>
 
-        {/* 🌟 CỘT GIỮA: KHU VỰC HIỂN THỊ BÀI TẬP */}
+        {/* CỘT GIỮA: KHU VỰC HIỂN THỊ BÀI TẬP */}
         <div className="flex-1 bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
           <header className="flex justify-between items-center mb-6">
             <button onClick={() => router.back()} className="text-sm text-gray-400 font-bold hover:text-gray-600 transition">← Thoát</button>
@@ -362,7 +447,6 @@ function ExerciseContent() {
             </div>
           </header>
 
-          {/* TRÌNH PHÁT NHẠC */}
           {currentPart !== 'PART 5' && currentPart !== 'PART 6' && (
             <audio key={normalizedQ.audiourl || currentIndex} controls className="w-full h-12 mb-8 shadow-sm rounded-lg bg-gray-50">
               <source src={normalizedQ.audiourl} type="audio/mpeg" />
@@ -370,7 +454,6 @@ function ExerciseContent() {
             </audio>
           )}
 
-          {/* PART 1 */}
           {currentPart === 'PART 1' && (
              <>
                <div className="mb-6 p-5 bg-gray-50 rounded-2xl border border-gray-100">
@@ -394,7 +477,6 @@ function ExerciseContent() {
              </>
           )}
 
-          {/* PART 2 */}
           {currentPart === 'PART 2' && (
             <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 mb-6">
               <h3 className="font-bold text-gray-700 mb-4">Nghe và chép lại toàn bộ:</h3>
@@ -406,10 +488,8 @@ function ExerciseContent() {
             </div>
           )}
 
-          {/* PART 3 & 4 */}
           {(currentPart === 'PART 3' || currentPart === 'PART 4') && renderClozeTest()}
 
-          {/* PART 5 */}
           {currentPart === 'PART 5' && (
             <div className="mb-6">
               <div className="bg-red-50 p-8 rounded-2xl border border-red-100 mb-8 shadow-sm">
@@ -458,7 +538,6 @@ function ExerciseContent() {
             </div>
           )}
 
-          {/* PART 6 */}
           {currentPart === 'PART 6' && (
             <div className="mb-6">
               {renderPart6Document()}
@@ -476,12 +555,11 @@ function ExerciseContent() {
             </div>
           )}
 
-          {/* 🌟 THANH ĐIỀU HƯỚNG NÚT BẤM (ĐÃ NÂNG CẤP) */}
           <div className="flex gap-4 mt-8">
             {currentIndex > 0 && (
               <button 
                 onClick={() => goToQuestion(currentIndex - 1)} 
-                className="px-6 py-4 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition"
+                className="px-6 py-4 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition shadow-sm"
               >
                 ← Trở lại
               </button>
@@ -489,17 +567,14 @@ function ExerciseContent() {
 
             {!showResult && currentPart !== 'PART 5' ? (
               <button 
-                onClick={() => setShowResult(true)} 
+                onClick={currentPart === 'PART 6' ? handleSubmitPart6 : () => setShowResult(true)} 
                 className={`flex-1 text-white py-4 rounded-xl font-bold transition shadow-lg ${themeColor} hover:opacity-90`}
               >
                 {currentPart === 'PART 6' ? 'Nộp báo cáo & Chấm điểm 📋' : 'Kiểm tra đáp án'}
               </button>
             ) : showResult ? (
               <button 
-                onClick={() => {
-                  if (currentIndex < data.length - 1) goToQuestion(currentIndex + 1);
-                  else alert("🎉 Tuyệt vời! Bạn đã hoàn thành toàn bộ bài tập!");
-                }} 
+                onClick={handleNext} 
                 className={`flex-1 py-4 rounded-xl font-bold transition shadow-lg text-white
                   ${currentPart === 'PART 5' ? 'bg-red-500 hover:bg-red-600' : currentPart === 'PART 6' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-gray-900 hover:bg-black'}
                 `}
