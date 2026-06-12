@@ -164,7 +164,7 @@ function VocabularyContent() {
         setIsGameOver(false);
         setLaserEffect(false);
 
-        // Lấy dữ liệu từ file csv (giữ nguyên logic gốc của bạn)
+        // Lấy dữ liệu từ file csv
         const docSnap = await getDoc(doc(db, 'vocab_lessons', String(topicId)));
         if (!docSnap.exists()) throw new Error('Chưa cấu hình dữ liệu bài học.');
 
@@ -248,7 +248,7 @@ function VocabularyContent() {
     fetchAndParseExcelData();
   }, [topicId, mode, isResume]);
 
-  // 🌟 LƯU TIẾN TRÌNH KHI ĐANG HỌC (Lưu mỗi khi currentIndex thay đổi)
+  // LƯU TIẾN TRÌNH KHI ĐANG HỌC
   useEffect(() => {
     async function saveProgress() {
       if (!CURRENT_USER_ID || loading || words.length === 0) return;
@@ -276,7 +276,7 @@ function VocabularyContent() {
   }, [currentIndex, CURRENT_USER_ID, mode, topicId, loading, words.length, quizScore, typerScore, gameScore]);
 
 
-  // TIMER COUNTDOWN 
+  // TIMER COUNTDOWN (Đua tốc độ phản xạ)
   useEffect(() => {
     if (mode !== 'typer' || isTyperFinished || loading || shuffledPool.length === 0) return;
     if (timeLeft === 0) { handleNextTyperWord(); return; }
@@ -284,7 +284,7 @@ function VocabularyContent() {
     return () => clearInterval(timer);
   }, [timeLeft, mode, isTyperFinished, loading, shuffledPool]);
 
-  // ARCADE PHYSICS
+  // ARCADE PHYSICS (Vượt chướng ngại vật)
   useEffect(() => {
     if (mode !== 'invaders' || isGameOver || loading || shuffledPool.length === 0) return;
     const speedFactor = 0.5 + (gameScore * 0.05); 
@@ -456,7 +456,6 @@ function VocabularyContent() {
     }
   };
 
-  // Nút thoái chung, đảm bảo dữ liệu lưu trữ
   const handleExit = () => {
     router.back();
   };
@@ -788,16 +787,48 @@ function VocabularyContent() {
     case 'learn':
     default:
       return (
-        <div className={`${roboto.className} min-h-screen bg-gray-50 flex flex-col p-6`}>
-          <div className="max-w-2xl w-full mx-auto bg-white rounded-2xl p-6 border border-gray-100 shadow-sm mt-10">
-            <h2 className="text-xl font-bold text-gray-800 mb-2">📚 Chế độ: Học từ vựng</h2>
-            <div className="border border-gray-100 rounded-xl divide-y divide-gray-100 overflow-hidden">
-              {words.map((item, idx) => (
-                <div key={idx} className="p-4 flex flex-col gap-1 text-sm">
-                  <span className="font-bold text-green-500">{item.word}</span>
-                  <p className="text-gray-700 text-xs">Nghĩa: {item.meaning}</p>
-                </div>
-              ))}
+        <div className={`${roboto.className} min-h-screen bg-gray-50 flex flex-col antialiased`}>
+          <header className="bg-green-400 p-3.5 px-5 flex items-center justify-between shadow-md">
+            <button onClick={handleExit} className="bg-white/20 border-none rounded-lg p-1.5 px-3 text-white text-xs font-bold cursor-pointer">← Thoát</button>
+            <span className="text-white font-black text-sm text-center flex-1">📚 Học từ vựng — {topic?.title}</span>
+          </header>
+
+          <div className="flex-1 max-w-4xl w-full mx-auto p-4 md:p-6 mt-4 flex flex-col gap-6">
+            <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-100 shadow-xl">
+              <div className="text-center mb-6 border-b border-gray-100 pb-4">
+                <h2 className="text-2xl font-black text-green-600 mb-2">Danh Sách Từ Vựng Cốt Lõi</h2>
+                <p className="text-gray-500 text-sm font-medium">Hãy đọc thật kỹ từ vựng, cách phát âm, và ví dụ trước khi tham gia các trò chơi.</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {words.map((item, idx) => (
+                  <div key={idx} className="p-4 border-2 border-gray-50 rounded-2xl bg-gray-50/50 hover:bg-white hover:border-green-300 hover:shadow-md transition-all flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-baseline gap-2">
+                        <span className="font-black text-lg text-gray-800">{item.word}</span>
+                        <span className="text-xs font-mono text-gray-400 font-bold bg-white px-2 py-0.5 rounded border shadow-sm">{item.ipa}</span>
+                      </div>
+                      <button 
+                        onClick={() => playAudio(item.word, 'word')} 
+                        className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center hover:bg-green-200 transition-colors"
+                      >
+                        🔊
+                      </button>
+                    </div>
+                    <p className="font-bold text-green-600 text-sm">{item.meaning}</p>
+                    <p className="text-gray-500 italic text-xs leading-relaxed mt-1">"{item.example}"</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-center pb-10">
+              <button 
+                onClick={() => handleFinishSession(words.length)} 
+                className="w-full md:w-auto md:min-w-[300px] bg-gray-900 hover:bg-black text-white font-black text-sm p-4 rounded-xl shadow-lg transition-all"
+              >
+                Đã học xong & Lưu tiến trình
+              </button>
             </div>
           </div>
         </div>
