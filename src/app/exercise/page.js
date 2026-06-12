@@ -12,9 +12,10 @@ function ExerciseContent() {
   // Lấy mã bài tập từ URL
   let partKey = searchParams.get('part') || 'dictation_p1';
   
-  // Tự động điều hướng từ khóa quiz_p5 sang test_p5 như bài trước
-  if (partKey === 'quiz_p5') {
-    partKey = 'test_p5';
+  // 🌟 GIẢI PHÁP TRIỆT ĐỂ CHO MỌI PART TRONG TƯƠNG LAI:
+  // Tự động biến đổi mọi chữ "quiz_" thành "test_" (Áp dụng cho p5, p6, p7...)
+  if (partKey.includes('quiz_')) {
+    partKey = partKey.replace('quiz_', 'test_');
   }
   
   const [data, setData] = useState([]);
@@ -64,7 +65,6 @@ function ExerciseContent() {
     loadData();
   }, [partKey]);
 
-  // Hàm tách từ vựng
   const getVocabList = (vocabString) => {
     if (!vocabString) return [];
     return vocabString.split('|').map(item => {
@@ -73,7 +73,6 @@ function ExerciseContent() {
     });
   };
 
-  // Hàm tách 4 đáp án dạng A. | B. | C. | D. trong Part 6
   const getPart6Options = (optString) => {
     if (!optString) return [];
     return optString.split('|').map(o => o.trim());
@@ -84,7 +83,6 @@ function ExerciseContent() {
 
   const currentQ = data[currentIndex];
   
-  // CHUẨN HÓA DỮ LIỆU CHỮ THƯỜNG TRÁNH LỖI LỆCH CỘT EXCEL
   const normalizedQ = {};
   if (currentQ) {
     Object.keys(currentQ).forEach(key => {
@@ -224,15 +222,12 @@ function ExerciseContent() {
     );
   };
 
-  // --- HÀM RENDER ĐOẠN VĂN TƯƠNG TÁC CHO PART 6 ---
   const renderPart6Document = () => {
     if (!normalizedQ.content) return null;
     
-    // Tách văn bản dựa theo ký hiệu [1], [2], [3], [4]
     const parts = normalizedQ.content.split(/(\[\d+\])/g);
     const docType = (normalizedQ.type || "Notice").trim().toLowerCase();
     
-    // Đổi hình nền giả lập môi trường làm việc thực tế cho học sinh đỡ chán
     let docClass = "p-6 md:p-8 rounded-2xl border-2 shadow-inner mb-6 text-gray-800 text-lg leading-relaxed font-sans whitespace-pre-line bg-white ";
     if (docType === 'email') docClass += "border-blue-200 bg-gradient-to-b from-blue-50/30 to-white";
     else if (docType === 'notice') docClass += "border-green-200 border-dashed bg-stone-50/50";
@@ -241,7 +236,6 @@ function ExerciseContent() {
 
     return (
       <div className={docClass}>
-        {/* Giả lập Header cho từng loại văn bản */}
         {docType === 'email' && (
           <div className="border-b border-gray-200 pb-4 mb-5 text-sm text-gray-500 font-mono space-y-1">
             <div><span className="font-bold text-gray-700">From:</span> communications@company-network.com</div>
@@ -260,12 +254,11 @@ function ExerciseContent() {
           </div>
         )}
 
-        {/* Nội dung đoạn văn bọc các ô Dropdown */}
         <p>
           {parts.map((part, index) => {
             const match = part.match(/^\[(\d+)\]$/);
             if (match) {
-              const qNum = match[1]; // Số câu hỏi (1, 2, 3, 4)
+              const qNum = match[1]; 
               const optKey = `q${qNum}_options`;
               const correctKey = `q${qNum}_correct`;
               const expKey = `q${qNum}_exp`;
@@ -303,7 +296,6 @@ function ExerciseContent() {
                     })}
                   </select>
 
-                  {/* Bung lời giải thích bong bóng khi di chuột vào câu bị SAI */}
                   {isWrong && normalizedQ[expKey] && (
                     <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block z-50 bg-red-600 text-white text-xs font-semibold p-3 rounded-xl shadow-xl w-64 text-center leading-normal">
                       <span className="block font-black border-b border-red-400 pb-1 mb-1">CÂU {qNum} ĐÁP ÁN ĐÚNG: {correctLetter}</span>
@@ -321,7 +313,6 @@ function ExerciseContent() {
     );
   };
 
-  // Hệ màu chủ đạo đồng bộ bảng điều khiển
   const badgeColors = {
     'PART 1': 'bg-green-500',
     'PART 2': 'bg-blue-500',
@@ -337,7 +328,7 @@ function ExerciseContent() {
     <div className="min-h-screen bg-gray-50 py-10 px-4">
       <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8">
         
-        {/* CỘT CHÍNH: KHU VỰC HIỂN THỊ BÀI TẬP */}
+        {/* CỘT CHÍNH */}
         <div className="flex-1 bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
           <header className="flex justify-between items-center mb-6">
             <button onClick={() => router.back()} className="text-sm text-gray-400 font-bold hover:text-gray-600 transition">← Thoát</button>
@@ -354,7 +345,7 @@ function ExerciseContent() {
             </div>
           </header>
 
-          {/* TRÌNH PHÁT NHẠC (Chỉ hiện cho Part 1-4) */}
+          {/* TRÌNH PHÁT NHẠC */}
           {currentPart !== 'PART 5' && currentPart !== 'PART 6' && (
             <audio key={normalizedQ.audiourl || currentIndex} controls className="w-full h-12 mb-8 shadow-sm rounded-lg bg-gray-50">
               <source src={normalizedQ.audiourl} type="audio/mpeg" />
@@ -362,7 +353,7 @@ function ExerciseContent() {
             </audio>
           )}
 
-          {/* 1. GIAO DIỆN PART 1 */}
+          {/* PART 1 */}
           {currentPart === 'PART 1' && (
              <>
                <div className="mb-6 p-5 bg-gray-50 rounded-2xl border border-gray-100">
@@ -386,7 +377,7 @@ function ExerciseContent() {
              </>
           )}
 
-          {/* 2. GIAO DIỆN PART 2 */}
+          {/* PART 2 */}
           {currentPart === 'PART 2' && (
             <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 mb-6">
               <h3 className="font-bold text-gray-700 mb-4">Nghe và chép lại toàn bộ:</h3>
@@ -398,10 +389,10 @@ function ExerciseContent() {
             </div>
           )}
 
-          {/* 3. GIAO DIỆN PART 3 & PART 4 */}
+          {/* PART 3 & 4 */}
           {(currentPart === 'PART 3' || currentPart === 'PART 4') && renderClozeTest()}
 
-          {/* 4. GIAO DIỆN MINI-GAME PART 5 */}
+          {/* PART 5 */}
           {currentPart === 'PART 5' && (
             <div className="mb-6">
               <div className="bg-red-50 p-8 rounded-2xl border border-red-100 mb-8 shadow-sm">
@@ -450,12 +441,11 @@ function ExerciseContent() {
             </div>
           )}
 
-          {/* 5. GIAO DIỆN INTERACTIVE ĐOẠN VĂN NHẬP VAI PART 6 */}
+          {/* PART 6 */}
           {currentPart === 'PART 6' && (
             <div className="mb-6">
               {renderPart6Document()}
               
-              {/* BẢNG HIỂN THỊ DỊCH NGHĨA TOÀN BÀI (Hiện ra bên dưới sau khi Nộp bài) */}
               {showResult && normalizedQ.translation && (
                 <div className="mt-6 p-6 bg-emerald-50 border border-emerald-200 rounded-2xl transition-all animate-fadeIn shadow-sm">
                   <h4 className="font-bold text-emerald-800 mb-3 flex items-center gap-2 text-base">
@@ -469,7 +459,7 @@ function ExerciseContent() {
             </div>
           )}
 
-          {/* THANH ĐIỀU HƯỚNG NÚT BẤM CHUNG */}
+          {/* THANH ĐIỀU HƯỚNG NÚT BẤM */}
           {!showResult && currentPart !== 'PART 5' ? (
             <button 
               onClick={() => setShowResult(true)} 
@@ -484,12 +474,12 @@ function ExerciseContent() {
                 ${currentPart === 'PART 5' ? 'bg-red-500 hover:bg-red-600' : currentPart === 'PART 6' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-gray-900 hover:bg-black'}
               `}
             >
-              {currentIndex < data.length - 1 ? "Đoạn văn tiếp theo →" : "Hoàn thành bài tập"}
+              {currentIndex < data.length - 1 ? "Câu tiếp theo →" : "Hoàn thành bài tập"}
             </button>
           ) : null}
         </div>
 
-        {/* CỘT PHỤ: BẢNG TỪ VỰNG DÙNG CHUNG CỦA TẤT CẢ CÁC PARTS */}
+        {/* CỘT PHỤ: BẢNG TỪ VỰNG */}
         {showResult && vocabList.length > 0 && (
           <div className="w-full md:w-80 bg-white p-6 rounded-2xl shadow-xl border border-gray-100 h-fit transition-all">
             <h3 className={`font-bold mb-4 uppercase text-sm text-center text-${themeColor.split('-')[1] || 'emerald'}-600`}>
