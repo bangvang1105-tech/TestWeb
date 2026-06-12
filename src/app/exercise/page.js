@@ -34,7 +34,6 @@ function ExerciseContent() {
 
   const [part6Answers, setPart6Answers] = useState({ 1: '', 2: '', 3: '', 4: '' });
   
-  // Tích lũy điểm (Dành cho Part 5, 6, 7 sau này)
   const [totalScore, setTotalScore] = useState(0);
 
   // ĐỒNG BỘ DỮ LIỆU BAN ĐẦU VÀ LẤY TIẾN TRÌNH CŨ (NẾU CÓ)
@@ -53,11 +52,11 @@ function ExerciseContent() {
               const validData = results.data.filter(r => r.id || r.question || r.transcript || r.maskedsentence || r.correctanswer || r.explanation || r.content);
               setData(validData); 
               
-              // 🌟 XỬ LÝ HỌC TIẾP (RESUME) TỪ FIREBASE
               let savedIndex = 0;
               let savedScore = 0;
               if (CURRENT_USER_ID && isResume) {
-                const progressSnap = await getDoc(doc(db, 'users', CURRENT_USER_ID, 'progress', `exercise_part_${partKey}`));
+                // 🌟 FIX LỖI TẠI ĐÂY: Đổi tên doc thành 'exercise_...' cho khớp với Menu
+                const progressSnap = await getDoc(doc(db, 'users', CURRENT_USER_ID, 'progress', `exercise_${partKey}`));
                 if (progressSnap.exists()) {
                    const progData = progressSnap.data();
                    if (progData.currentIndex) savedIndex = progData.currentIndex;
@@ -85,11 +84,10 @@ function ExerciseContent() {
     async function saveProgress() {
       if (!CURRENT_USER_ID || loading || data.length === 0) return;
       
-      // Chỉ lưu trạng thái 'in_progress' nếu đang ở giữa bài (từ câu 2 trở đi và chưa tới câu cuối)
-      // (Nếu vừa vào câu 1 đã thoát thì coi như chưa học)
       if (currentIndex > 0 && currentIndex < data.length - 1) {
         try {
-          await setDoc(doc(db, 'users', CURRENT_USER_ID, 'progress', `exercise_part_${partKey}`), {
+          // 🌟 FIX LỖI TẠI ĐÂY: Đổi tên doc thành 'exercise_...' cho khớp với Menu
+          await setDoc(doc(db, 'users', CURRENT_USER_ID, 'progress', `exercise_${partKey}`), {
             status: 'in_progress',
             currentIndex: currentIndex,
             score: totalScore,
@@ -113,9 +111,10 @@ function ExerciseContent() {
     }
     
     try {
-      await setDoc(doc(db, 'users', CURRENT_USER_ID, 'progress', `exercise_part_${partKey}`), {
+      // 🌟 FIX LỖI TẠI ĐÂY: Đổi tên doc thành 'exercise_...' cho khớp với Menu
+      await setDoc(doc(db, 'users', CURRENT_USER_ID, 'progress', `exercise_${partKey}`), {
         status: 'completed',
-        currentIndex: 0, // Trả về 0 để nếu ôn lại thì bắt đầu từ đầu
+        currentIndex: 0,
         score: totalScore,
         totalQuestions: data.length,
         updatedAt: new Date().toISOString()
@@ -189,13 +188,12 @@ function ExerciseContent() {
     const correctAns = (normalizedQ.correctoption || "").trim().toUpperCase();
     if (option === correctAns) {
       setStreak(prev => prev + 1);
-      setTotalScore(prev => prev + 1); // Cộng điểm nếu đúng
+      setTotalScore(prev => prev + 1);
     } else {
       setStreak(0);
     }
   };
 
-  // Logic nộp bài Part 6 (Kiểm tra 4 ô và tính điểm)
   const handleSubmitPart6 = () => {
     setShowResult(true);
     let correctCount = 0;
