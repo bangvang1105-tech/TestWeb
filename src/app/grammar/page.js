@@ -1,5 +1,4 @@
 'use client';
-
 import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Roboto } from 'next/font/google';
@@ -50,7 +49,6 @@ function GrammarContent() {
 
   const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
 
-  // NẠP LINK BÀI GIẢNG TỪ FIREBASE
   useEffect(() => {
     if (!topicId) return;
     async function fetchLessonData() {
@@ -70,20 +68,16 @@ function GrammarContent() {
     fetchLessonData();
   }, [topicId, mode]);
 
-  // LƯU TIẾN TRÌNH: ĐÁNH DẤU "ĐANG HỌC" NGAY KHI MỞ TRANG
   useEffect(() => {
     async function markInProgress() {
       if (!CURRENT_USER_ID || loading) return;
-      
       try {
-        // Chỉ ghi nhận "Đang học" nếu trước đó chưa hoàn thành
         const progressRef = doc(db, 'users', CURRENT_USER_ID, 'progress', `grammar_${mode}_${topicId}`);
         const progressSnap = await getDoc(progressRef);
-        
         if (!progressSnap.exists() || progressSnap.data().status !== 'completed') {
           await setDoc(progressRef, {
             status: 'in_progress',
-            score: 0, // Bài giảng chay không tính điểm
+            score: 0,
             totalQuestions: 1, 
             updatedAt: new Date().toISOString()
           }, { merge: true });
@@ -95,26 +89,23 @@ function GrammarContent() {
     markInProgress();
   }, [CURRENT_USER_ID, mode, topicId, loading]);
 
-  // LƯU TIẾN TRÌNH: HOÀN THÀNH BÀI HỌC VÀ CHUYỂN HƯỚNG QUA BÀI TẬP
   const handleFinishLesson = async () => {
     if (!CURRENT_USER_ID) {
-      // Nếu là khách ẩn danh thì chỉ chuyển trang
+      // 🌟 ĐƯỜNG DẪN MỚI CHÍNH XÁC: Trỏ về trang /exercise
       router.push(`/exercise?part=grammar_practice_${topicId}`);
       return;
     }
 
     try {
-      // Đánh dấu là đã hoàn thành lý thuyết
       await setDoc(doc(db, 'users', CURRENT_USER_ID, 'progress', `grammar_${mode}_${topicId}`), {
         status: 'completed',
-        score: 1, // Điểm tối đa giả định
+        score: 1, 
         totalQuestions: 1,
         updatedAt: new Date().toISOString()
       }, { merge: true });
       
       alert(`🎉 Bạn đã nắm vững lý thuyết bài ${topicId}! Sẵn sàng vào vòng Sinh tồn nhé.`);
-      
-      // Chuyển hướng sang trang bài tập Ngữ pháp (Đã sửa link chuẩn tránh lỗi 404)
+      // 🌟 ĐƯỜNG DẪN MỚI CHÍNH XÁC
       router.push(`/exercise?part=grammar_practice_${topicId}`);
     } catch (err) {
       console.error(err);
@@ -122,19 +113,20 @@ function GrammarContent() {
     }
   };
 
+  const handlePracticeNow = () => {
+    // 🌟 ĐƯỜNG DẪN MỚI CHÍNH XÁC
+    router.push(`/exercise?part=grammar_practice_${topicId}`);
+  };
+
   return (
     <div className={`${roboto.className} min-h-screen bg-gray-50 flex flex-col`}>
-      {/* HEADER */}
       <header className="bg-green-400 p-3 px-5 flex items-center justify-between shadow-md">
         <button onClick={() => router.back()} className="bg-white/20 border-none rounded-lg p-1.5 px-3 text-white text-xs font-bold cursor-pointer transition hover:bg-white/30">← Thoát</button>
         <span className="text-white font-black text-sm text-center flex-1">{modeInfo.icon} {modeInfo.label} — Bài {topic?.id}: {topic?.title}</span>
         <span className="text-white/90 text-xs font-bold hidden sm:inline">{topic?.subtitle}</span>
       </header>
 
-      {/* BODY */}
       <div className="flex-1 max-w-4xl w-full mx-auto p-4 md:p-6 flex flex-col gap-6">
-        
-        {/* KHUNG TRÌNH PHÁT BÀI GIẢNG */}
         <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm flex-1 flex flex-col min-h-[460px]">
           {loading ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-3 text-gray-400 text-xs font-bold">
@@ -179,7 +171,6 @@ function GrammarContent() {
           )}
         </div>
 
-        {/* NÚT HOÀN THÀNH BÀI HỌC VÀ ĐIỀU HƯỚNG TỚI LUYỆN TẬP */}
         <div className="bg-white border border-gray-100 rounded-2xl p-4 flex flex-col sm:flex-row gap-4 items-center justify-between shadow-sm">
           <div className="text-center sm:text-left">
             <h4 className="text-gray-800 font-extrabold text-sm m-0">Đã nắm vững lý thuyết chuyên đề?</h4>

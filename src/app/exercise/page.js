@@ -13,7 +13,6 @@ function ExerciseContent() {
   const isResume = searchParams.get('resume') === 'true';
   const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
   
-  // Chuẩn hóa tên partKey để gọi đúng Document trên Firebase
   if (partKey.includes('quiz_')) {
     partKey = partKey.replace('quiz_', 'test_');
   }
@@ -23,7 +22,6 @@ function ExerciseContent() {
   const [loading, setLoading] = useState(true);
   const [showResult, setShowResult] = useState(false);
 
-  // States các phần Part 1-6
   const [userInput, setUserInput] = useState("");
   const [inputQ, setInputQ] = useState("");
   const [inputA, setInputA] = useState("");
@@ -35,19 +33,17 @@ function ExerciseContent() {
   const [part6Answers, setPart6Answers] = useState({ 1: '', 2: '', 3: '', 4: '' });
   const [totalScore, setTotalScore] = useState(0);
 
-  // States cho Part 7 
   const [activeTab, setActiveTab] = useState(1); 
   const [currentQIndexP7, setCurrentQIndexP7] = useState(1); 
   const [part7Answers, setPart7Answers] = useState({ 1: null, 2: null, 3: null, 4: null, 5: null }); 
 
-  // States cho chế độ Ngữ pháp Sinh tồn (Time Attack)
   const [timeLeft, setTimeLeft] = useState(60); 
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [survivalGameOver, setSurvivalGameOver] = useState(false);
   const [survivalGameWon, setSurvivalGameWon] = useState(false);
   const [flashState, setFlashState] = useState(null); 
 
-  // NẠP DỮ LIỆU TỪ FIREBASE (ĐÃ FIX LỖI LINK GOOGLE SHEETS)
+  // 🌟 ĐÃ FIX LỖI LINK GOOGLE SHEETS DẠNG PUBLISH (/d/e/)
   useEffect(() => {
     async function loadData() {
       setLoading(true);
@@ -57,12 +53,14 @@ function ExerciseContent() {
           const rawUrl = docSnap.data().exerciseUrl;
           if (!rawUrl) throw new Error("Chưa có link dữ liệu");
 
-          // Tự động ép link Google Sheets thành định dạng xuất CSV
           let exportCsvUrl = rawUrl;
-          if (rawUrl.includes('/edit')) {
+          if (rawUrl.includes('/pubhtml')) {
+            exportCsvUrl = rawUrl.replace('/pubhtml', '/pub?output=csv');
+          } else if (rawUrl.includes('/edit')) {
             exportCsvUrl = rawUrl.split('/edit')[0] + '/export?format=csv';
-          } else if (rawUrl.includes('docs.google.com/spreadsheets') && !rawUrl.includes('/export')) {
-            const match = rawUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+          } else if (rawUrl.includes('/d/') && !rawUrl.includes('/export') && !rawUrl.includes('/pub')) {
+            // Regex loại trừ chữ 'e' để không nhận nhầm link Publish
+            const match = rawUrl.match(/\/d\/(?!e\/)([a-zA-Z0-9-_]+)/);
             if (match && match[1]) {
               exportCsvUrl = `https://docs.google.com/spreadsheets/d/${match[1]}/export?format=csv`;
             }
@@ -75,7 +73,6 @@ function ExerciseContent() {
             header: true,
             skipEmptyLines: true,
             complete: async (results) => { 
-              // Chuẩn hóa tên cột thành chữ thường toàn bộ
               const normalizedData = results.data.map(row => {
                 const newRow = {};
                 Object.keys(row).forEach(key => {
@@ -84,12 +81,10 @@ function ExerciseContent() {
                 return newRow;
               });
 
-              // Lọc các dòng hợp lệ
               const validData = normalizedData.filter(r => r.id || r.question || r.transcript || r.maskedsentence || r.content || r.content_1);
               
               if (validData.length > 0) {
                 setData(validData); 
-                
                 let savedIndex = 0;
                 let savedScore = 0;
                 if (CURRENT_USER_ID && isResume) {
@@ -120,7 +115,6 @@ function ExerciseContent() {
     loadData();
   }, [partKey, isResume, CURRENT_USER_ID]);
 
-  // LƯU TIẾN TRÌNH (IN PROGRESS) TỰ ĐỘNG
   useEffect(() => {
     async function saveProgress() {
       if (!CURRENT_USER_ID || loading || data.length === 0) return;
@@ -141,7 +135,6 @@ function ExerciseContent() {
     saveProgress();
   }, [currentIndex, CURRENT_USER_ID, partKey, loading, data.length, totalScore]);
 
-  // ENGINE ĐẾM NGƯỢC CHO CHẾ ĐỘ SINH TỒN
   useEffect(() => {
     if (!isTimerRunning || survivalGameOver || survivalGameWon) return;
     
@@ -150,7 +143,6 @@ function ExerciseContent() {
       setSurvivalGameOver(true);
       return;
     }
-
     const timer = setInterval(() => {
       setTimeLeft((prev) => prev - 1);
     }, 1000);
@@ -158,7 +150,6 @@ function ExerciseContent() {
     return () => clearInterval(timer);
   }, [timeLeft, isTimerRunning, survivalGameOver, survivalGameWon]);
 
-  // KẾT THÚC BÀI (COMPLETED)
   const handleFinishExercise = async (finalScore = null) => {
     const scoreToSave = finalScore !== null ? finalScore : totalScore;
     if (!CURRENT_USER_ID) {
@@ -197,10 +188,8 @@ function ExerciseContent() {
 
   const currentQ = data[currentIndex] || {};
   const normalizedQ = currentQ;
-
   const vocabList = getVocabList(normalizedQ.vocabulary);
   
-  // XÁC ĐỊNH CHẾ ĐỘ HOẶC PART BÀI TẬP
   let currentPart = 'PART 1';
   const pKey = partKey.toLowerCase();
   
@@ -229,39 +218,24 @@ function ExerciseContent() {
     else setStreak(0);
   };
 
-  // XỬ LÝ LỰA CHỌN TRONG CHẾ ĐỘ SINH TỒN
   const handleSelectSurvival = (option) => {
     if (survivalGameOver || survivalGameWon || flashState) return;
-    
     const correctAns = (normalizedQ.correctoption || "").trim().toUpperCase();
-    
     if (option === correctAns) {
-      setFlashState('correct');
-      setTimeLeft(prev => prev + 3); 
-      setTotalScore(prev => prev + 1);
+      setFlashState('correct'); setTimeLeft(prev => prev + 3); setTotalScore(prev => prev + 1);
     } else {
-      setFlashState('wrong');
-      setTimeLeft(prev => prev - 5); 
+      setFlashState('wrong'); setTimeLeft(prev => prev - 5); 
     }
-
     setTimeout(() => {
       setFlashState(null);
-      if (currentIndex < data.length - 1) {
-        setCurrentIndex(prev => prev + 1);
-      } else {
-        setIsTimerRunning(false);
-        setSurvivalGameWon(true);
-      }
+      if (currentIndex < data.length - 1) { setCurrentIndex(prev => prev + 1); } 
+      else { setIsTimerRunning(false); setSurvivalGameWon(true); }
     }, 500);
   };
 
   const startSurvivalGame = () => {
-    setTimeLeft(60);
-    setCurrentIndex(0);
-    setTotalScore(0);
-    setSurvivalGameOver(false);
-    setSurvivalGameWon(false);
-    setIsTimerRunning(true);
+    setTimeLeft(60); setCurrentIndex(0); setTotalScore(0);
+    setSurvivalGameOver(false); setSurvivalGameWon(false); setIsTimerRunning(true);
   };
 
   const handleSubmitPart6 = () => {
@@ -288,8 +262,7 @@ function ExerciseContent() {
   const availableQCount = getP7AvailableQuestionsCount();
 
   const handleSubmitPart7 = () => {
-    setShowResult(true);
-    let correctCount = 0;
+    setShowResult(true); let correctCount = 0;
     for (let i = 1; i <= availableQCount; i++) {
       const correctLetter = (normalizedQ[`q${i}_correct`] || "").trim().toUpperCase();
       if (part7Answers[i] === correctLetter) correctCount++;
@@ -307,11 +280,9 @@ function ExerciseContent() {
     else handleFinishExercise();
   };
 
-  // HÀM RENDER Ô NHẬP LIỆU PART 2
   const renderPart2InputRow = (label, value, setValue, answer) => {
     const isCorrect = showResult && checkMatch(value, answer);
     const isWrong = showResult && !checkMatch(value, answer);
-
     return (
       <div className="mb-4" key={label}>
         <div className="flex items-center gap-3">
@@ -324,16 +295,10 @@ function ExerciseContent() {
               ${isWrong ? 'bg-red-50 border-red-400 text-red-700' : ''}
             `}
             placeholder={`Chép nội dung ${label === 'Q' ? 'câu hỏi' : 'đáp án ' + label}...`}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            disabled={showResult}
+            value={value} onChange={(e) => setValue(e.target.value)} disabled={showResult}
           />
         </div>
-        {isWrong && (
-          <p className="text-sm text-red-600 mt-1 ml-9">
-            Đáp án đúng: <span className="font-bold">{answer}</span>
-          </p>
-        )}
+        {isWrong && ( <p className="text-sm text-red-600 mt-1 ml-9">Đáp án đúng: <span className="font-bold">{answer}</span></p> )}
       </div>
     );
   };
@@ -342,7 +307,6 @@ function ExerciseContent() {
     if (!normalizedQ.transcript) return <div className="text-gray-400 p-4 text-center border-2 border-dashed border-gray-200 rounded-xl">Không tìm thấy Transcript.</div>;
     const parts = normalizedQ.transcript.split(/\[(.*?)\]/);
     const focusColor = currentPart === 'PART 4' ? 'focus:border-orange-500' : 'focus:border-purple-500';
-    
     return (
       <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 mb-6 leading-loose text-gray-800 text-lg">
         {parts.map((part, index) => {
@@ -350,10 +314,7 @@ function ExerciseContent() {
             return (
               <span key={index}>
                 {part.split('<br>').map((line, i, arr) => (
-                  <React.Fragment key={i}>
-                    {line}
-                    {i !== arr.length - 1 && <br />}
-                  </React.Fragment>
+                  <React.Fragment key={i}>{line}{i !== arr.length - 1 && <br />}</React.Fragment>
                 ))}
               </span>
             );
@@ -361,7 +322,6 @@ function ExerciseContent() {
             const blankIndex = Math.floor(index / 2);
             const isCorrect = showResult && checkMatch(part3Inputs[blankIndex], part);
             const isWrong = showResult && !checkMatch(part3Inputs[blankIndex], part);
-
             return (
               <span key={index} className="inline-flex items-center mx-1 align-middle">
                 <input
@@ -373,17 +333,11 @@ function ExerciseContent() {
                   `}
                   value={part3Inputs[blankIndex] || ""}
                   onChange={(e) => {
-                    const newInputs = [...part3Inputs];
-                    newInputs[blankIndex] = e.target.value;
-                    setPart3Inputs(newInputs);
+                    const newInputs = [...part3Inputs]; newInputs[blankIndex] = e.target.value; setPart3Inputs(newInputs);
                   }}
                   disabled={showResult}
                 />
-                {isWrong && (
-                  <span className="ml-2 text-sm text-red-700 font-bold bg-red-100 px-2 py-1 rounded-md border border-red-200 shadow-sm">
-                    {part}
-                  </span>
-                )}
+                {isWrong && ( <span className="ml-2 text-sm text-red-700 font-bold bg-red-100 px-2 py-1 rounded-md border border-red-200 shadow-sm">{part}</span> )}
               </span>
             );
           }
