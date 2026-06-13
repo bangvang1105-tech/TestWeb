@@ -50,6 +50,7 @@ function GrammarContent() {
 
   const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
 
+  // NẠP LINK BÀI GIẢNG TỪ FIREBASE
   useEffect(() => {
     if (!topicId) return;
     async function fetchLessonData() {
@@ -69,7 +70,7 @@ function GrammarContent() {
     fetchLessonData();
   }, [topicId, mode]);
 
-  // 🌟 LƯU TIẾN TRÌNH: ĐÁNH DẤU "ĐANG HỌC" NGAY KHI MỞ TRANG
+  // LƯU TIẾN TRÌNH: ĐÁNH DẤU "ĐANG HỌC" NGAY KHI MỞ TRANG
   useEffect(() => {
     async function markInProgress() {
       if (!CURRENT_USER_ID || loading) return;
@@ -94,14 +95,16 @@ function GrammarContent() {
     markInProgress();
   }, [CURRENT_USER_ID, mode, topicId, loading]);
 
-  // 🌟 LƯU TIẾN TRÌNH: HOÀN THÀNH BÀI HỌC VÀ CHUYỂN HƯỚNG
+  // LƯU TIẾN TRÌNH: HOÀN THÀNH BÀI HỌC VÀ CHUYỂN HƯỚNG QUA BÀI TẬP
   const handleFinishLesson = async () => {
     if (!CURRENT_USER_ID) {
-      router.back();
+      // Nếu là khách ẩn danh thì chỉ chuyển trang
+      router.push(`/exercise?part=grammar_practice_${topicId}`);
       return;
     }
 
     try {
+      // Đánh dấu là đã hoàn thành lý thuyết
       await setDoc(doc(db, 'users', CURRENT_USER_ID, 'progress', `grammar_${mode}_${topicId}`), {
         status: 'completed',
         score: 1, // Điểm tối đa giả định
@@ -109,17 +112,14 @@ function GrammarContent() {
         updatedAt: new Date().toISOString()
       }, { merge: true });
       
-      alert(`🎉 Bạn đã hoàn thành lý thuyết bài ${topicId}! Hãy luyện tập ngay nhé.`);
-      // Tự động chuyển hướng sang luyện tập ngữ pháp
-      router.push(`/lesson?type=grammar_practice&id=${topicId}`);
+      alert(`🎉 Bạn đã nắm vững lý thuyết bài ${topicId}! Sẵn sàng vào vòng Sinh tồn nhé.`);
+      
+      // Chuyển hướng sang trang bài tập Ngữ pháp (Đã sửa link chuẩn tránh lỗi 404)
+      router.push(`/exercise?part=grammar_practice_${topicId}`);
     } catch (err) {
       console.error(err);
       router.back();
     }
-  };
-
-  const handlePracticeNow = () => {
-    router.push(`/lesson?type=grammar_practice&id=${topicId}`);
   };
 
   return (
@@ -134,7 +134,7 @@ function GrammarContent() {
       {/* BODY */}
       <div className="flex-1 max-w-4xl w-full mx-auto p-4 md:p-6 flex flex-col gap-6">
         
-        {/* Khung Trình Phát */}
+        {/* KHUNG TRÌNH PHÁT BÀI GIẢNG */}
         <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm flex-1 flex flex-col min-h-[460px]">
           {loading ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-3 text-gray-400 text-xs font-bold">
@@ -163,7 +163,6 @@ function GrammarContent() {
                         Đang tối ưu hiển thị slide tài liệu...
                       </div>
                     )}
-                    {/* Bổ sung tham số sandbox/phân quyền giúp Google Slides hiển thị ổn định */}
                     <iframe 
                       src={lessonContent.slideUrl} 
                       className="w-full h-full border-0 absolute top-0 left-0 bg-white"
@@ -180,7 +179,7 @@ function GrammarContent() {
           )}
         </div>
 
-        {/* 🌟 NÚT HOÀN THÀNH BÀI HỌC VÀ ĐIỀU HƯỚNG TỚI LUYỆN TẬP */}
+        {/* NÚT HOÀN THÀNH BÀI HỌC VÀ ĐIỀU HƯỚNG TỚI LUYỆN TẬP */}
         <div className="bg-white border border-gray-100 rounded-2xl p-4 flex flex-col sm:flex-row gap-4 items-center justify-between shadow-sm">
           <div className="text-center sm:text-left">
             <h4 className="text-gray-800 font-extrabold text-sm m-0">Đã nắm vững lý thuyết chuyên đề?</h4>
