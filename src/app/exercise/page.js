@@ -1,5 +1,5 @@
 'use client';
-import React, { Suspense, useState, useEffect, useRef } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { db } from '@/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -13,6 +13,7 @@ function ExerciseContent() {
   const isResume = searchParams.get('resume') === 'true';
   const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
   
+  // Chuẩn hóa tên partKey để gọi đúng Document trên Firebase
   if (partKey.includes('quiz_')) {
     partKey = partKey.replace('quiz_', 'test_');
   }
@@ -39,13 +40,14 @@ function ExerciseContent() {
   const [currentQIndexP7, setCurrentQIndexP7] = useState(1); 
   const [part7Answers, setPart7Answers] = useState({ 1: null, 2: null, 3: null, 4: null, 5: null }); 
 
-  // 🌟 MỚI: STATES CHO CHẾ ĐỘ NGỮ PHÁP SINH TỒN (TIME ATTACK)
-  const [timeLeft, setTimeLeft] = useState(60); // Bắt đầu với 60 giây
+  // States cho chế độ Ngữ pháp Sinh tồn (Time Attack)
+  const [timeLeft, setTimeLeft] = useState(60); 
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [survivalGameOver, setSurvivalGameOver] = useState(false);
   const [survivalGameWon, setSurvivalGameWon] = useState(false);
-  const [flashState, setFlashState] = useState(null); // 'correct' (+3s) hoặc 'wrong' (-5s)
+  const [flashState, setFlashState] = useState(null); 
 
+  // NẠP DỮ LIỆU VÀ ĐỌC TIẾN TRÌNH TỪ FIREBASE
   useEffect(() => {
     async function loadData() {
       setLoading(true);
@@ -62,6 +64,7 @@ function ExerciseContent() {
               
               if (validData.length > 0) {
                 setData(validData); 
+                
                 let savedIndex = 0;
                 let savedScore = 0;
                 if (CURRENT_USER_ID && isResume) {
@@ -89,7 +92,7 @@ function ExerciseContent() {
     loadData();
   }, [partKey, isResume, CURRENT_USER_ID]);
 
-  // Lưu tiến trình (In Progress)
+  // LƯU TIẾN TRÌNH (IN PROGRESS) TỰ ĐỘNG
   useEffect(() => {
     async function saveProgress() {
       if (!CURRENT_USER_ID || loading || data.length === 0) return;
@@ -110,7 +113,7 @@ function ExerciseContent() {
     saveProgress();
   }, [currentIndex, CURRENT_USER_ID, partKey, loading, data.length, totalScore]);
 
-  // 🌟 ENGINE ĐẾM NGƯỢC CHO CHẾ ĐỘ SINH TỒN
+  // ENGINE ĐẾM NGƯỢC CHO CHẾ ĐỘ SINH TỒN
   useEffect(() => {
     if (!isTimerRunning || survivalGameOver || survivalGameWon) return;
     
@@ -127,7 +130,7 @@ function ExerciseContent() {
     return () => clearInterval(timer);
   }, [timeLeft, isTimerRunning, survivalGameOver, survivalGameWon]);
 
-  // Kết thúc bài (Completed)
+  // KẾT THÚC BÀI (COMPLETED)
   const handleFinishExercise = async (finalScore = null) => {
     const scoreToSave = finalScore !== null ? finalScore : totalScore;
     if (!CURRENT_USER_ID) {
@@ -174,10 +177,10 @@ function ExerciseContent() {
 
   const vocabList = getVocabList(normalizedQ.vocabulary);
   
+  // Xác định Part đang học dựa trên tên partKey truyền vào
   let currentPart = 'PART 1';
   const pKey = partKey.toLowerCase();
   
-  // TỰ ĐỘNG PHÁT HIỆN CHẾ ĐỘ NGỮ PHÁP
   if (pKey.includes('grammar')) currentPart = 'GRAMMAR_SURVIVAL';
   else if (pKey.includes('p7')) currentPart = 'PART 7';
   else if (pKey.includes('p6')) currentPart = 'PART 6';
@@ -203,7 +206,7 @@ function ExerciseContent() {
     else setStreak(0);
   };
 
-  // 🌟 HÀM XỬ LÝ LỰA CHỌN TRONG CHẾ ĐỘ SINH TỒN
+  // XỬ LÝ LỰA CHỌN TRONG CHẾ ĐỘ SINH TỒN
   const handleSelectSurvival = (option) => {
     if (survivalGameOver || survivalGameWon || flashState) return;
     
@@ -211,14 +214,13 @@ function ExerciseContent() {
     
     if (option === correctAns) {
       setFlashState('correct');
-      setTimeLeft(prev => prev + 3); // Cộng 3 giây
+      setTimeLeft(prev => prev + 3); 
       setTotalScore(prev => prev + 1);
     } else {
       setFlashState('wrong');
-      setTimeLeft(prev => prev - 5); // Trừ 5 giây
+      setTimeLeft(prev => prev - 5); 
     }
 
-    // Chuyển câu tự động sau 0.5s để tạo độ mượt
     setTimeout(() => {
       setFlashState(null);
       if (currentIndex < data.length - 1) {
@@ -239,7 +241,6 @@ function ExerciseContent() {
     setIsTimerRunning(true);
   };
 
-  // --- CÁC HÀM XỬ LÝ PART 6 VÀ 7 ---
   const handleSubmitPart6 = () => {
     setShowResult(true); let correctCount = 0;
     [1, 2, 3, 4].forEach(qNum => {
@@ -283,7 +284,7 @@ function ExerciseContent() {
     else handleFinishExercise();
   };
 
-  // --- COMPONENT RENDER PART 2 ---
+  // HÀM RENDER Ô NHẬP LIỆU PART 2 (Đã tối ưu hóa hàm inline để tránh lag)
   const renderPart2InputRow = (label, value, setValue, answer) => {
     const isCorrect = showResult && checkMatch(value, answer);
     const isWrong = showResult && !checkMatch(value, answer);
@@ -314,7 +315,6 @@ function ExerciseContent() {
     );
   };
 
-  // --- RENDER PART 3 & 4 ---
   const renderClozeTest = () => {
     if (!normalizedQ.transcript) return <div className="text-gray-400 p-4 text-center border-2 border-dashed border-gray-200 rounded-xl">Không tìm thấy Transcript.</div>;
     const parts = normalizedQ.transcript.split(/\[(.*?)\]/);
@@ -369,7 +369,6 @@ function ExerciseContent() {
     );
   };
 
-  // --- RENDER PART 6 ---
   const renderPart6Document = () => {
     if (!normalizedQ.content) return <div className="text-gray-400 p-4 text-center border-2 border-dashed border-gray-200 rounded-xl">Không tìm thấy Đoạn văn.</div>;;
     const parts = normalizedQ.content.split(/(\[\d+\])/g);
@@ -430,7 +429,6 @@ function ExerciseContent() {
     );
   };
 
-  // --- RENDER PART 7 ---
   const renderPart7 = () => {
     if (!normalizedQ.content_1) return <div className="text-gray-400 p-4 text-center border-2 border-dashed border-gray-200 rounded-xl">Không tìm thấy Tài liệu số 1.</div>;
     const hasDoc2 = normalizedQ.content_2 && normalizedQ.content_2.trim() !== '';
@@ -534,7 +532,7 @@ function ExerciseContent() {
     <div className="min-h-screen bg-gray-50 py-10 px-4">
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-6">
         
-        {/* CỘT TRÁI CHUNG */}
+        {/* BẢNG CÂU HỎI BÊN TRÁI (ẨN ĐI NẾU ĐANG CHƠI SINH TỒN) */}
         {currentPart !== 'GRAMMAR_SURVIVAL' && (
           <div className="w-full lg:w-72 bg-white p-6 rounded-2xl shadow-xl border border-gray-100 h-fit">
             <h3 className={`font-bold mb-4 uppercase text-sm text-center text-${themeColor.split('-')[1] || 'blue'}-600`}>Bảng câu hỏi</h3>
@@ -551,6 +549,7 @@ function ExerciseContent() {
           </div>
         )}
 
+        {/* KHU VỰC CHÍNH HIỂN THỊ NỘI DUNG BÀI LÀM */}
         <div className="flex-1 bg-white p-8 rounded-2xl shadow-xl border border-gray-100 flex flex-col">
           <header className="flex justify-between items-center mb-6">
             <button onClick={() => router.back()} className="text-sm text-gray-400 font-bold hover:text-gray-600 transition">← Thoát</button>
@@ -562,12 +561,13 @@ function ExerciseContent() {
               )}
               {currentPart !== 'GRAMMAR_SURVIVAL' && (
                 <div className={`text-xs font-black uppercase tracking-widest px-3 py-1 rounded-full text-white shadow-sm ${themeColor}`}>
-                  {currentPart} | CÂU {currentIndex + 1}/{data.length}
+                  {currentPart} | BÀI TẬP {currentIndex + 1}/{data.length}
                 </div>
               )}
             </div>
           </header>
 
+          {/* AUDIO CHO CÁC PHẦN NGHE (BỎ QUA NẾU LÀ ĐỌC HOẶC SINH TỒN) */}
           {currentPart !== 'PART 5' && currentPart !== 'PART 6' && currentPart !== 'PART 7' && currentPart !== 'GRAMMAR_SURVIVAL' && (
             <audio key={normalizedQ.audiourl || currentIndex} controls className="w-full h-12 mb-8 shadow-sm rounded-lg bg-gray-50">
               <source src={normalizedQ.audiourl} type="audio/mpeg" />
@@ -575,6 +575,7 @@ function ExerciseContent() {
             </audio>
           )}
 
+          {/* HIỂN THỊ THEO TỪNG CHẾ ĐỘ BÀI TẬP */}
           {currentPart === 'PART 1' && (
              <>
                <div className="mb-6 p-5 bg-gray-50 rounded-2xl border border-gray-100">
@@ -642,59 +643,60 @@ function ExerciseContent() {
           {currentPart === 'PART 6' && renderPart6Document()}
           {currentPart === 'PART 7' && renderPart7()}
 
-          {/* 🌟 GIAO DIỆN CHẾ ĐỘ NGỮ PHÁP SINH TỒN */}
+          {/* GIAO DIỆN PHÁT TRIỂN CHẾ ĐỘ NGỮ PHÁP SINH TỒN (TIME ATTACK) */}
           {currentPart === 'GRAMMAR_SURVIVAL' && (
             <div className="flex flex-col max-w-3xl mx-auto w-full">
               {!isTimerRunning && !survivalGameOver && !survivalGameWon ? (
                 <div className="text-center bg-violet-50 border border-violet-200 p-10 rounded-3xl shadow-sm">
                   <h2 className="text-4xl font-black text-violet-600 mb-4">CHẾ ĐỘ SINH TỒN</h2>
-                  <p className="text-gray-700 font-medium mb-8">Bạn có 60 giây. Trả lời ĐÚNG được <span className="text-green-600 font-bold">+3s</span>. Trả lời SAI bị trừ <span className="text-red-600 font-bold">-5s</span>. Hãy giữ đồng hồ không chạy về 0!</p>
-                  <button onClick={startSurvivalGame} className="bg-violet-600 hover:bg-violet-700 text-white font-black text-lg py-4 px-12 rounded-full shadow-lg transition-transform hover:scale-105">BẮT ĐẦU NGAY</button>
+                  <p className="text-gray-700 font-medium mb-8">Bạn có <span className="text-violet-600 font-black">60 giây</span> ban đầu. Trả lời ĐÚNG được <span className="text-green-600 font-bold">+3 giây</span>. Trả lời SAI bị phạt <span className="text-red-600 font-bold">-5 giây</span>. Hãy cố gắng sống sót qua 30 câu hỏi!</p>
+                  <button onClick={startSurvivalGame} className="bg-violet-600 hover:bg-violet-700 text-white font-black text-lg py-4 px-12 rounded-full shadow-lg transition-transform hover:scale-105">KÍCH HOẠT HỆ THỐNG 🚀</button>
                 </div>
               ) : survivalGameOver ? (
-                <div className="text-center bg-red-50 border border-red-200 p-10 rounded-3xl shadow-sm">
+                <div className="text-center bg-red-50 border border-red-200 p-10 rounded-3xl shadow-sm animate-fadeIn">
                   <h2 className="text-4xl font-black text-red-600 mb-4">TIME OUT! 💀</h2>
-                  <p className="text-gray-700 font-medium mb-2">Đồng hồ đã điểm 0. Bạn đã sống sót được qua <strong className="text-red-600 text-xl">{totalScore}</strong> câu hỏi.</p>
+                  <p className="text-gray-700 font-medium mb-2">Hệ thống đã cạn năng lượng. Bạn đã vượt qua thành công <strong className="text-red-600 text-2xl mx-1">{totalScore}</strong> câu hỏi ngữ pháp.</p>
                   <div className="flex justify-center gap-4 mt-8">
-                    <button onClick={startSurvivalGame} className="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-8 rounded-xl shadow-md">Thử lại</button>
-                    <button onClick={() => handleFinishExercise(totalScore)} className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 px-8 rounded-xl shadow-md">Thoát & Lưu điểm</button>
+                    <button onClick={startSurvivalGame} className="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-8 rounded-xl shadow-md transition">Chơi lại</button>
+                    <button onClick={() => handleFinishExercise(totalScore)} className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 px-8 rounded-xl shadow-md transition">Rút lui & Lưu tiến trình</button>
                   </div>
                 </div>
               ) : survivalGameWon ? (
-                <div className="text-center bg-green-50 border border-green-200 p-10 rounded-3xl shadow-sm">
+                <div className="text-center bg-green-50 border border-green-200 p-10 rounded-3xl shadow-sm animate-fadeIn">
                   <h2 className="text-4xl font-black text-green-600 mb-4">CHIẾN THẮNG! 🏆</h2>
-                  <p className="text-gray-700 font-medium mb-2">Bạn đã quét sạch {data.length} câu hỏi mà vẫn còn dư thời gian!</p>
-                  <button onClick={() => handleFinishExercise(totalScore)} className="mt-8 bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-xl shadow-md">Hoàn thành xuất sắc</button>
+                  <p className="text-gray-700 font-medium mb-2">Đỉnh cao! Bạn đã xuất sắc hoàn thành trọn vẹn {data.length} câu hỏi trước khi đồng hồ dừng lại!</p>
+                  <button onClick={() => handleFinishExercise(totalScore)} className="mt-8 bg-green-500 hover:bg-green-600 text-white font-black py-3 px-8 rounded-xl shadow-md transition-all">Hoàn tất bài tập</button>
                 </div>
               ) : (
-                <div className={`relative transition-all duration-300 ${flashState === 'correct' ? 'scale-[1.02] drop-shadow-[0_0_15px_rgba(34,197,94,0.5)]' : flashState === 'wrong' ? 'scale-[0.98] drop-shadow-[0_0_15px_rgba(239,68,68,0.5)]' : ''}`}>
-                  {/* THANH ĐỒNG HỒ */}
-                  <div className="flex justify-between items-center mb-6 bg-white border border-gray-200 p-4 rounded-2xl shadow-sm">
+                <div className={`relative transition-all duration-300 ${flashState === 'correct' ? 'scale-[1.01] drop-shadow-[0_0_15px_rgba(34,197,94,0.4)]' : flashState === 'wrong' ? 'scale-[0.99] drop-shadow-[0_0_15px_rgba(239,68,68,0.4)]' : ''}`}>
+                  {/* THANH THỜI GIAN VÀ ĐIỂM SỐ CHẾ ĐỘ SINH TỒN */}
+                  <div className="flex justify-between items-center mb-6 bg-white border border-gray-200 p-4 px-6 rounded-2xl shadow-sm">
                     <div className="flex items-center gap-3">
-                      <span className={`text-3xl font-black ${timeLeft <= 10 ? 'text-red-500 animate-pulse' : 'text-violet-600'}`}>{timeLeft}s</span>
-                      <span className="text-xs font-bold text-gray-400 uppercase">Thời gian còn lại</span>
+                      <span className={`text-3xl font-black tracking-tight ${timeLeft <= 12 ? 'text-red-500 animate-pulse' : 'text-violet-600'}`}>{timeLeft}s</span>
+                      <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Năng lượng thời gian</span>
                     </div>
                     <div className="text-right">
-                      <span className="text-xl font-black text-green-500">{totalScore}</span>
-                      <span className="text-xs font-bold text-gray-400 uppercase block">Câu đúng</span>
+                      <span className="text-2xl font-black text-green-500 font-mono">{totalScore} / {data.length}</span>
+                      <span className="text-xs font-bold text-gray-400 uppercase block tracking-wider">Hạ gục bẫy</span>
                     </div>
                   </div>
 
-                  {/* CÂU HỎI */}
-                  <div className="bg-violet-50 p-8 rounded-2xl border border-violet-100 mb-6 shadow-sm">
-                    <p className="text-xl font-bold text-gray-900 leading-relaxed text-center">{normalizedQ.question}</p>
+                  {/* KHUNG CÂU HỎI NGỮ PHÁP */}
+                  <div className="bg-violet-50/60 p-8 rounded-2xl border border-violet-100 mb-6 shadow-inner text-center">
+                    <p className="text-xl font-bold text-gray-900 leading-relaxed">{normalizedQ.question}</p>
                   </div>
 
+                  {/* DANH SÁCH ĐÁP ÁN PHẢN XẠ NHANH */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {['A', 'B', 'C', 'D'].map(opt => {
                       const isCorrectAns = (normalizedQ.correctoption || "").trim().toUpperCase() === opt;
-                      let btnClass = "p-5 border-2 rounded-2xl text-left font-medium transition-all duration-200 text-gray-800 text-lg shadow-sm ";
+                      let btnClass = "p-5 border-2 rounded-2xl text-left font-medium transition-all duration-150 text-gray-800 text-lg shadow-sm ";
                       
                       if (!flashState) {
-                        btnClass += "bg-white border-gray-200 hover:border-violet-400 hover:shadow-md";
+                        btnClass += "bg-white border-gray-200 hover:border-violet-400 hover:bg-violet-50/30 active:scale-[0.99]";
                       } else {
-                        if (isCorrectAns) btnClass += "bg-green-100 border-green-500 text-green-800";
-                        else btnClass += "bg-gray-50 border-gray-200 opacity-50";
+                        if (isCorrectAns) btnClass += "bg-green-100 border-green-500 text-green-800 font-bold";
+                        else btnClass += "bg-gray-50 border-gray-200 opacity-40";
                       }
 
                       return (
@@ -705,23 +707,23 @@ function ExerciseContent() {
                     })}
                   </div>
                   
-                  {/* HIỂU ỨNG CỘNG/TRỪ GIÂY */}
-                  {flashState === 'correct' && <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-5xl font-black text-green-500 drop-shadow-lg z-50 animate-bounce">+3s</div>}
-                  {flashState === 'wrong' && <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-5xl font-black text-red-500 drop-shadow-lg z-50 animate-bounce">-5s</div>}
+                  {/* POPUP SỐ GIÂY CỘNG TRỪ */}
+                  {flashState === 'correct' && <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-5xl font-black text-green-500 drop-shadow-[0_2px_4px_rgba(0,0,0,0.2)] z-50 animate-bounce">+3s</div>}
+                  {flashState === 'wrong' && <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-5xl font-black text-red-500 drop-shadow-[0_2px_4px_rgba(0,0,0,0.2)] z-50 animate-bounce">-5s</div>}
                 </div>
               )}
             </div>
           )}
 
-          {/* BẢN DỊCH CHUNG CHO P6, P7 NẾU SHOWRESULT */}
+          {/* HIỂN THỊ BẢN DỊCH CHO PART 6 HOẶC PART 7 KHI ĐÃ CÓ KẾT QUẢ */}
           {showResult && (currentPart === 'PART 6' || currentPart === 'PART 7') && normalizedQ.translation && (
             <div className="mt-2 p-6 bg-slate-50 border border-slate-200 rounded-2xl transition-all shadow-sm">
-              <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2 text-base">🇻🇳 Bản dịch Tiếng Việt toàn văn</h4>
+              <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2 text-base"><b>🇻🇳 Bản dịch Tiếng Việt toàn văn</b></h4>
               <p className="text-gray-700 leading-relaxed text-sm whitespace-pre-line border-t border-slate-200 pt-3">{normalizedQ.translation}</p>
             </div>
           )}
 
-          {/* THANH ĐIỀU HƯỚNG CHUNG CUỐI TRANG (Ẩn đi nếu đang chơi Sinh Tồn) */}
+          {/* THANH ĐIỀU HƯỚNG CHUNG CUỐI TRANG (TỰ ĐỘNG ẨN TRONG CHẾ ĐỘ SINH TỒN) */}
           {currentPart !== 'GRAMMAR_SURVIVAL' && (
             <div className="flex gap-4 mt-auto pt-8">
               {currentIndex > 0 && (
@@ -741,7 +743,7 @@ function ExerciseContent() {
           )}
         </div>
 
-        {/* CỘT PHẢI: BẢNG TỪ VỰNG CHUNG (Ẩn đi nếu đang chơi Sinh Tồn) */}
+        {/* CỘT PHẢI HIỂN THỊ BẢNG TỪ VỰNG CHUNG (ẨN KHI ĐANG TRONG TRẬN SINH TỒN) */}
         {showResult && vocabList.length > 0 && currentPart !== 'GRAMMAR_SURVIVAL' && (
           <div className="w-full lg:w-80 bg-white p-6 rounded-2xl shadow-xl border border-gray-100 h-fit">
             <h3 className={`font-bold mb-4 uppercase text-sm text-center text-${themeColor.split('-')[1] || 'emerald'}-600`}>Danh sách từ vựng</h3>
