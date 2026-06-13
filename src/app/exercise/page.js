@@ -13,6 +13,7 @@ function ExerciseContent() {
   const isResume = searchParams.get('resume') === 'true';
   const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
   
+  // Chuẩn hóa tên partKey để gọi đúng Document trên Firebase
   if (partKey.includes('quiz_')) {
     partKey = partKey.replace('quiz_', 'test_');
   }
@@ -46,7 +47,7 @@ function ExerciseContent() {
   const [survivalGameWon, setSurvivalGameWon] = useState(false);
   const [flashState, setFlashState] = useState(null); 
 
-  // 🌟 NẠP DỮ LIỆU TỪ FIREBASE (ĐÃ FIX LỖI LINK GOOGLE SHEETS)
+  // NẠP DỮ LIỆU TỪ FIREBASE (ĐÃ FIX LỖI LINK GOOGLE SHEETS)
   useEffect(() => {
     async function loadData() {
       setLoading(true);
@@ -74,7 +75,7 @@ function ExerciseContent() {
             header: true,
             skipEmptyLines: true,
             complete: async (results) => { 
-              // Chuẩn hóa tên cột thành chữ thường toàn bộ để tránh lỗi hoa/thường
+              // Chuẩn hóa tên cột thành chữ thường toàn bộ
               const normalizedData = results.data.map(row => {
                 const newRow = {};
                 Object.keys(row).forEach(key => {
@@ -83,7 +84,7 @@ function ExerciseContent() {
                 return newRow;
               });
 
-              // Lọc các dòng trống
+              // Lọc các dòng hợp lệ
               const validData = normalizedData.filter(r => r.id || r.question || r.transcript || r.maskedsentence || r.content || r.content_1);
               
               if (validData.length > 0) {
@@ -195,11 +196,11 @@ function ExerciseContent() {
   </div>;
 
   const currentQ = data[currentIndex] || {};
-  const normalizedQ = currentQ; // Đã chuẩn hóa ngay từ lúc parse CSV
+  const normalizedQ = currentQ;
 
   const vocabList = getVocabList(normalizedQ.vocabulary);
   
-  // Xác định Part đang học dựa trên tên partKey truyền vào
+  // XÁC ĐỊNH CHẾ ĐỘ HOẶC PART BÀI TẬP
   let currentPart = 'PART 1';
   const pKey = partKey.toLowerCase();
   
@@ -589,7 +590,7 @@ function ExerciseContent() {
             </div>
           </header>
 
-          {/* AUDIO CHO CÁC PHẦN NGHE (BỎ QUA NẾU LÀ ĐỌC HOẶC SINH TỒN) */}
+          {/* AUDIO CHO CÁC PHẦN NGHE */}
           {currentPart !== 'PART 5' && currentPart !== 'PART 6' && currentPart !== 'PART 7' && currentPart !== 'GRAMMAR_SURVIVAL' && (
             <audio key={normalizedQ.audiourl || currentIndex} controls className="w-full h-12 mb-8 shadow-sm rounded-lg bg-gray-50">
               <source src={normalizedQ.audiourl} type="audio/mpeg" />
@@ -665,13 +666,13 @@ function ExerciseContent() {
           {currentPart === 'PART 6' && renderPart6Document()}
           {currentPart === 'PART 7' && renderPart7()}
 
-          {/* GIAO DIỆN PHÁT TRIỂN CHẾ ĐỘ NGỮ PHÁP SINH TỒN (TIME ATTACK) */}
+          {/* GIAO DIỆN CHẾ ĐỘ NGỮ PHÁP SINH TỒN (TIME ATTACK) */}
           {currentPart === 'GRAMMAR_SURVIVAL' && (
             <div className="flex flex-col max-w-3xl mx-auto w-full">
               {!isTimerRunning && !survivalGameOver && !survivalGameWon ? (
                 <div className="text-center bg-violet-50 border border-violet-200 p-10 rounded-3xl shadow-sm">
                   <h2 className="text-4xl font-black text-violet-600 mb-4">CHẾ ĐỘ SINH TỒN</h2>
-                  <p className="text-gray-700 font-medium mb-8">Bạn có <span className="text-violet-600 font-black">60 giây</span> ban đầu. Trả lời ĐÚNG được <span className="text-green-600 font-bold">+3 giây</span>. Trả lời SAI bị phạt <span className="text-red-600 font-bold">-5 giây</span>. Hãy cố gắng sống sót qua 30 câu hỏi!</p>
+                  <p className="text-gray-700 font-medium mb-8">Bạn có <span className="text-violet-600 font-black">60 giây</span> ban đầu. Trả lời ĐÚNG được <span className="text-green-600 font-bold">+3 giây</span>. Trả lời SAI bị phạt <span className="text-red-600 font-bold">-5 giây</span>. Hãy cố gắng sống sót qua {data.length} câu hỏi!</p>
                   <button onClick={startSurvivalGame} className="bg-violet-600 hover:bg-violet-700 text-white font-black text-lg py-4 px-12 rounded-full shadow-lg transition-transform hover:scale-105">KÍCH HOẠT HỆ THỐNG 🚀</button>
                 </div>
               ) : survivalGameOver ? (
