@@ -13,6 +13,7 @@ function ExerciseContent() {
   const isResume = searchParams.get('resume') === 'true';
   const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
   
+  // Chuẩn hóa tên partKey để gọi đúng Document trên Firebase
   if (partKey.includes('quiz_')) {
     partKey = partKey.replace('quiz_', 'test_');
   }
@@ -22,6 +23,7 @@ function ExerciseContent() {
   const [loading, setLoading] = useState(true);
   const [showResult, setShowResult] = useState(false);
 
+  // States các phần Part 1-6
   const [userInput, setUserInput] = useState("");
   const [inputQ, setInputQ] = useState("");
   const [inputA, setInputA] = useState("");
@@ -33,17 +35,19 @@ function ExerciseContent() {
   const [part6Answers, setPart6Answers] = useState({ 1: '', 2: '', 3: '', 4: '' });
   const [totalScore, setTotalScore] = useState(0);
 
+  // States cho Part 7 
   const [activeTab, setActiveTab] = useState(1); 
   const [currentQIndexP7, setCurrentQIndexP7] = useState(1); 
   const [part7Answers, setPart7Answers] = useState({ 1: null, 2: null, 3: null, 4: null, 5: null }); 
 
+  // States cho chế độ Ngữ pháp Sinh tồn (Time Attack)
   const [timeLeft, setTimeLeft] = useState(60); 
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [survivalGameOver, setSurvivalGameOver] = useState(false);
   const [survivalGameWon, setSurvivalGameWon] = useState(false);
   const [flashState, setFlashState] = useState(null); 
 
-  // 🌟 ĐÃ FIX LỖI LINK GOOGLE SHEETS DẠNG PUBLISH (/d/e/)
+  // 🌟 NẠP DỮ LIỆU TỪ FIREBASE VÀ FIX LỖI LINK GOOGLE SHEETS
   useEffect(() => {
     async function loadData() {
       setLoading(true);
@@ -53,6 +57,7 @@ function ExerciseContent() {
           const rawUrl = docSnap.data().exerciseUrl;
           if (!rawUrl) throw new Error("Chưa có link dữ liệu");
 
+          // Tự động ép link Google Sheets thành định dạng xuất CSV
           let exportCsvUrl = rawUrl;
           if (rawUrl.includes('/pubhtml')) {
             exportCsvUrl = rawUrl.replace('/pubhtml', '/pub?output=csv');
@@ -73,6 +78,7 @@ function ExerciseContent() {
             header: true,
             skipEmptyLines: true,
             complete: async (results) => { 
+              // Chuẩn hóa tên cột thành chữ thường toàn bộ
               const normalizedData = results.data.map(row => {
                 const newRow = {};
                 Object.keys(row).forEach(key => {
@@ -81,6 +87,7 @@ function ExerciseContent() {
                 return newRow;
               });
 
+              // Lọc các dòng hợp lệ
               const validData = normalizedData.filter(r => r.id || r.question || r.transcript || r.maskedsentence || r.content || r.content_1);
               
               if (validData.length > 0) {
@@ -115,6 +122,7 @@ function ExerciseContent() {
     loadData();
   }, [partKey, isResume, CURRENT_USER_ID]);
 
+  // LƯU TIẾN TRÌNH (IN PROGRESS) TỰ ĐỘNG
   useEffect(() => {
     async function saveProgress() {
       if (!CURRENT_USER_ID || loading || data.length === 0) return;
@@ -135,6 +143,7 @@ function ExerciseContent() {
     saveProgress();
   }, [currentIndex, CURRENT_USER_ID, partKey, loading, data.length, totalScore]);
 
+  // ENGINE ĐẾM NGƯỢC CHO CHẾ ĐỘ SINH TỒN
   useEffect(() => {
     if (!isTimerRunning || survivalGameOver || survivalGameWon) return;
     
@@ -143,6 +152,7 @@ function ExerciseContent() {
       setSurvivalGameOver(true);
       return;
     }
+
     const timer = setInterval(() => {
       setTimeLeft((prev) => prev - 1);
     }, 1000);
@@ -150,6 +160,7 @@ function ExerciseContent() {
     return () => clearInterval(timer);
   }, [timeLeft, isTimerRunning, survivalGameOver, survivalGameWon]);
 
+  // KẾT THÚC BÀI (COMPLETED)
   const handleFinishExercise = async (finalScore = null) => {
     const scoreToSave = finalScore !== null ? finalScore : totalScore;
     if (!CURRENT_USER_ID) {
@@ -187,9 +198,10 @@ function ExerciseContent() {
   </div>;
 
   const currentQ = data[currentIndex] || {};
-  const normalizedQ = currentQ;
+  const normalizedQ = currentQ; // Đã chuẩn hóa từ lúc parse
   const vocabList = getVocabList(normalizedQ.vocabulary);
   
+  // XÁC ĐỊNH CHẾ ĐỘ HOẶC PART BÀI TẬP
   let currentPart = 'PART 1';
   const pKey = partKey.toLowerCase();
   
@@ -218,6 +230,7 @@ function ExerciseContent() {
     else setStreak(0);
   };
 
+  // XỬ LÝ LỰA CHỌN TRONG CHẾ ĐỘ SINH TỒN
   const handleSelectSurvival = (option) => {
     if (survivalGameOver || survivalGameWon || flashState) return;
     const correctAns = (normalizedQ.correctoption || "").trim().toUpperCase();
@@ -280,6 +293,7 @@ function ExerciseContent() {
     else handleFinishExercise();
   };
 
+  // HÀM RENDER Ô NHẬP LIỆU PART 2
   const renderPart2InputRow = (label, value, setValue, answer) => {
     const isCorrect = showResult && checkMatch(value, answer);
     const isWrong = showResult && !checkMatch(value, answer);
