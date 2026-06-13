@@ -74,9 +74,9 @@ const EXERCISE_PARTS = {
     { key: 'dictation_p4', label: 'Nghe chép chính tả Part 4', detail: 'Bài nói ngắn (Short Talks)' },
   ],
   reading: [
-    { key: 'test_p5', label: 'Trắc nghiệm Part 5', detail: 'Câu chưa hoàn chỉnh' }, // Đã sửa tên quy chuẩn test_p5
-    { key: 'test_p6', label: 'Trắc nghiệm Part 6', detail: 'Hoàn thành đoạn văn' }, // Đã sửa tên quy chuẩn test_p6
-    { key: 'test_p7', label: 'Trắc nghiệm Part 7', detail: 'Đọc hiểu đoạn văn' }, // Đã sửa tên quy chuẩn test_p7
+    { key: 'test_p5', label: 'Trắc nghiệm Part 5', detail: 'Câu chưa hoàn chỉnh' }, 
+    { key: 'test_p6', label: 'Trắc nghiệm Part 6', detail: 'Hoàn thành đoạn văn' }, 
+    { key: 'test_p7', label: 'Trắc nghiệm Part 7', detail: 'Đọc hiểu đoạn văn' }, 
     { key: 'grammar_list', label: 'Luyện tập Ngữ pháp', detail: 'Trọn bộ 13 chuyên đề trọng tâm' }
   ]
 };
@@ -193,8 +193,14 @@ export default function HomePage() {
     if (item !== 'Luyện đề') setExamBook(null);
   };
 
+  // 🌟 HÀM FIX LỖI ĐIỀU HƯỚNG TỪ MENU
   const handleNavigation = (type, id, params = '') => {
-    router.push(`/lesson?type=${type}&id=${id}${params}`);
+    // Nếu là bài tập ngữ pháp, BẮT BUỘC ĐIỀU HƯỚNG SANG /exercise
+    if (type === 'grammar_practice') {
+      router.push(`/exercise?part=${type}_${id}${params}`);
+    } else {
+      router.push(`/lesson?type=${type}&id=${id}${params}`);
+    }
   };
 
   const handleVocabTopicNavigation = (mode, topicId, params = '') => {
@@ -221,12 +227,18 @@ export default function HomePage() {
     router.push(`/history?type=${type}&mode=${mode}&id=${topicId}`);
   }
 
-  // 🌟 HÀM TẠO DỮ LIỆU HIỂN THỊ BAO GỒM 3 TRẠNG THÁI
   const buildDisplayData = (rawData, prefixType) => {
     return rawData.map(item => {
-      // Logic gán ID đặc biệt quan trọng cho Bài tập (Part) để khớp với data trên Firebase
-      // Nếu là Bài Tập (ví dụ: dictation_p1, test_p5), ta sẽ lấy trực tiếp chuỗi 'exercise_test_p5'
-      const targetLessonId = prefixType === 'exercise' ? `exercise_${item.key}` : `${prefixType}_${item.id || item.key}`;
+      // 🌟 ĐỒNG BỘ MÃ BÀI HỌC VỚI FIREBASE
+      let targetLessonId;
+      if (prefixType === 'exercise') {
+        targetLessonId = `exercise_${item.key}`;
+      } else if (prefixType === 'grammar_practice') {
+        // Đây chính là điểm quyết định để nó load được tiến trình của chế độ sinh tồn
+        targetLessonId = `exercise_grammar_practice_${item.id}`; 
+      } else {
+        targetLessonId = `${prefixType}_${item.id || item.key}`;
+      }
       
       const progress = userProgress[targetLessonId];
       let status = 'not_started';
@@ -242,7 +254,6 @@ export default function HomePage() {
     });
   };
 
-  // KẾT LIỀN GIAO DIỆN THEO 3 TRƯỜNG HỢP NÚT BẤM VÀ LABEL
   const renderStatusLabel = (status) => {
     if (status === 'not_started') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-gray-100 text-gray-500 uppercase tracking-wide">⚪ Chưa học</span>;
     if (status === 'in_progress') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-blue-50 text-blue-600 uppercase tracking-wide">⏳ Đang học</span>;
@@ -506,7 +517,6 @@ export default function HomePage() {
                       <h4 className="font-extrabold text-gray-800 text-sm mt-2">{recentIncomplete[0].replace('_', ' ').toUpperCase()}</h4>
                       <p className="text-xs text-gray-500 mt-0.5">Bấm nút để tiếp tục lưu và nạp điểm bài tập này.</p>
                     </div>
-                    {/* Tạm thời fallback router chung chung */}
                     <button onClick={() => { const [type, id] = recentIncomplete[0].split('_'); router.push(`/lesson?type=${type}&id=${id}`); }} className="bg-amber-500 shadow-sm shadow-amber-500/10 text-white font-bold text-xs px-4 py-2.5 rounded-xl hover:opacity-95 transition">Làm tiếp bài →</button>
                   </div>
                 ) : (
