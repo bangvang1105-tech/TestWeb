@@ -1,5 +1,5 @@
 'use client';
-import React, { Suspense, useState, useEffect } from 'react';
+import React, { Suspense, useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { db } from '@/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -13,7 +13,6 @@ function ExerciseContent() {
   const isResume = searchParams.get('resume') === 'true';
   const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
   
-  // Chuẩn hóa tên partKey để gọi đúng Document trên Firebase
   if (partKey.includes('quiz_')) {
     partKey = partKey.replace('quiz_', 'test_');
   }
@@ -40,7 +39,13 @@ function ExerciseContent() {
   const [currentQIndexP7, setCurrentQIndexP7] = useState(1); 
   const [part7Answers, setPart7Answers] = useState({ 1: null, 2: null, 3: null, 4: null, 5: null }); 
 
-  // NẠP DỮ LIỆU VÀ ĐỌC TIẾN TRÌNH TỪ FIREBASE
+  // 🌟 MỚI: STATES CHO CHẾ ĐỘ NGỮ PHÁP SINH TỒN (TIME ATTACK)
+  const [timeLeft, setTimeLeft] = useState(60); // Bắt đầu với 60 giây
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [survivalGameOver, setSurvivalGameOver] = useState(false);
+  const [survivalGameWon, setSurvivalGameWon] = useState(false);
+  const [flashState, setFlashState] = useState(null); // 'correct' (+3s) hoặc 'wrong' (-5s)
+
   useEffect(() => {
     async function loadData() {
       setLoading(true);
@@ -53,12 +58,10 @@ function ExerciseContent() {
             header: true,
             skipEmptyLines: true,
             complete: async (results) => { 
-              // Lọc cẩn thận để không bị mất data của bất kỳ Part nào
               const validData = results.data.filter(r => r.id || r.question || r.transcript || r.maskedsentence || r.content || r.content_1);
               
               if (validData.length > 0) {
                 setData(validData); 
-                
                 let savedIndex = 0;
                 let savedScore = 0;
                 if (CURRENT_USER_ID && isResume) {
@@ -86,7 +89,7 @@ function ExerciseContent() {
     loadData();
   }, [partKey, isResume, CURRENT_USER_ID]);
 
-  // LƯU TIẾN TRÌNH (IN PROGRESS) TỰ ĐỘNG
+  // Lưu tiến trình (In Progress)
   useEffect(() => {
     async function saveProgress() {
       if (!CURRENT_USER_ID || loading || data.length === 0) return;
@@ -107,10 +110,28 @@ function ExerciseContent() {
     saveProgress();
   }, [currentIndex, CURRENT_USER_ID, partKey, loading, data.length, totalScore]);
 
-  // KẾT THÚC BÀI (COMPLETED)
-  const handleFinishExercise = async () => {
+  // 🌟 ENGINE ĐẾM NGƯỢC CHO CHẾ ĐỘ SINH TỒN
+  useEffect(() => {
+    if (!isTimerRunning || survivalGameOver || survivalGameWon) return;
+    
+    if (timeLeft <= 0) {
+      setIsTimerRunning(false);
+      setSurvivalGameOver(true);
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => prev - 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [timeLeft, isTimerRunning, survivalGameOver, survivalGameWon]);
+
+  // Kết thúc bài (Completed)
+  const handleFinishExercise = async (finalScore = null) => {
+    const scoreToSave = finalScore !== null ? finalScore : totalScore;
     if (!CURRENT_USER_ID) {
-      alert("🎉 Tuyệt vời! Bạn đã hoàn thành toàn bộ bài tập!");
+      alert("🎉 Bạn đã hoàn thành bài tập!");
       router.back();
       return;
     }
@@ -118,11 +139,11 @@ function ExerciseContent() {
       await setDoc(doc(db, 'users', CURRENT_USER_ID, 'progress', `exercise_${partKey}`), {
         status: 'completed',
         currentIndex: 0,
-        score: totalScore,
+        score: scoreToSave,
         totalQuestions: data.length,
         updatedAt: new Date().toISOString()
       }, { merge: true });
-      alert("🎉 Tuyệt vời! Bạn đã hoàn thành toàn bộ bài tập!");
+      alert("🎉 Bạn đã hoàn thành xuất sắc bài tập!");
       router.back();
     } catch (err) {
       router.back();
@@ -153,11 +174,12 @@ function ExerciseContent() {
 
   const vocabList = getVocabList(normalizedQ.vocabulary);
   
-  // Xác định Part đang học
   let currentPart = 'PART 1';
   const pKey = partKey.toLowerCase();
   
-  if (pKey.includes('p7')) currentPart = 'PART 7';
+  // TỰ ĐỘNG PHÁT HIỆN CHẾ ĐỘ NGỮ PHÁP
+  if (pKey.includes('grammar')) currentPart = 'GRAMMAR_SURVIVAL';
+  else if (pKey.includes('p7')) currentPart = 'PART 7';
   else if (pKey.includes('p6')) currentPart = 'PART 6';
   else if (pKey.includes('p5')) currentPart = 'PART 5';
   else if (pKey.includes('p4')) currentPart = 'PART 4';
@@ -170,10 +192,7 @@ function ExerciseContent() {
     setUserInput(""); setInputQ(""); setInputA(""); setInputB(""); setInputC("");
     setPart3Inputs([]); setSelectedAnswer(null); setPart6Answers({ 1: '', 2: '', 3: '', 4: '' });
     setPart7Answers({ 1: null, 2: null, 3: null, 4: null, 5: null });
-    setActiveTab(1);
-    setCurrentQIndexP7(1);
-    setShowResult(false);
-    setCurrentIndex(index);
+    setActiveTab(1); setCurrentQIndexP7(1); setShowResult(false); setCurrentIndex(index);
   };
 
   const handleSelectPart5 = (option) => {
@@ -184,6 +203,43 @@ function ExerciseContent() {
     else setStreak(0);
   };
 
+  // 🌟 HÀM XỬ LÝ LỰA CHỌN TRONG CHẾ ĐỘ SINH TỒN
+  const handleSelectSurvival = (option) => {
+    if (survivalGameOver || survivalGameWon || flashState) return;
+    
+    const correctAns = (normalizedQ.correctoption || "").trim().toUpperCase();
+    
+    if (option === correctAns) {
+      setFlashState('correct');
+      setTimeLeft(prev => prev + 3); // Cộng 3 giây
+      setTotalScore(prev => prev + 1);
+    } else {
+      setFlashState('wrong');
+      setTimeLeft(prev => prev - 5); // Trừ 5 giây
+    }
+
+    // Chuyển câu tự động sau 0.5s để tạo độ mượt
+    setTimeout(() => {
+      setFlashState(null);
+      if (currentIndex < data.length - 1) {
+        setCurrentIndex(prev => prev + 1);
+      } else {
+        setIsTimerRunning(false);
+        setSurvivalGameWon(true);
+      }
+    }, 500);
+  };
+
+  const startSurvivalGame = () => {
+    setTimeLeft(60);
+    setCurrentIndex(0);
+    setTotalScore(0);
+    setSurvivalGameOver(false);
+    setSurvivalGameWon(false);
+    setIsTimerRunning(true);
+  };
+
+  // --- CÁC HÀM XỬ LÝ PART 6 VÀ 7 ---
   const handleSubmitPart6 = () => {
     setShowResult(true); let correctCount = 0;
     [1, 2, 3, 4].forEach(qNum => {
@@ -228,7 +284,6 @@ function ExerciseContent() {
   };
 
   // --- COMPONENT RENDER PART 2 ---
-  // Sử dụng hàm render inline thay vì tạo Component mới để tránh lỗi re-render làm mất focus khi gõ
   const renderPart2InputRow = (label, value, setValue, answer) => {
     const isCorrect = showResult && checkMatch(value, answer);
     const isWrong = showResult && !checkMatch(value, answer);
@@ -471,6 +526,7 @@ function ExerciseContent() {
   const badgeColors = {
     'PART 1': 'bg-green-500', 'PART 2': 'bg-blue-500', 'PART 3': 'bg-purple-500', 
     'PART 4': 'bg-orange-500', 'PART 5': 'bg-red-500', 'PART 6': 'bg-emerald-600', 'PART 7': 'bg-rose-500',
+    'GRAMMAR_SURVIVAL': 'bg-violet-600'
   };
   const themeColor = badgeColors[currentPart] || 'bg-gray-500';
 
@@ -478,19 +534,22 @@ function ExerciseContent() {
     <div className="min-h-screen bg-gray-50 py-10 px-4">
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-6">
         
-        <div className="w-full lg:w-72 bg-white p-6 rounded-2xl shadow-xl border border-gray-100 h-fit">
-          <h3 className={`font-bold mb-4 uppercase text-sm text-center text-${themeColor.split('-')[1] || 'blue'}-600`}>Bảng câu hỏi</h3>
-          <div className="grid grid-cols-5 gap-2">
-            {data.map((_, i) => (
-              <button
-                key={i} onClick={() => goToQuestion(i)}
-                className={`py-2 rounded-lg font-bold text-sm transition-all ${currentIndex === i ? `${themeColor} text-white shadow-md scale-105` : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-              >
-                {i + 1}
-              </button>
-            ))}
+        {/* CỘT TRÁI CHUNG */}
+        {currentPart !== 'GRAMMAR_SURVIVAL' && (
+          <div className="w-full lg:w-72 bg-white p-6 rounded-2xl shadow-xl border border-gray-100 h-fit">
+            <h3 className={`font-bold mb-4 uppercase text-sm text-center text-${themeColor.split('-')[1] || 'blue'}-600`}>Bảng câu hỏi</h3>
+            <div className="grid grid-cols-5 gap-2">
+              {data.map((_, i) => (
+                <button
+                  key={i} onClick={() => goToQuestion(i)}
+                  className={`py-2 rounded-lg font-bold text-sm transition-all ${currentIndex === i ? `${themeColor} text-white shadow-md scale-105` : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="flex-1 bg-white p-8 rounded-2xl shadow-xl border border-gray-100 flex flex-col">
           <header className="flex justify-between items-center mb-6">
@@ -501,13 +560,15 @@ function ExerciseContent() {
                   🔥 Combo x{streak}
                 </div>
               )}
-              <div className={`text-xs font-black uppercase tracking-widest px-3 py-1 rounded-full text-white shadow-sm ${themeColor}`}>
-                {currentPart} | BÀI TẬP {currentIndex + 1}/{data.length}
-              </div>
+              {currentPart !== 'GRAMMAR_SURVIVAL' && (
+                <div className={`text-xs font-black uppercase tracking-widest px-3 py-1 rounded-full text-white shadow-sm ${themeColor}`}>
+                  {currentPart} | CÂU {currentIndex + 1}/{data.length}
+                </div>
+              )}
             </div>
           </header>
 
-          {currentPart !== 'PART 5' && currentPart !== 'PART 6' && currentPart !== 'PART 7' && (
+          {currentPart !== 'PART 5' && currentPart !== 'PART 6' && currentPart !== 'PART 7' && currentPart !== 'GRAMMAR_SURVIVAL' && (
             <audio key={normalizedQ.audiourl || currentIndex} controls className="w-full h-12 mb-8 shadow-sm rounded-lg bg-gray-50">
               <source src={normalizedQ.audiourl} type="audio/mpeg" />
               Trình duyệt không hỗ trợ Audio.
@@ -581,7 +642,78 @@ function ExerciseContent() {
           {currentPart === 'PART 6' && renderPart6Document()}
           {currentPart === 'PART 7' && renderPart7()}
 
-          {/* BẢN DỊCH CHUNG NẾU SHOWRESULT */}
+          {/* 🌟 GIAO DIỆN CHẾ ĐỘ NGỮ PHÁP SINH TỒN */}
+          {currentPart === 'GRAMMAR_SURVIVAL' && (
+            <div className="flex flex-col max-w-3xl mx-auto w-full">
+              {!isTimerRunning && !survivalGameOver && !survivalGameWon ? (
+                <div className="text-center bg-violet-50 border border-violet-200 p-10 rounded-3xl shadow-sm">
+                  <h2 className="text-4xl font-black text-violet-600 mb-4">CHẾ ĐỘ SINH TỒN</h2>
+                  <p className="text-gray-700 font-medium mb-8">Bạn có 60 giây. Trả lời ĐÚNG được <span className="text-green-600 font-bold">+3s</span>. Trả lời SAI bị trừ <span className="text-red-600 font-bold">-5s</span>. Hãy giữ đồng hồ không chạy về 0!</p>
+                  <button onClick={startSurvivalGame} className="bg-violet-600 hover:bg-violet-700 text-white font-black text-lg py-4 px-12 rounded-full shadow-lg transition-transform hover:scale-105">BẮT ĐẦU NGAY</button>
+                </div>
+              ) : survivalGameOver ? (
+                <div className="text-center bg-red-50 border border-red-200 p-10 rounded-3xl shadow-sm">
+                  <h2 className="text-4xl font-black text-red-600 mb-4">TIME OUT! 💀</h2>
+                  <p className="text-gray-700 font-medium mb-2">Đồng hồ đã điểm 0. Bạn đã sống sót được qua <strong className="text-red-600 text-xl">{totalScore}</strong> câu hỏi.</p>
+                  <div className="flex justify-center gap-4 mt-8">
+                    <button onClick={startSurvivalGame} className="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-8 rounded-xl shadow-md">Thử lại</button>
+                    <button onClick={() => handleFinishExercise(totalScore)} className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 px-8 rounded-xl shadow-md">Thoát & Lưu điểm</button>
+                  </div>
+                </div>
+              ) : survivalGameWon ? (
+                <div className="text-center bg-green-50 border border-green-200 p-10 rounded-3xl shadow-sm">
+                  <h2 className="text-4xl font-black text-green-600 mb-4">CHIẾN THẮNG! 🏆</h2>
+                  <p className="text-gray-700 font-medium mb-2">Bạn đã quét sạch {data.length} câu hỏi mà vẫn còn dư thời gian!</p>
+                  <button onClick={() => handleFinishExercise(totalScore)} className="mt-8 bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-xl shadow-md">Hoàn thành xuất sắc</button>
+                </div>
+              ) : (
+                <div className={`relative transition-all duration-300 ${flashState === 'correct' ? 'scale-[1.02] drop-shadow-[0_0_15px_rgba(34,197,94,0.5)]' : flashState === 'wrong' ? 'scale-[0.98] drop-shadow-[0_0_15px_rgba(239,68,68,0.5)]' : ''}`}>
+                  {/* THANH ĐỒNG HỒ */}
+                  <div className="flex justify-between items-center mb-6 bg-white border border-gray-200 p-4 rounded-2xl shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <span className={`text-3xl font-black ${timeLeft <= 10 ? 'text-red-500 animate-pulse' : 'text-violet-600'}`}>{timeLeft}s</span>
+                      <span className="text-xs font-bold text-gray-400 uppercase">Thời gian còn lại</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xl font-black text-green-500">{totalScore}</span>
+                      <span className="text-xs font-bold text-gray-400 uppercase block">Câu đúng</span>
+                    </div>
+                  </div>
+
+                  {/* CÂU HỎI */}
+                  <div className="bg-violet-50 p-8 rounded-2xl border border-violet-100 mb-6 shadow-sm">
+                    <p className="text-xl font-bold text-gray-900 leading-relaxed text-center">{normalizedQ.question}</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {['A', 'B', 'C', 'D'].map(opt => {
+                      const isCorrectAns = (normalizedQ.correctoption || "").trim().toUpperCase() === opt;
+                      let btnClass = "p-5 border-2 rounded-2xl text-left font-medium transition-all duration-200 text-gray-800 text-lg shadow-sm ";
+                      
+                      if (!flashState) {
+                        btnClass += "bg-white border-gray-200 hover:border-violet-400 hover:shadow-md";
+                      } else {
+                        if (isCorrectAns) btnClass += "bg-green-100 border-green-500 text-green-800";
+                        else btnClass += "bg-gray-50 border-gray-200 opacity-50";
+                      }
+
+                      return (
+                        <button key={opt} onClick={() => handleSelectSurvival(opt)} disabled={!!flashState} className={btnClass}>
+                          <span className="font-black mr-3 text-gray-400">{opt}.</span> {normalizedQ[`option${opt.toLowerCase()}`]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  
+                  {/* HIỂU ỨNG CỘNG/TRỪ GIÂY */}
+                  {flashState === 'correct' && <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-5xl font-black text-green-500 drop-shadow-lg z-50 animate-bounce">+3s</div>}
+                  {flashState === 'wrong' && <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-5xl font-black text-red-500 drop-shadow-lg z-50 animate-bounce">-5s</div>}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* BẢN DỊCH CHUNG CHO P6, P7 NẾU SHOWRESULT */}
           {showResult && (currentPart === 'PART 6' || currentPart === 'PART 7') && normalizedQ.translation && (
             <div className="mt-2 p-6 bg-slate-50 border border-slate-200 rounded-2xl transition-all shadow-sm">
               <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2 text-base">🇻🇳 Bản dịch Tiếng Việt toàn văn</h4>
@@ -589,26 +721,28 @@ function ExerciseContent() {
             </div>
           )}
 
-          {/* THANH ĐIỀU HƯỚNG CHUNG CUỐI TRANG */}
-          <div className="flex gap-4 mt-auto pt-8">
-            {currentIndex > 0 && (
-              <button onClick={() => goToQuestion(currentIndex - 1)} className="px-6 py-4 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition shadow-sm">← Trở lại</button>
-            )}
+          {/* THANH ĐIỀU HƯỚNG CHUNG CUỐI TRANG (Ẩn đi nếu đang chơi Sinh Tồn) */}
+          {currentPart !== 'GRAMMAR_SURVIVAL' && (
+            <div className="flex gap-4 mt-auto pt-8">
+              {currentIndex > 0 && (
+                <button onClick={() => goToQuestion(currentIndex - 1)} className="px-6 py-4 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition shadow-sm">← Trở lại</button>
+              )}
 
-            {!showResult && currentPart !== 'PART 5' && currentPart !== 'PART 7' ? (
-              <button onClick={currentPart === 'PART 6' ? handleSubmitPart6 : () => setShowResult(true)} className={`flex-1 text-white py-4 rounded-xl font-bold transition shadow-lg ${themeColor} hover:opacity-90`}>
-                Kiểm tra đáp án
-              </button>
-            ) : showResult ? (
-              <button onClick={handleNext} className={`flex-1 py-4 rounded-xl font-bold transition shadow-lg text-white ${currentPart === 'PART 7' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-gray-900 hover:bg-black'}`}>
-                {currentIndex < data.length - 1 ? "Bài tiếp theo →" : "Hoàn thành bài tập"}
-              </button>
-            ) : ( <div className="flex-1"></div> )}
-          </div>
+              {!showResult && currentPart !== 'PART 5' && currentPart !== 'PART 7' ? (
+                <button onClick={currentPart === 'PART 6' ? handleSubmitPart6 : () => setShowResult(true)} className={`flex-1 text-white py-4 rounded-xl font-bold transition shadow-lg ${themeColor} hover:opacity-90`}>
+                  Kiểm tra đáp án
+                </button>
+              ) : showResult ? (
+                <button onClick={handleNext} className={`flex-1 py-4 rounded-xl font-bold transition shadow-lg text-white ${currentPart === 'PART 7' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-gray-900 hover:bg-black'}`}>
+                  {currentIndex < data.length - 1 ? "Bài tiếp theo →" : "Hoàn thành bài tập"}
+                </button>
+              ) : ( <div className="flex-1"></div> )}
+            </div>
+          )}
         </div>
 
-        {/* CỘT PHẢI: BẢNG TỪ VỰNG CHUNG */}
-        {showResult && vocabList.length > 0 && (
+        {/* CỘT PHẢI: BẢNG TỪ VỰNG CHUNG (Ẩn đi nếu đang chơi Sinh Tồn) */}
+        {showResult && vocabList.length > 0 && currentPart !== 'GRAMMAR_SURVIVAL' && (
           <div className="w-full lg:w-80 bg-white p-6 rounded-2xl shadow-xl border border-gray-100 h-fit">
             <h3 className={`font-bold mb-4 uppercase text-sm text-center text-${themeColor.split('-')[1] || 'emerald'}-600`}>Danh sách từ vựng</h3>
             <table className="w-full text-sm">
