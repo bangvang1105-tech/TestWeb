@@ -13,7 +13,6 @@ function ExerciseContent() {
   const isResume = searchParams.get('resume') === 'true';
   const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
   
-  // Chuẩn hóa tên partKey để gọi đúng Document trên Firebase
   if (partKey.includes('quiz_')) {
     partKey = partKey.replace('quiz_', 'test_');
   }
@@ -47,20 +46,45 @@ function ExerciseContent() {
   const [survivalGameWon, setSurvivalGameWon] = useState(false);
   const [flashState, setFlashState] = useState(null); 
 
-  // NẠP DỮ LIỆU VÀ ĐỌC TIẾN TRÌNH TỪ FIREBASE
+  // 🌟 NẠP DỮ LIỆU TỪ FIREBASE (ĐÃ FIX LỖI LINK GOOGLE SHEETS)
   useEffect(() => {
     async function loadData() {
       setLoading(true);
       try {
         const docSnap = await getDoc(doc(db, 'exercise_lessons', partKey));
         if (docSnap.exists()) {
-          const response = await fetch(docSnap.data().exerciseUrl);
+          const rawUrl = docSnap.data().exerciseUrl;
+          if (!rawUrl) throw new Error("Chưa có link dữ liệu");
+
+          // Tự động ép link Google Sheets thành định dạng xuất CSV
+          let exportCsvUrl = rawUrl;
+          if (rawUrl.includes('/edit')) {
+            exportCsvUrl = rawUrl.split('/edit')[0] + '/export?format=csv';
+          } else if (rawUrl.includes('docs.google.com/spreadsheets') && !rawUrl.includes('/export')) {
+            const match = rawUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+            if (match && match[1]) {
+              exportCsvUrl = `https://docs.google.com/spreadsheets/d/${match[1]}/export?format=csv`;
+            }
+          }
+
+          const response = await fetch(exportCsvUrl);
           const csvText = await response.text();
+          
           Papa.parse(csvText, {
             header: true,
             skipEmptyLines: true,
             complete: async (results) => { 
-              const validData = results.data.filter(r => r.id || r.question || r.transcript || r.maskedsentence || r.content || r.content_1);
+              // Chuẩn hóa tên cột thành chữ thường toàn bộ để tránh lỗi hoa/thường
+              const normalizedData = results.data.map(row => {
+                const newRow = {};
+                Object.keys(row).forEach(key => {
+                  newRow[key.trim().toLowerCase()] = row[key];
+                });
+                return newRow;
+              });
+
+              // Lọc các dòng trống
+              const validData = normalizedData.filter(r => r.id || r.question || r.transcript || r.maskedsentence || r.content || r.content_1);
               
               if (validData.length > 0) {
                 setData(validData); 
@@ -79,6 +103,9 @@ function ExerciseContent() {
                 setTotalScore(savedScore);
               }
               setLoading(false); 
+            },
+            error: () => {
+              setLoading(false);
             }
           });
         } else {
@@ -168,12 +195,7 @@ function ExerciseContent() {
   </div>;
 
   const currentQ = data[currentIndex] || {};
-  const normalizedQ = {};
-  if (currentQ) {
-    Object.keys(currentQ).forEach(key => {
-      normalizedQ[key.trim().toLowerCase()] = currentQ[key];
-    });
-  }
+  const normalizedQ = currentQ; // Đã chuẩn hóa ngay từ lúc parse CSV
 
   const vocabList = getVocabList(normalizedQ.vocabulary);
   
@@ -284,7 +306,7 @@ function ExerciseContent() {
     else handleFinishExercise();
   };
 
-  // HÀM RENDER Ô NHẬP LIỆU PART 2 (Đã tối ưu hóa hàm inline để tránh lag)
+  // HÀM RENDER Ô NHẬP LIỆU PART 2
   const renderPart2InputRow = (label, value, setValue, answer) => {
     const isCorrect = showResult && checkMatch(value, answer);
     const isWrong = showResult && !checkMatch(value, answer);
