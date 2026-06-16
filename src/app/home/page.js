@@ -97,27 +97,36 @@ export default function HomePage() {
   const [exerciseSkill, setExerciseSkill] = useState(null); 
   const [exercisePart, setExercisePart] = useState(null);   
   const [examBook, setExamBook] = useState(null); 
-
-  // --- STATE MỚI QUẢN LÝ POPUP CHỌN CHẾ ĐỘ THI ---
-  const [selectedTest, setSelectedTest] = useState(null);
+  const [selectedTest, setSelectedTest] = useState(null); 
 
   const [userProgress, setUserProgress] = useState({});
   const [loadingProgress, setLoadingProgress] = useState(true);
   const [userStreak, setUserStreak] = useState(1);
   const [leaderboardData, setLeaderboardData] = useState([]);
 
-  const CURRENT_USER_ID = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
+  // --- FIX LỖI HYDRATION (LỖI 418) Ở ĐÂY ---
+  const [currentUserId, setCurrentUserId] = useState('');
+  const [isMounted, setIsMounted] = useState(false);
 
+  // Chỉ chạy trên Client sau khi render lần đầu
   useEffect(() => {
-    if (!CURRENT_USER_ID) {
+    setIsMounted(true);
+    const storedId = localStorage.getItem('userId');
+    if (!storedId) {
       router.push('/');
-      return;
+    } else {
+      setCurrentUserId(storedId);
     }
+  }, [router]);
+
+  // Load Dashboard Data sau khi đã có currentUserId
+  useEffect(() => {
+    if (!currentUserId) return;
 
     async function initializeDashboardData() {
       try {
         setLoadingProgress(true);
-        const querySnapshot = await getDocs(collection(db, 'users', CURRENT_USER_ID, 'progress'));
+        const querySnapshot = await getDocs(collection(db, 'users', currentUserId, 'progress'));
         const progressMap = {};
         let completedCounter = 0;
         querySnapshot.forEach((docSnap) => {
@@ -128,7 +137,7 @@ export default function HomePage() {
         setUserProgress(progressMap);
 
         const todayStr = new Date().toLocaleDateString('sv-SE');
-        const userRef = doc(db, 'users', CURRENT_USER_ID);
+        const userRef = doc(db, 'users', currentUserId);
         const userSnap = await getDoc(userRef);
         
         let currentStreak = 1;
@@ -174,7 +183,7 @@ export default function HomePage() {
       }
     }
     initializeDashboardData();
-  }, [activeMenu, CURRENT_USER_ID, router]);
+  }, [activeMenu, currentUserId]);
 
   const menuItems = ['Tổng quan', 'Khóa học', 'Ngữ pháp', 'Từ vựng', 'Bài tập', 'Luyện đề'];
 
@@ -218,7 +227,6 @@ export default function HomePage() {
     router.push(`/exercise?part=${partKey}${params}`);
   };
 
-  // --- CẬP NHẬT HÀM ĐIỀU HƯỚNG BÀI THI ---
   const handleExamNavigation = (bookKey, testId, mode = 'practice') => {
     router.push(`/exam?book=${bookKey}&test=${testId}&mode=${mode}`);
   };
@@ -259,56 +267,38 @@ export default function HomePage() {
     return null;
   };
 
-  // --- POPUP CHỌN CHẾ ĐỘ THI ---
   const renderExamModePopup = () => {
     if (!selectedTest) return null;
 
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl relative animate-in fade-in zoom-in duration-200">
-          
-          <button 
-            onClick={() => setSelectedTest(null)}
-            className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition"
-          >
-            ✕
-          </button>
-
+          <button onClick={() => setSelectedTest(null)} className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition">✕</button>
           <div className="text-center mb-6">
             <span className="inline-block p-3 bg-blue-50 text-blue-600 rounded-2xl text-2xl mb-3">🎯</span>
             <h3 className="text-xl font-black text-slate-800">Chọn chế độ làm bài</h3>
-            <p className="text-xs text-slate-500 mt-1 uppercase font-bold tracking-widest">
-              {selectedTest.bookKey} - TEST {selectedTest.testId}
-            </p>
+            <p className="text-xs text-slate-500 mt-1 uppercase font-bold tracking-widest">{selectedTest.bookKey} - TEST {selectedTest.testId}</p>
           </div>
-
           <div className="flex flex-col gap-4">
             <button 
-              onClick={() => {
-                setSelectedTest(null);
-                handleExamNavigation(selectedTest.bookKey, selectedTest.testId, 'full');
-              }}
+              onClick={() => handleExamNavigation(selectedTest.bookKey, selectedTest.testId, 'full')}
               className="text-left p-4 rounded-2xl border-2 border-rose-100 hover:border-rose-400 bg-white hover:bg-rose-50 transition group"
             >
               <div className="flex items-center gap-3 mb-1">
                 <span className="text-xl group-hover:scale-110 transition-transform">🔥</span>
                 <span className="font-bold text-slate-800">Chế độ Thi Thật (Full Test)</span>
               </div>
-              <p className="text-[11px] text-slate-500 pl-8 leading-relaxed">Đồng hồ đếm ngược 120 phút. Không tạm dừng. Áp lực như thi thật.</p>
+              <p className="text-[11px] text-slate-500 pl-8">120 phút liên tục. Không tạm dừng. Áp lực như thi thật.</p>
             </button>
-
             <button 
-              onClick={() => {
-                setSelectedTest(null);
-                handleExamNavigation(selectedTest.bookKey, selectedTest.testId, 'practice');
-              }}
+              onClick={() => handleExamNavigation(selectedTest.bookKey, selectedTest.testId, 'practice')}
               className="text-left p-4 rounded-2xl border-2 border-emerald-100 hover:border-emerald-400 bg-white hover:bg-emerald-50 transition group"
             >
               <div className="flex items-center gap-3 mb-1">
                 <span className="text-xl group-hover:scale-110 transition-transform">🌱</span>
                 <span className="font-bold text-slate-800">Chế độ Luyện Tập (Practice)</span>
               </div>
-              <p className="text-[11px] text-slate-500 pl-8 leading-relaxed">Thoải mái thời gian. Có thể tạm dừng. Nộp bài từng Part để chấm điểm.</p>
+              <p className="text-[11px] text-slate-500 pl-8">Thoải mái thời gian. Có thể tạm dừng. Nộp bài từng Part.</p>
             </button>
           </div>
         </div>
@@ -461,11 +451,9 @@ export default function HomePage() {
     );
   };
 
-  // --- ĐÃ CẬP NHẬT: Giao diện thẻ đề thi & gọi state mở Popup ---
   const renderExamTestCards = (bookKey) => {
     if (loadingProgress) return <p className="text-gray-400 text-xs mt-4">Đang tải tiến trình...</p>;
     
-    // Tự động tạo 10 thẻ đề
     const tests = Array.from({ length: 10 }, (_, i) => ({ 
       id: i + 1, 
       key: `${bookKey}_test_${i + 1}` 
@@ -480,21 +468,17 @@ export default function HomePage() {
             <div className="mb-3">
               <div className="flex justify-between items-start">
                 <h3 className="font-bold text-gray-800 text-sm">Đề khảo sát số {test.id}</h3>
-                <span className="text-[9px] font-black bg-gray-100 text-gray-500 px-2 py-0.5 rounded uppercase">{bookKey}</span>
+                <span className="text-[9px] font-black bg-gray-100 text-gray-400 px-2 py-0.5 rounded uppercase">{bookKey}</span>
               </div>
               <p className="text-[10px] text-gray-400 mt-1 font-bold">IIG STANDARD FORMAT</p>
             </div>
-            
-            <div className="mb-4">
-              {renderStatusLabel(test.status)}
-            </div>
-
-            <div className="mt-auto flex flex-col gap-2">
+            <div className="mb-4">{renderStatusLabel(test.status)}</div>
+            <div className="mt-auto">
               <button 
                 onClick={() => setSelectedTest({ bookKey, testId: test.id })} 
                 className="w-full py-2.5 rounded-xl font-bold text-xs bg-gray-900 text-white hover:bg-green-500 transition-all shadow-md active:scale-95"
               >
-                {test.status === 'completed' ? 'Thi lại đề này' : test.status === 'in_progress' ? 'Tiếp tục thi' : 'Bắt đầu làm bài'}
+                {test.status === 'completed' ? 'Thi lại' : test.status === 'in_progress' ? 'Tiếp tục thi' : 'Bắt đầu thi'}
               </button>
             </div>
           </div>
@@ -526,7 +510,7 @@ export default function HomePage() {
             <div className="bg-gradient-to-r from-green-400 to-emerald-500 rounded-2xl p-6 md:p-8 text-white flex flex-wrap justify-between items-center gap-5 shadow-lg shadow-green-400/10 relative overflow-hidden">
               <div className="absolute w-44 h-44 rounded-full bg-white/5 -top-10 -right-5"></div>
               <div className="z-10">
-                <h2 className="text-xl md:text-2xl font-black tracking-wide">XIN CHÀO, {CURRENT_USER_ID ? String(CURRENT_USER_ID).toUpperCase() : 'HỌC VIÊN'}! 👋</h2>
+                <h2 className="text-xl md:text-2xl font-black tracking-wide uppercase">XIN CHÀO, {isMounted && currentUserId ? String(currentUserId).toUpperCase() : 'HỌC VIÊN'}! 👋</h2>
                 <p className="text-sm mt-1.5 color-white/90 font-medium max-w-xl leading-relaxed">"Đường chạy chinh phục chứng chỉ TOEIC cùng Thầy Băng đã kích hoạt. Hôm nay hãy tiếp tục bứt phá giới hạn nhé!"</p>
               </div>
               <div className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-full text-xs font-extrabold border border-white/25 shadow-sm z-10">🔥 Chuỗi học: {userStreak} ngày liên tục</div>
@@ -575,7 +559,7 @@ export default function HomePage() {
                     <div key={student.rank} className="flex items-center justify-between text-xs border-b border-gray-50 pb-2.5 last:border-0 last:pb-0">
                       <div className="flex items-center gap-3">
                         <span className={`w-6 h-6 rounded-full font-bold flex items-center justify-center text-[11px] ${student.rank === 1 ? 'bg-amber-100 text-amber-800' : student.rank === 2 ? 'bg-slate-100 text-slate-700' : 'bg-orange-50 text-orange-800'}`}>{student.rank}</span>
-                        <span className={`font-semibold ${student.name === CURRENT_USER_ID ? 'text-green-500 font-bold' : 'text-gray-600'}`}>{student.name} {student.name === CURRENT_USER_ID && "(Bạn)"}</span>
+                        <span className={`font-semibold ${student.name === currentUserId ? 'text-green-500 font-bold' : 'text-gray-600'}`}>{student.name} {student.name === currentUserId && "(Bạn)"}</span>
                       </div>
                       <span className="font-extrabold text-gray-700 flex items-center gap-1">{student.count} bài done {student.rank === 1 ? '🥇' : student.rank === 2 ? '🥈' : student.rank === 3 ? '🥉' : ''}</span>
                     </div>
@@ -588,7 +572,7 @@ export default function HomePage() {
       case 'Khóa học':
         return (
           <div>
-            <h2 className="text-xl font-bold text-gray-800 mb-4">Khóa học của bạn</h2>
+            <h2 className="text-xl font-bold text-gray-800 mb-4 uppercase">Khóa học của bạn</h2>
             <p className="text-gray-600 text-sm">Danh sách các khóa học TOEIC trực tuyến.</p>
           </div>
         );
@@ -596,7 +580,7 @@ export default function HomePage() {
         if (!grammarSubMenu) {
           return (
             <div>
-              <h2 className="text-xl font-extrabold text-gray-800 mb-2">Grammar (Ngữ pháp)</h2>
+              <h2 className="text-xl font-extrabold text-gray-800 mb-2 uppercase">Grammar (Ngữ pháp)</h2>
               <p className="text-gray-500 text-sm mb-6">Chọn hình thức học ngữ pháp bạn muốn tiếp cận.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
                 {GRAMMAR_SUBMENU.map((sub) => (
@@ -628,7 +612,7 @@ export default function HomePage() {
         if (!vocabSubMenu) {
           return (
             <div>
-              <h2 className="text-xl font-extrabold text-gray-800 mb-2">Vocabulary (Từ vựng)</h2>
+              <h2 className="text-xl font-extrabold text-gray-800 mb-2 uppercase">Vocabulary (Từ vựng)</h2>
               <p className="text-gray-500 text-sm mb-6">Chọn hình thức học từ vựng bạn muốn thực hành.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {VOCAB_SUBMENU.map((sub) => (
@@ -660,7 +644,7 @@ export default function HomePage() {
         if (!exerciseSkill) {
           return (
             <div>
-              <h2 className="text-xl font-extrabold text-gray-800 mb-2">Exercises (Bài tập)</h2>
+              <h2 className="text-xl font-extrabold text-gray-800 mb-2 uppercase">Exercises (Bài tập)</h2>
               <p className="text-gray-500 text-sm mb-6">Chọn kỹ năng TOEIC bạn muốn rèn luyện.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
                 {EXERCISE_SKILLS.map((skill) => (
@@ -688,9 +672,8 @@ export default function HomePage() {
                   </>
                 )}
               </div>
-              <h2 className="text-xl font-extrabold text-gray-800 mb-1">{skillInfo?.icon} {skillInfo?.label}</h2>
-              <p className="text-gray-500 text-sm mb-4">Chọn tiêu điểm chuyên sâu để bắt đầu làm bài.</p>
-              
+              <h2 className="text-xl font-extrabold text-gray-800 mb-1 uppercase">{skillInfo?.icon} {skillInfo?.label}</h2>
+              <p className="text-gray-500 text-sm mb-4 uppercase">Chọn tiêu điểm chuyên sâu để bắt đầu làm bài.</p>
               {exercisePart === 'grammar_list' ? renderGrammarExerciseCards() : renderExercisePartCards(exerciseSkill)}
             </div>
           );
@@ -699,11 +682,11 @@ export default function HomePage() {
         if (!examBook) {
           return (
             <div>
-              <h2 className="text-xl font-extrabold text-gray-800 mb-2">Full-Test (Luyện đề thi thử)</h2>
+              <h2 className="text-xl font-extrabold text-gray-800 mb-2 uppercase">Full-Test (Luyện đề thi thử)</h2>
               <p className="text-gray-500 text-sm mb-6">Chọn giáo trình đề thi thử định dạng chuẩn IIG.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {EXAM_BOOKS.map((book) => (
-                  <button key={book.key} onClick={() => setExamBook(book.key)} className="flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white shadow-sm hover:border-green-300 hover:shadow-md transition duration-200 text-left"><span className="text-2xl">{book.icon}</span><span className="font-bold text-gray-800 text-sm">{book.label}</span><span className="text-xs text-gray-400">Trọn bộ 10 bài thi mẫu</span></button>
+                  <button key={book.key} onClick={() => setExamBook(book.key)} className="flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white shadow-sm hover:border-green-300 hover:shadow-md transition duration-200 text-left"><span className="text-2xl">{book.icon}</span><span className="font-bold text-gray-800 text-sm">{book.label}</span><span className="text-xs text-gray-400 uppercase">Trọn bộ 10 bài thi mẫu</span></button>
                 ))}
               </div>
             </div>
@@ -713,8 +696,8 @@ export default function HomePage() {
           return (
             <div>
               <div className="flex items-center gap-2 mb-1"><button onClick={() => setExamBook(null)} className="text-xs text-gray-400 hover:text-green-600 transition">← Luyện đề</button><span className="text-xs text-gray-300">/</span><span className="text-xs font-semibold text-green-400">{bookInfo?.label}</span></div>
-              <h2 className="text-xl font-extrabold text-gray-800 mb-1">{bookInfo?.icon} Bộ đề {bookInfo?.label}</h2>
-              <p className="text-gray-500 text-sm mb-4">Chọn đề thi thử để bắt đầu làm bài tính thời gian (120 phút).</p>
+              <h2 className="text-xl font-extrabold text-gray-800 mb-1 uppercase">{bookInfo?.icon} Bộ đề {bookInfo?.label}</h2>
+              <p className="text-gray-500 text-sm mb-4 uppercase">Chọn đề thi thử để bắt đầu làm bài tính thời gian (120 phút).</p>
               {renderExamTestCards(examBook)}
             </div>
           );
@@ -728,10 +711,10 @@ export default function HomePage() {
     <div className={`min-h-screen bg-gray-50 flex flex-col ${roboto.className}`}>
       {/* HEADER */}
       <header className="shadow-md px-6 py-3 flex items-center justify-between fixed top-0 left-0 right-0 z-50 bg-green-400">
-        <span className="text-white font-bold text-xl tracking-wide">TOEIC Thầy Băng</span>
+        <span className="text-white font-bold text-xl tracking-wide uppercase">TOEIC Thầy Băng</span>
         <div className="flex items-center gap-4">
-          <span className="text-white text-sm font-medium">Xin chào, {CURRENT_USER_ID}!</span>
-          <button onClick={handleLogout} className="bg-white font-semibold text-sm px-4 py-1.5 rounded-lg text-green-400 hover:bg-green-50 transition duration-200 shadow-sm">Đăng xuất</button>
+          <span className="text-white text-sm font-bold uppercase tracking-tight">Xin chào, {isMounted ? currentUserId : 'Học viên'}!</span>
+          <button onClick={handleLogout} className="bg-white font-black text-xs px-4 py-1.5 rounded-lg text-green-400 hover:bg-green-50 transition duration-200 shadow-sm uppercase">Đăng xuất</button>
         </div>
       </header>
 
@@ -740,48 +723,11 @@ export default function HomePage() {
         <aside className="w-48 shadow-lg flex flex-col py-6 px-3 gap-1 fixed left-0 top-14 bottom-0 overflow-y-auto bg-green-400 hidden md:flex">
           {menuItems.map((item) => (
             <div key={item}>
-              <button onClick={() => handleMenuClick(item)} className={`text-left w-full px-4 py-3 rounded-lg text-sm font-semibold transition duration-150 ${activeMenu === item ? 'bg-white text-green-400 shadow-sm' : 'text-white hover:bg-white/20'}`}>{item}</button>
-              
-              {item === 'Ngữ pháp' && activeMenu === 'Ngữ pháp' && (
-                <div className="mt-1 ml-2 flex flex-col gap-0.5">
-                  {GRAMMAR_SUBMENU.map((sub) => (
-                    <button key={sub.key} onClick={() => setGrammarSubMenu(sub.key)} className={`text-left w-full px-3 py-2 rounded-lg text-xs font-medium transition duration-150 flex items-center gap-1.5 ${grammarSubMenu === sub.key ? 'bg-white/90 text-green-800 font-bold shadow-sm' : 'text-white/90 hover:bg-white/20'}`}><span>{sub.icon}</span><span>{sub.label}</span></button>
-                  ))}
-                </div>
-              )}
-
-              {item === 'Từ vựng' && activeMenu === 'Từ vựng' && (
-                <div className="mt-1 ml-2 flex flex-col gap-0.5">
-                  {VOCAB_SUBMENU.map((sub) => (
-                    <button key={sub.key} onClick={() => setVocabSubMenu(sub.key)} className={`text-left w-full px-3 py-2 rounded-lg text-xs font-medium transition duration-150 flex items-center gap-1.5 ${vocabSubMenu === sub.key ? 'bg-white/90 text-green-800 font-bold shadow-sm' : 'text-white/90 hover:bg-white/20'}`}><span>{sub.icon}</span><span>{sub.label}</span></button>
-                  ))}
-                </div>
-              )}
-
-              {item === 'Bài tập' && activeMenu === 'Bài tập' && (
-                <div className="mt-1 ml-2 flex flex-col gap-0.5">
-                  {EXERCISE_SKILLS.map((skill) => (
-                    <div key={skill.key} className="flex flex-col">
-                      <button onClick={() => { setExerciseSkill(skill.key); setExercisePart(null); }} className={`text-left w-full px-3 py-2 rounded-lg text-xs font-medium transition duration-150 flex items-center gap-1.5 ${exerciseSkill === skill.key ? 'bg-white/90 text-green-800 font-bold shadow-sm' : 'text-white/90 hover:bg-white/20'}`}><span>{skill.icon}</span><span>{skill.label}</span></button>
-                      {exerciseSkill === skill.key && (
-                        <div className="mt-0.5 ml-3 pl-1.5 border-l border-white/40 flex flex-col gap-0.5">
-                          {EXERCISE_PARTS[skill.key].map((part) => (
-                            <button key={part.key} onClick={() => { setExercisePart(part.key); handleExerciseNavigation(part.key); }} className={`text-left w-full py-1.5 px-2 rounded-md text-[11px] transition duration-150 line-clamp-1 ${exercisePart === part.key ? 'bg-white/70 text-green-900 font-bold' : 'text-white/80 hover:text-white hover:bg-white/10'}`}>Part {part.key === 'grammar_list' ? 'Grammar' : part.key.split('_p')[1]?.toUpperCase()}</button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {item === 'Luyện đề' && activeMenu === 'Luyện đề' && (
-                <div className="mt-1 ml-2 flex flex-col gap-0.5">
-                  {EXAM_BOOKS.map((book) => (
-                    <button key={book.key} onClick={() => setExamBook(book.key)} className={`text-left w-full px-3 py-2 rounded-lg text-xs font-medium transition duration-150 flex items-center gap-1.5 ${examBook === book.key ? 'bg-white/90 text-green-800 font-bold shadow-sm' : 'text-white/90 hover:bg-white/20'}`}><span>{book.icon}</span><span>{book.label}</span></button>
-                  ))}
-                </div>
-              )}
+              <button onClick={() => handleMenuClick(item)} className={`text-left w-full px-4 py-3 rounded-lg text-xs font-black transition duration-150 uppercase tracking-tighter ${activeMenu === item ? 'bg-white text-green-400 shadow-sm' : 'text-white hover:bg-white/20'}`}>{item}</button>
+              {item === 'Ngữ pháp' && activeMenu === 'Ngữ pháp' && ( <div className="mt-1 ml-2 flex flex-col gap-0.5"> {GRAMMAR_SUBMENU.map((sub) => ( <button key={sub.key} onClick={() => setGrammarSubMenu(sub.key)} className={`text-left w-full px-3 py-2 rounded-lg text-xs font-medium transition duration-150 flex items-center gap-1.5 ${grammarSubMenu === sub.key ? 'bg-white/90 text-green-800 font-bold shadow-sm' : 'text-white/90 hover:bg-white/20'}`}><span>{sub.icon}</span><span>{sub.label}</span></button> ))} </div> )}
+              {item === 'Từ vựng' && activeMenu === 'Từ vựng' && ( <div className="mt-1 ml-2 flex flex-col gap-0.5"> {VOCAB_SUBMENU.map((sub) => ( <button key={sub.key} onClick={() => setVocabSubMenu(sub.key)} className={`text-left w-full px-3 py-2 rounded-lg text-xs font-medium transition duration-150 flex items-center gap-1.5 ${vocabSubMenu === sub.key ? 'bg-white/90 text-green-800 font-bold shadow-sm' : 'text-white/90 hover:bg-white/20'}`}><span>{sub.icon}</span><span>{sub.label}</span></button> ))} </div> )}
+              {item === 'Bài tập' && activeMenu === 'Bài tập' && ( <div className="mt-1 ml-2 flex flex-col gap-0.5"> {EXERCISE_SKILLS.map((skill) => ( <div key={skill.key} className="flex flex-col"> <button onClick={() => { setExerciseSkill(skill.key); setExercisePart(null); }} className={`text-left w-full px-3 py-2 rounded-lg text-xs font-medium transition duration-150 flex items-center gap-1.5 ${exerciseSkill === skill.key ? 'bg-white/90 text-green-800 font-bold shadow-sm' : 'text-white/90 hover:bg-white/20'}`}><span>{skill.icon}</span><span>{skill.label}</span></button> {exerciseSkill === skill.key && ( <div className="mt-0.5 ml-3 pl-1.5 border-l border-white/40 flex flex-col gap-0.5"> {EXERCISE_PARTS[skill.key].map((part) => ( <button key={part.key} onClick={() => { setExercisePart(part.key); handleExerciseNavigation(part.key); }} className={`text-left w-full py-1.5 px-2 rounded-md text-[11px] transition duration-150 line-clamp-1 ${exercisePart === part.key ? 'bg-white/70 text-green-900 font-bold' : 'text-white/80 hover:text-white hover:bg-white/10'}`}>Part {part.key === 'grammar_list' ? 'Grammar' : part.key.split('_p')[1]?.toUpperCase()}</button> ))} </div> )} </div> ))} </div> )}
+              {item === 'Luyện đề' && activeMenu === 'Luyện đề' && ( <div className="mt-1 ml-2 flex flex-col gap-0.5"> {EXAM_BOOKS.map((book) => ( <button key={book.key} onClick={() => setExamBook(book.key)} className={`text-left w-full px-3 py-2 rounded-lg text-xs font-medium transition duration-150 flex items-center gap-1.5 ${examBook === book.key ? 'bg-white/90 text-green-800 font-bold shadow-sm' : 'text-white/90 hover:bg-white/20'}`}><span>{book.icon}</span><span>{book.label}</span></button> ))} </div> )}
             </div>
           ))}
         </aside>
@@ -789,8 +735,8 @@ export default function HomePage() {
         {/* MAIN CONTENT */}
         <main className="flex-1 p-4 md:p-8 ml-0 md:ml-48 w-full overflow-x-hidden">
           <div className="max-w-5xl mx-auto rounded-xl bg-white p-4 md:p-6 shadow-sm border border-gray-100">
-            <p className="text-xs text-gray-400 mb-4">
-              Trang chủ / <span className="font-medium text-green-400">{activeMenu}</span>
+            <p className="text-[10px] text-gray-400 mb-4 font-bold uppercase tracking-widest">
+              Trang chủ / <span className="font-black text-green-400">{activeMenu}</span>
               {grammarSubMenu && activeMenu === 'Ngữ pháp' && <> / <span className="font-medium text-green-400">{GRAMMAR_SUBMENU.find(s => s.key === grammarSubMenu)?.label}</span></>}
               {vocabSubMenu && activeMenu === 'Từ vựng' && <> / <span className="font-medium text-green-400">{VOCAB_SUBMENU.find(s => s.key === vocabSubMenu)?.label}</span></>}
               {exerciseSkill && activeMenu === 'Bài tập' && <> / <span className="font-medium text-green-400">{EXERCISE_SKILLS.find(s => s.key === exerciseSkill)?.label}</span></>}
@@ -801,7 +747,7 @@ export default function HomePage() {
         </main>
       </div>
 
-      {/* HIỂN THỊ POPUP CHỌN CHẾ ĐỘ THI Ở ĐÂY */}
+      {/* RENDER POPUP CHỌN MODE */}
       {renderExamModePopup()}
 
     </div>
