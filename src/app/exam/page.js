@@ -181,8 +181,13 @@ function ExamContent() {
                 <h3 className="font-bold text-blue-800 mb-3 flex items-center gap-2">
                   <span className="text-xl">🎧</span> File Nghe Audio Toàn Bài
                 </h3>
-                <audio controls className="w-full h-12 outline-none rounded-lg">
-                  <source src={testInfo.full_audio_url} type="audio/mpeg" />
+                {/* Đã thêm Key và Replace để fix triệt để lỗi link bị ẩn dấu cách/xuống dòng */}
+                <audio 
+                  key={testInfo.full_audio_url} 
+                  controls 
+                  className="w-full h-12 outline-none rounded-lg"
+                >
+                  <source src={testInfo.full_audio_url.replace(/\s+/g, '')} type="audio/mpeg" />
                   Trình duyệt không hỗ trợ Audio.
                 </audio>
               </div>
