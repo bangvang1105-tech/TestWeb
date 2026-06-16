@@ -74,9 +74,9 @@ const EXERCISE_PARTS = {
     { key: 'dictation_p4', label: 'Nghe chép chính tả Part 4', detail: 'Bài nói ngắn (Short Talks)' },
   ],
   reading: [
-    { key: 'test_p5', label: 'Trắc nghiệm Part 5', detail: 'Câu chưa hoàn chỉnh' }, // Đã sửa tên quy chuẩn test_p5
-    { key: 'test_p6', label: 'Trắc nghiệm Part 6', detail: 'Hoàn thành đoạn văn' }, // Đã sửa tên quy chuẩn test_p6
-    { key: 'test_p7', label: 'Trắc nghiệm Part 7', detail: 'Đọc hiểu đoạn văn' }, // Đã sửa tên quy chuẩn test_p7
+    { key: 'test_p5', label: 'Trắc nghiệm Part 5', detail: 'Câu chưa hoàn chỉnh' }, 
+    { key: 'test_p6', label: 'Trắc nghiệm Part 6', detail: 'Hoàn thành đoạn văn' }, 
+    { key: 'test_p7', label: 'Trắc nghiệm Part 7', detail: 'Đọc hiểu đoạn văn' }, 
     { key: 'grammar_list', label: 'Luyện tập Ngữ pháp', detail: 'Trọn bộ 13 chuyên đề trọng tâm' }
   ]
 };
@@ -194,7 +194,11 @@ export default function HomePage() {
   };
 
   const handleNavigation = (type, id, params = '') => {
-    router.push(`/lesson?type=${type}&id=${id}${params}`);
+    if (type === 'grammar_practice') {
+      router.push(`/exercise?part=${type}_${id}${params}`);
+    } else {
+      router.push(`/lesson?type=${type}&id=${id}${params}`);
+    }
   };
 
   const handleVocabTopicNavigation = (mode, topicId, params = '') => {
@@ -213,20 +217,25 @@ export default function HomePage() {
     router.push(`/exercise?part=${partKey}${params}`);
   };
 
+  // Hàm chuyển hướng sang trang thi
   const handleExamNavigation = (bookKey, testId, params = '') => {
     router.push(`/exam?book=${bookKey}&test=${testId}${params}`);
   };
 
   const handleHistoryNavigation = (type, mode, topicId) => {
     router.push(`/history?type=${type}&mode=${mode}&id=${topicId}`);
-  }
+  };
 
-  // 🌟 HÀM TẠO DỮ LIỆU HIỂN THỊ BAO GỒM 3 TRẠNG THÁI
   const buildDisplayData = (rawData, prefixType) => {
     return rawData.map(item => {
-      // Logic gán ID đặc biệt quan trọng cho Bài tập (Part) để khớp với data trên Firebase
-      // Nếu là Bài Tập (ví dụ: dictation_p1, test_p5), ta sẽ lấy trực tiếp chuỗi 'exercise_test_p5'
-      const targetLessonId = prefixType === 'exercise' ? `exercise_${item.key}` : `${prefixType}_${item.id || item.key}`;
+      let targetLessonId;
+      if (prefixType === 'exercise') {
+        targetLessonId = `exercise_${item.key}`;
+      } else if (prefixType === 'grammar_practice') {
+        targetLessonId = `exercise_grammar_practice_${item.id}`; 
+      } else {
+        targetLessonId = `${prefixType}_${item.id || item.key}`;
+      }
       
       const progress = userProgress[targetLessonId];
       let status = 'not_started';
@@ -242,11 +251,10 @@ export default function HomePage() {
     });
   };
 
-  // KẾT LIỀN GIAO DIỆN THEO 3 TRƯỜNG HỢP NÚT BẤM VÀ LABEL
   const renderStatusLabel = (status) => {
-    if (status === 'not_started') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-gray-100 text-gray-500 uppercase tracking-wide">⚪ Chưa học</span>;
-    if (status === 'in_progress') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-blue-50 text-blue-600 uppercase tracking-wide">⏳ Đang học</span>;
-    if (status === 'completed') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-green-50 text-green-600 uppercase tracking-wide">✅ Đã học xong</span>;
+    if (status === 'not_started') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-gray-100 text-gray-500 uppercase tracking-wide">⚪ Chưa thi</span>;
+    if (status === 'in_progress') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-blue-50 text-blue-600 uppercase tracking-wide">⏳ Đang thi dở</span>;
+    if (status === 'completed') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-green-50 text-green-600 uppercase tracking-wide">✅ Đã thi xong</span>;
     return null;
   };
 
@@ -262,11 +270,7 @@ export default function HomePage() {
               <h3 className="font-bold text-gray-800 text-sm line-clamp-1">{item.title}</h3>
               <p className="text-[11px] text-gray-400 mt-0.5">{item.subtitle}</p>
             </div>
-            
-            <div className="mb-4">
-              {renderStatusLabel(item.status)}
-            </div>
-
+            <div className="mb-4">{renderStatusLabel(item.status)}</div>
             <div className="mt-auto flex flex-col gap-2">
               {item.status === 'not_started' && (
                 <button onClick={() => handleNavigation('grammar_practice', item.id)} className="w-full py-2.5 rounded-xl font-bold text-xs bg-gray-900 text-white hover:bg-black transition-all">Làm bài</button>
@@ -302,11 +306,7 @@ export default function HomePage() {
               <h3 className="font-bold text-gray-800 text-sm line-clamp-1">Chủ đề {topic.id}: {topic.title}</h3>
               <p className="text-[11px] text-gray-400 mt-0.5">{topic.subtitle}</p>
             </div>
-            
-            <div className="mb-4">
-              {renderStatusLabel(topic.status)}
-            </div>
-
+            <div className="mb-4">{renderStatusLabel(topic.status)}</div>
             <div className="mt-auto flex flex-col gap-2">
               {topic.status === 'not_started' && (
                 <button onClick={() => handleVocabTopicNavigation(mode, topic.id)} className="w-full py-2.5 rounded-xl font-bold text-xs bg-gray-900 text-white hover:bg-black transition-all">Làm bài</button>
@@ -342,11 +342,7 @@ export default function HomePage() {
               <h3 className="font-bold text-gray-800 text-sm line-clamp-1">Bài {topic.id}: {topic.title}</h3>
               <p className="text-[11px] text-gray-400 mt-0.5">{topic.subtitle}</p>
             </div>
-            
-            <div className="mb-4">
-              {renderStatusLabel(topic.status)}
-            </div>
-
+            <div className="mb-4">{renderStatusLabel(topic.status)}</div>
             <div className="mt-auto flex flex-col gap-2">
               {topic.status === 'not_started' && (
                 <button onClick={() => handleGrammarTopicNavigation(mode, topic.id)} className="w-full py-2.5 rounded-xl font-bold text-xs bg-gray-900 text-white hover:bg-black transition-all">Làm bài</button>
@@ -383,11 +379,7 @@ export default function HomePage() {
               <h3 className="font-bold text-gray-800 text-sm line-clamp-1">{part.label}</h3>
               <p className="text-[11px] text-gray-400 mt-0.5">{part.detail}</p>
             </div>
-            
-            <div className="mb-4">
-              {renderStatusLabel(part.status)}
-            </div>
-
+            <div className="mb-4">{renderStatusLabel(part.status)}</div>
             <div className="mt-auto flex flex-col gap-2">
               {part.status === 'not_started' && (
                 <button onClick={() => handleExerciseNavigation(part.key)} className="w-full py-2.5 rounded-xl font-bold text-xs bg-gray-900 text-white hover:bg-black transition-all">Làm bài</button>
@@ -411,9 +403,16 @@ export default function HomePage() {
     );
   };
 
+  // Cập nhật hàm này để sinh đủ 10 thẻ linh hoạt
   const renderExamTestCards = (bookKey) => {
     if (loadingProgress) return <p className="text-gray-400 text-xs mt-4">Đang tải tiến trình...</p>;
-    const tests = Array.from({ length: 10 }, (_, i) => ({ id: i + 1, key: `${bookKey}_test_${i + 1}` }));
+    
+    // Tự động tạo 10 thẻ đề
+    const tests = Array.from({ length: 10 }, (_, i) => ({ 
+      id: i + 1, 
+      key: `${bookKey}_test_${i + 1}` 
+    }));
+    
     const dataList = buildDisplayData(tests, 'exam');
 
     return (
@@ -422,7 +421,7 @@ export default function HomePage() {
           <div key={test.key} className="w-full min-h-[160px] rounded-2xl border border-gray-200 bg-white shadow-sm p-5 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
             <div className="mb-3">
               <h3 className="font-bold text-gray-800 text-sm">Đề khảo sát số {test.id}</h3>
-              <p className="text-[11px] text-gray-400 mt-0.5">Mã đề: {bookKey.toUpperCase()} _ TEST {test.id}</p>
+              <p className="text-[11px] text-gray-400 mt-0.5 uppercase">{bookKey} - TEST {test.id}</p>
             </div>
             
             <div className="mb-4">
@@ -506,7 +505,6 @@ export default function HomePage() {
                       <h4 className="font-extrabold text-gray-800 text-sm mt-2">{recentIncomplete[0].replace('_', ' ').toUpperCase()}</h4>
                       <p className="text-xs text-gray-500 mt-0.5">Bấm nút để tiếp tục lưu và nạp điểm bài tập này.</p>
                     </div>
-                    {/* Tạm thời fallback router chung chung */}
                     <button onClick={() => { const [type, id] = recentIncomplete[0].split('_'); router.push(`/lesson?type=${type}&id=${id}`); }} className="bg-amber-500 shadow-sm shadow-amber-500/10 text-white font-bold text-xs px-4 py-2.5 rounded-xl hover:opacity-95 transition">Làm tiếp bài →</button>
                   </div>
                 ) : (
