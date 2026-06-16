@@ -94,11 +94,12 @@ export default function HomePage() {
   const [activeMenu, setActiveMenu] = useState('Tổng quan');
   const [vocabSubMenu, setVocabSubMenu] = useState(null); 
   const [grammarSubMenu, setGrammarSubMenu] = useState(null); 
-  
   const [exerciseSkill, setExerciseSkill] = useState(null); 
   const [exercisePart, setExercisePart] = useState(null);   
-
   const [examBook, setExamBook] = useState(null); 
+
+  // --- STATE MỚI QUẢN LÝ POPUP CHỌN CHẾ ĐỘ THI ---
+  const [selectedTest, setSelectedTest] = useState(null);
 
   const [userProgress, setUserProgress] = useState({});
   const [loadingProgress, setLoadingProgress] = useState(true);
@@ -217,9 +218,9 @@ export default function HomePage() {
     router.push(`/exercise?part=${partKey}${params}`);
   };
 
-  // Hàm chuyển hướng sang trang thi
-  const handleExamNavigation = (bookKey, testId, params = '') => {
-    router.push(`/exam?book=${bookKey}&test=${testId}${params}`);
+  // --- CẬP NHẬT HÀM ĐIỀU HƯỚNG BÀI THI ---
+  const handleExamNavigation = (bookKey, testId, mode = 'practice') => {
+    router.push(`/exam?book=${bookKey}&test=${testId}&mode=${mode}`);
   };
 
   const handleHistoryNavigation = (type, mode, topicId) => {
@@ -256,6 +257,63 @@ export default function HomePage() {
     if (status === 'in_progress') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-blue-50 text-blue-600 uppercase tracking-wide">⏳ Đang thi dở</span>;
     if (status === 'completed') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-green-50 text-green-600 uppercase tracking-wide">✅ Đã thi xong</span>;
     return null;
+  };
+
+  // --- POPUP CHỌN CHẾ ĐỘ THI ---
+  const renderExamModePopup = () => {
+    if (!selectedTest) return null;
+
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+        <div className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl relative animate-in fade-in zoom-in duration-200">
+          
+          <button 
+            onClick={() => setSelectedTest(null)}
+            className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition"
+          >
+            ✕
+          </button>
+
+          <div className="text-center mb-6">
+            <span className="inline-block p-3 bg-blue-50 text-blue-600 rounded-2xl text-2xl mb-3">🎯</span>
+            <h3 className="text-xl font-black text-slate-800">Chọn chế độ làm bài</h3>
+            <p className="text-xs text-slate-500 mt-1 uppercase font-bold tracking-widest">
+              {selectedTest.bookKey} - TEST {selectedTest.testId}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <button 
+              onClick={() => {
+                setSelectedTest(null);
+                handleExamNavigation(selectedTest.bookKey, selectedTest.testId, 'full');
+              }}
+              className="text-left p-4 rounded-2xl border-2 border-rose-100 hover:border-rose-400 bg-white hover:bg-rose-50 transition group"
+            >
+              <div className="flex items-center gap-3 mb-1">
+                <span className="text-xl group-hover:scale-110 transition-transform">🔥</span>
+                <span className="font-bold text-slate-800">Chế độ Thi Thật (Full Test)</span>
+              </div>
+              <p className="text-[11px] text-slate-500 pl-8 leading-relaxed">Đồng hồ đếm ngược 120 phút. Không tạm dừng. Áp lực như thi thật.</p>
+            </button>
+
+            <button 
+              onClick={() => {
+                setSelectedTest(null);
+                handleExamNavigation(selectedTest.bookKey, selectedTest.testId, 'practice');
+              }}
+              className="text-left p-4 rounded-2xl border-2 border-emerald-100 hover:border-emerald-400 bg-white hover:bg-emerald-50 transition group"
+            >
+              <div className="flex items-center gap-3 mb-1">
+                <span className="text-xl group-hover:scale-110 transition-transform">🌱</span>
+                <span className="font-bold text-slate-800">Chế độ Luyện Tập (Practice)</span>
+              </div>
+              <p className="text-[11px] text-slate-500 pl-8 leading-relaxed">Thoải mái thời gian. Có thể tạm dừng. Nộp bài từng Part để chấm điểm.</p>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const renderGrammarExerciseCards = () => {
@@ -403,7 +461,7 @@ export default function HomePage() {
     );
   };
 
-  // Cập nhật hàm này để sinh đủ 10 thẻ linh hoạt
+  // --- ĐÃ CẬP NHẬT: Giao diện thẻ đề thi & gọi state mở Popup ---
   const renderExamTestCards = (bookKey) => {
     if (loadingProgress) return <p className="text-gray-400 text-xs mt-4">Đang tải tiến trình...</p>;
     
@@ -418,10 +476,13 @@ export default function HomePage() {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-4 w-full">
         {dataList.map((test) => (
-          <div key={test.key} className="w-full min-h-[160px] rounded-2xl border border-gray-200 bg-white shadow-sm p-5 flex flex-col justify-between hover:border-green-300 hover:shadow-md transition duration-200">
+          <div key={test.key} className="w-full min-h-[160px] rounded-2xl border border-gray-200 bg-white shadow-sm p-5 flex flex-col justify-between hover:border-green-300 hover:shadow-lg transition duration-200 group">
             <div className="mb-3">
-              <h3 className="font-bold text-gray-800 text-sm">Đề khảo sát số {test.id}</h3>
-              <p className="text-[11px] text-gray-400 mt-0.5 uppercase">{bookKey} - TEST {test.id}</p>
+              <div className="flex justify-between items-start">
+                <h3 className="font-bold text-gray-800 text-sm">Đề khảo sát số {test.id}</h3>
+                <span className="text-[9px] font-black bg-gray-100 text-gray-500 px-2 py-0.5 rounded uppercase">{bookKey}</span>
+              </div>
+              <p className="text-[10px] text-gray-400 mt-1 font-bold">IIG STANDARD FORMAT</p>
             </div>
             
             <div className="mb-4">
@@ -429,21 +490,12 @@ export default function HomePage() {
             </div>
 
             <div className="mt-auto flex flex-col gap-2">
-              {test.status === 'not_started' && (
-                <button onClick={() => handleExamNavigation(bookKey, test.id)} className="w-full py-2.5 rounded-xl font-bold text-xs bg-gray-900 text-white hover:bg-black transition-all">Bắt đầu thi</button>
-              )}
-              {test.status === 'in_progress' && (
-                <div className="flex gap-2">
-                  <button onClick={() => handleExamNavigation(bookKey, test.id, '&resume=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-blue-500 text-white hover:bg-blue-600 transition-all">Tiếp tục thi</button>
-                  <button onClick={() => handleExamNavigation(bookKey, test.id, '&restart=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all">Thi lại</button>
-                </div>
-              )}
-              {test.status === 'completed' && (
-                <div className="flex gap-2">
-                  <button onClick={() => handleHistoryNavigation('exam', bookKey, test.id)} className="flex-1 py-2.5 rounded-xl font-bold text-xs border border-gray-200 text-gray-600 hover:bg-gray-50 transition-all">Bảng điểm</button>
-                  <button onClick={() => handleExamNavigation(bookKey, test.id, '&restart=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-green-500 text-white hover:bg-green-600 transition-all">Thi lại</button>
-                </div>
-              )}
+              <button 
+                onClick={() => setSelectedTest({ bookKey, testId: test.id })} 
+                className="w-full py-2.5 rounded-xl font-bold text-xs bg-gray-900 text-white hover:bg-green-500 transition-all shadow-md active:scale-95"
+              >
+                {test.status === 'completed' ? 'Thi lại đề này' : test.status === 'in_progress' ? 'Tiếp tục thi' : 'Bắt đầu làm bài'}
+              </button>
             </div>
           </div>
         ))}
@@ -748,6 +800,10 @@ export default function HomePage() {
           </div>
         </main>
       </div>
+
+      {/* HIỂN THỊ POPUP CHỌN CHẾ ĐỘ THI Ở ĐÂY */}
+      {renderExamModePopup()}
+
     </div>
   );
 }
