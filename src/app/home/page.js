@@ -104,11 +104,9 @@ export default function HomePage() {
   const [userStreak, setUserStreak] = useState(1);
   const [leaderboardData, setLeaderboardData] = useState([]);
 
-  // --- FIX LỖI HYDRATION (LỖI 418) Ở ĐÂY ---
   const [currentUserId, setCurrentUserId] = useState('');
   const [isMounted, setIsMounted] = useState(false);
 
-  // Chỉ chạy trên Client sau khi render lần đầu
   useEffect(() => {
     setIsMounted(true);
     const storedId = localStorage.getItem('userId');
@@ -119,7 +117,6 @@ export default function HomePage() {
     }
   }, [router]);
 
-  // Load Dashboard Data sau khi đã có currentUserId
   useEffect(() => {
     if (!currentUserId) return;
 
@@ -260,10 +257,20 @@ export default function HomePage() {
     });
   };
 
-  const renderStatusLabel = (status) => {
-    if (status === 'not_started') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-gray-100 text-gray-500 uppercase tracking-wide">⚪ Chưa thi</span>;
-    if (status === 'in_progress') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-blue-50 text-blue-600 uppercase tracking-wide">⏳ Đang thi dở</span>;
-    if (status === 'completed') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-green-50 text-green-600 uppercase tracking-wide">✅ Đã thi xong</span>;
+  // --- HÀM TẠO NHÃN TRẠNG THÁI ĐÃ ĐƯỢC CHỈNH SỬA CHO ĐÚNG NGỮ CẢNH ---
+  const renderStatusLabel = (status, type = 'lesson') => {
+    // Nếu là phần Luyện đề (type = 'exam') thì dùng chữ "Thi"
+    if (type === 'exam') {
+      if (status === 'not_started') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-gray-100 text-gray-500 uppercase tracking-wide">⚪ Chưa thi</span>;
+      if (status === 'in_progress') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-blue-50 text-blue-600 uppercase tracking-wide">⏳ Đang thi dở</span>;
+      if (status === 'completed') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-green-50 text-green-600 uppercase tracking-wide">✅ Đã thi xong</span>;
+    } 
+    // Các phần còn lại (Từ vựng, Ngữ pháp, Bài tập...) thì dùng chữ "Học/Làm"
+    else {
+      if (status === 'not_started') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-gray-100 text-gray-500 uppercase tracking-wide">⚪ Chưa học</span>;
+      if (status === 'in_progress') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-amber-50 text-amber-600 uppercase tracking-wide">⏳ Đang làm dở</span>;
+      if (status === 'completed') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-green-50 text-green-600 uppercase tracking-wide">✅ Đã hoàn thành</span>;
+    }
     return null;
   };
 
@@ -318,14 +325,15 @@ export default function HomePage() {
               <h3 className="font-bold text-gray-800 text-sm line-clamp-1">{item.title}</h3>
               <p className="text-[11px] text-gray-400 mt-0.5">{item.subtitle}</p>
             </div>
-            <div className="mb-4">{renderStatusLabel(item.status)}</div>
+            {/* TRUYỀN PARAM THỨ 2 LÀ 'lesson' */}
+            <div className="mb-4">{renderStatusLabel(item.status, 'lesson')}</div>
             <div className="mt-auto flex flex-col gap-2">
               {item.status === 'not_started' && (
                 <button onClick={() => handleNavigation('grammar_practice', item.id)} className="w-full py-2.5 rounded-xl font-bold text-xs bg-gray-900 text-white hover:bg-black transition-all">Làm bài</button>
               )}
               {item.status === 'in_progress' && (
                 <div className="flex gap-2">
-                  <button onClick={() => handleNavigation('grammar_practice', item.id, '&resume=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-blue-500 text-white hover:bg-blue-600 transition-all">Tiếp tục làm</button>
+                  <button onClick={() => handleNavigation('grammar_practice', item.id, '&resume=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-amber-500 text-white hover:bg-amber-600 transition-all">Tiếp tục làm</button>
                   <button onClick={() => handleNavigation('grammar_practice', item.id, '&restart=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all">Làm lại</button>
                 </div>
               )}
@@ -354,14 +362,15 @@ export default function HomePage() {
               <h3 className="font-bold text-gray-800 text-sm line-clamp-1">Chủ đề {topic.id}: {topic.title}</h3>
               <p className="text-[11px] text-gray-400 mt-0.5">{topic.subtitle}</p>
             </div>
-            <div className="mb-4">{renderStatusLabel(topic.status)}</div>
+            {/* TRUYỀN PARAM THỨ 2 LÀ 'lesson' */}
+            <div className="mb-4">{renderStatusLabel(topic.status, 'lesson')}</div>
             <div className="mt-auto flex flex-col gap-2">
               {topic.status === 'not_started' && (
                 <button onClick={() => handleVocabTopicNavigation(mode, topic.id)} className="w-full py-2.5 rounded-xl font-bold text-xs bg-gray-900 text-white hover:bg-black transition-all">Làm bài</button>
               )}
               {topic.status === 'in_progress' && (
                 <div className="flex gap-2">
-                  <button onClick={() => handleVocabTopicNavigation(mode, topic.id, '&resume=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-blue-500 text-white hover:bg-blue-600 transition-all">Tiếp tục làm</button>
+                  <button onClick={() => handleVocabTopicNavigation(mode, topic.id, '&resume=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-amber-500 text-white hover:bg-amber-600 transition-all">Tiếp tục làm</button>
                   <button onClick={() => handleVocabTopicNavigation(mode, topic.id, '&restart=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all">Làm lại</button>
                 </div>
               )}
@@ -390,14 +399,15 @@ export default function HomePage() {
               <h3 className="font-bold text-gray-800 text-sm line-clamp-1">Bài {topic.id}: {topic.title}</h3>
               <p className="text-[11px] text-gray-400 mt-0.5">{topic.subtitle}</p>
             </div>
-            <div className="mb-4">{renderStatusLabel(topic.status)}</div>
+            {/* TRUYỀN PARAM THỨ 2 LÀ 'lesson' */}
+            <div className="mb-4">{renderStatusLabel(topic.status, 'lesson')}</div>
             <div className="mt-auto flex flex-col gap-2">
               {topic.status === 'not_started' && (
                 <button onClick={() => handleGrammarTopicNavigation(mode, topic.id)} className="w-full py-2.5 rounded-xl font-bold text-xs bg-gray-900 text-white hover:bg-black transition-all">Làm bài</button>
               )}
               {topic.status === 'in_progress' && (
                 <div className="flex gap-2">
-                  <button onClick={() => handleGrammarTopicNavigation(mode, topic.id, '&resume=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-blue-500 text-white hover:bg-blue-600 transition-all">Tiếp tục làm</button>
+                  <button onClick={() => handleGrammarTopicNavigation(mode, topic.id, '&resume=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-amber-500 text-white hover:bg-amber-600 transition-all">Tiếp tục làm</button>
                   <button onClick={() => handleGrammarTopicNavigation(mode, topic.id, '&restart=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all">Làm lại</button>
                 </div>
               )}
@@ -427,14 +437,15 @@ export default function HomePage() {
               <h3 className="font-bold text-gray-800 text-sm line-clamp-1">{part.label}</h3>
               <p className="text-[11px] text-gray-400 mt-0.5">{part.detail}</p>
             </div>
-            <div className="mb-4">{renderStatusLabel(part.status)}</div>
+            {/* TRUYỀN PARAM THỨ 2 LÀ 'lesson' */}
+            <div className="mb-4">{renderStatusLabel(part.status, 'lesson')}</div>
             <div className="mt-auto flex flex-col gap-2">
               {part.status === 'not_started' && (
                 <button onClick={() => handleExerciseNavigation(part.key)} className="w-full py-2.5 rounded-xl font-bold text-xs bg-gray-900 text-white hover:bg-black transition-all">Làm bài</button>
               )}
               {part.status === 'in_progress' && (
                 <div className="flex gap-2">
-                  <button onClick={() => handleExerciseNavigation(part.key, '&resume=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-blue-500 text-white hover:bg-blue-600 transition-all">Tiếp tục làm</button>
+                  <button onClick={() => handleExerciseNavigation(part.key, '&resume=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-amber-500 text-white hover:bg-amber-600 transition-all">Tiếp tục làm</button>
                   <button onClick={() => handleExerciseNavigation(part.key, '&restart=true')} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all">Làm lại</button>
                 </div>
               )}
@@ -472,8 +483,11 @@ export default function HomePage() {
               </div>
               <p className="text-[10px] text-gray-400 mt-1 font-bold">IIG STANDARD FORMAT</p>
             </div>
-            <div className="mb-4">{renderStatusLabel(test.status)}</div>
-            <div className="mt-auto">
+            
+            {/* GỌI RIÊNG CHO PHẦN THI (THUỘC TÍNH 'exam') */}
+            <div className="mb-4">{renderStatusLabel(test.status, 'exam')}</div>
+            
+            <div className="mt-auto flex flex-col gap-2">
               <button 
                 onClick={() => setSelectedTest({ bookKey, testId: test.id })} 
                 className="w-full py-2.5 rounded-xl font-bold text-xs bg-gray-900 text-white hover:bg-green-500 transition-all shadow-md active:scale-95"
