@@ -124,7 +124,6 @@ function ExamContent() {
         questions: []
       };
     }
-    // Cập nhật đoạn văn nếu nó nằm ở câu thứ 2, thứ 3 của nhóm
     if (!currentGroup.passageContent && q.passage_content) currentGroup.passageContent = q.passage_content;
     if (!currentGroup.imageUrl && q.image_url) currentGroup.imageUrl = q.image_url;
     
@@ -196,31 +195,35 @@ function ExamContent() {
               <h2 className="text-2xl font-black text-slate-800">Part {activePart}</h2>
             </div>
 
-            {/* RENDER CÁC NHÓM CÂU HỎI (SPLIT PANE) */}
+            {/* RENDER CÁC NHÓM CÂU HỎI (SPLIT PANE CẢI TIẾN) */}
             {groupedQuestions.map((group) => {
-              const hasContext = group.passageContent || group.imageUrl;
+              // CHỈ CHO PHÉP HIỂN THỊ ĐOẠN VĂN Ở PART 6 VÀ PART 7
+              const showPassage = group.passageContent && (activePart === 6 || activePart === 7);
+              // HÌNH ẢNH THÌ ĐƯỢC HIỂN THỊ Ở TẤT CẢ CÁC PART NẾU CÓ (Part 1 ảnh, Part 3,4 ảnh sơ đồ...)
+              const showImage = !!group.imageUrl;
+              
+              const hasContext = showPassage || showImage;
 
               return (
                 <div key={group.groupId} className={`bg-white rounded-2xl shadow-sm border border-gray-200 mb-8 overflow-hidden flex flex-col ${hasContext ? 'lg:flex-row' : ''}`}>
                   
-                  {/* NỬA TRÁI: ĐOẠN VĂN VÀ HÌNH ẢNH */}
+                  {/* NỬA TRÁI: CHỈ HIỂN THỊ HÌNH ẢNH HOẶC ĐOẠN VĂN ĐỌC HIỂU (ẨN TRANSCRIPT PART 3/4) */}
                   {hasContext && (
                     <div className="w-full lg:w-1/2 p-6 lg:p-8 bg-slate-50 border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col justify-center">
-                      {group.imageUrl && (
+                      {showImage && (
                         <img src={group.imageUrl} alt="TOEIC Resource" className="max-w-full rounded-xl shadow-sm border border-gray-200 mx-auto" />
                       )}
-                      {group.passageContent && (
-                        <div className={`prose max-w-none text-slate-800 text-sm lg:text-base leading-loose whitespace-pre-wrap ${group.imageUrl ? 'mt-6' : ''}`}>
+                      {showPassage && (
+                        <div className={`prose max-w-none text-slate-800 text-sm lg:text-base leading-loose whitespace-pre-wrap ${showImage ? 'mt-6' : ''}`}>
                           {group.passageContent}
                         </div>
                       )}
                     </div>
                   )}
 
-                  {/* NỬA PHẢI: CÂU HỎI */}
+                  {/* NỬA PHẢI: CÂU HỎI VÀ NÚT ĐÁP ÁN */}
                   <div className={`w-full p-6 lg:p-8 ${hasContext ? 'lg:w-1/2' : ''}`}>
                     {group.questions.map((q, idx) => {
-                      // Logic xác định format hiển thị dựa trên Part
                       const isListeningNoText = activePart === 1 || activePart === 2;
                       const optionKeys = activePart === 2 ? ['A', 'B', 'C'] : ['A', 'B', 'C', 'D'];
 
@@ -236,14 +239,12 @@ function ExamContent() {
                             </p>
                           </div>
 
-                          {/* BỐ CỤC ĐÁP ÁN: Ngang cho Part 1/2, Dọc cho Part 3-7 */}
+                          {/* BỐ CỤC ĐÁP ÁN: Ngang cho Part 1/2, Dọc kèm nội dung cho Part 3-7 */}
                           <div className={`pl-11 ${isListeningNoText ? 'flex flex-wrap gap-4' : 'grid grid-cols-1 gap-3'}`}>
                             {optionKeys.map(opt => {
                               const optionText = q[`option${opt}`] || q[`option_${opt.toLowerCase()}`];
                               
-                              // Nếu không phải Part 1/2 và không có nội dung thì ẩn
                               if (!isListeningNoText && !optionText) return null; 
-                              
                               const isSelected = answers[q.id] === opt;
                               
                               // Giao diện bong bóng khoanh trắc nghiệm cho Part 1 & 2
@@ -263,7 +264,7 @@ function ExamContent() {
                                 );
                               }
 
-                              // Giao diện hộp chọn có chữ cho Part 3 đến Part 7
+                              // Giao diện hộp chọn có nội dung chữ cho Part 3 đến Part 7
                               return (
                                 <button 
                                   key={opt}
