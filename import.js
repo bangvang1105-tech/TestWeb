@@ -1,6 +1,8 @@
 const { initializeApp, cert } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
 const xlsx = require("xlsx");
+const fs = require("fs");
+const readline = require("readline");
 
 // Đảm bảo file chìa khóa serviceAccountKey.json đang nằm cùng thư mục
 const serviceAccount = require("./serviceAccountKey.json");
@@ -9,51 +11,98 @@ initializeApp({
   credential: cert(serviceAccount)
 });
 
-const db = getFirestore(); 
+const db = getFirestore();
 
-async function uploadData() {
+// Khởi tạo công cụ đọc nhập từ bàn phím
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
+
+async function uploadData(fileName) {
   try {
-    console.log("1. Đang đọc dữ liệu từ file Excel...");
+    console.log(`\n▶ Đang đọc dữ liệu từ file: [${fileName}]...`);
     
-    // Tên file Excel của bạn (hãy đảm bảo tên file đúng như tên đang lưu trên máy)
-    const workbook = xlsx.readFile("ETS2023_Test1_Final_Architecture.xlsx");
+    // Đọc file Excel được chọn
+    const workbook = xlsx.readFile(fileName);
     
-    // --- BƯỚC 1: XỬ LÝ SHEET TEST_INFO (CHỨA AUDIO) ---
+    // --- BƯỚC 1: XỬ LÝ SHEET TEST_INFO ---
     const infoSheet = xlsx.utils.sheet_to_json(workbook.Sheets["Test_Info"])[0];
-    
-    // LẤY MÃ ĐỀ & DỌN DẸP DẤU CÁCH THỪA (Vô cùng quan trọng)
     const testId = infoSheet.test_id.toString().trim(); 
-    
-    // Đảm bảo collection là 'toeic_tests' và Document ID là testId đã dọn dẹp
     const testRef = db.collection("toeic_tests").doc(testId);
     
-    console.log(`2. Đang tạo cơ sở dữ liệu gốc (chứa Audio) cho mã đề: [${testId}]...`);
-    // Ghi dữ liệu info (gồm full_audio_url) vào thư mục gốc
+    console.log(`▶ Đang tạo cơ sở dữ liệu gốc cho mã đề: [${testId}]...`);
     await testRef.set(infoSheet);
 
-    // --- BƯỚC 2: XỬ LÝ SHEET TEST_DATA (CHỨA CÂU HỎI VÀ ĐOẠN VĂN) ---
-    const dataSheet = xlsx.utils.sheet_to_json(workbook.Sheets["Test_Data"]);
+    // --- BƯỚC 2: XỬ LÝ SHEET TEST_DATA ---
+    const rawData = xlsx.utils.sheet_to_json(workbook.Sheets["Test_Data"], { defval: "" });
     
-    console.log(`3. Đang đẩy ${dataSheet.length} câu hỏi và đoạn văn lên Firebase...`);
+    // Thuật toán gọt rửa rác Excel
+    const dataSheet = rawData.map(row => {
+      const cleanRow = {};
+      for (let key in row) {
+        const cleanKey = key.trim(); 
+        let value = row[key];
+        if (typeof value === 'string') {
+            value = value.trim(); 
+        }
+        cleanRow[cleanKey] = value;
+      }
+      return cleanRow;
+    });
+
+    console.log(`▶ Đang đẩy ${dataSheet.length} câu hỏi lên Firebase...`);
     const batch = db.batch();
     
     dataSheet.forEach((row) => {
-      // Dọn dẹp ID câu hỏi cho chắc ăn
+      if (!row.id) return; 
       const questionId = row.id.toString().trim();
       const questionRef = testRef.collection("questions").doc(questionId);
-      
-      // Ghi dữ liệu từng câu hỏi (chứa group_id, passage_content...)
       batch.set(questionRef, row);
     });
 
-    // Thực thi đẩy toàn bộ
     await batch.commit();
-    console.log("🎉 XONG! Dữ liệu Audio, Đoạn văn và Câu hỏi đã vào dự án Firebase thành công!");
-    console.log("👉 Bây giờ bạn hãy quay lại trang Web và F5 (Tải lại trang) để kiểm tra nhé.");
+    console.log("\n🎉 XONG! Dữ liệu đã vào dự án Firebase thành công!");
+    console.log(`👉 Bật web lên và F5 để kiểm tra mã đề [${testId}] ngay thôi!\n`);
+    
+    // Kết thúc chương trình
+    process.exit(0);
     
   } catch (error) {
-    console.error("❌ Có lỗi xảy ra:", error);
+    console.error("\n❌ Có lỗi xảy ra trong quá trình đẩy dữ liệu:", error);
+    process.exit(1);
   }
 }
 
-uploadData();
+// --- LOGIC TỰ ĐỘNG QUÉT VÀ CHỌN FILE ---
+function start() {
+  // Quét tất cả các file có đuôi .xlsx trong thư mục, loại bỏ các file tạm đang mở (~$)
+  const files = fs.readdirSync(__dirname).filter(file => file.endsWith('.xlsx') && !file.startsWith('~$'));
+
+  if (files.length === 0) {
+    console.log("❌ Không tìm thấy file Excel (.xlsx) nào trong thư mục này!");
+    process.exit(1);
+  }
+
+  console.log("\n📁 TÌM THẤY CÁC FILE EXCEL SAU ĐÂY:");
+  files.forEach((file, index) => {
+    console.log(`  [${index + 1}]  ${file}`);
+  });
+
+  // Yêu cầu người dùng nhập số
+  rl.question("\n👉 Vui lòng nhập SỐ THỨ TỰ của file bạn muốn đẩy lên (VD: 1, 2) và ấn Enter: ", (answer) => {
+    const choice = parseInt(answer.trim());
+    
+    // Kiểm tra xem người dùng nhập có đúng số không
+    if (isNaN(choice) || choice < 1 || choice > files.length) {
+      console.log("❌ Lựa chọn không hợp lệ. Vui lòng chạy lại lệnh!");
+      process.exit(1);
+    }
+
+    const selectedFile = files[choice - 1];
+    uploadData(selectedFile);
+  });
+}
+
+// Bắt đầu chạy
+start();

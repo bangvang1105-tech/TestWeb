@@ -239,8 +239,23 @@ function ExamContent() {
                   
                   {hasContext && (
                     <div className="w-full lg:w-1/2 p-6 lg:p-8 bg-slate-50 border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col justify-start">
+                      
+                      {/* XỬ LÝ NHIỀU HÌNH ẢNH CÙNG LÚC */}
                       {showImage && (
-                        <img src={group.imageUrl} alt="Resource" className="max-w-full rounded-xl shadow-sm border border-gray-200 mx-auto" />
+                        <div className="flex flex-col gap-6">
+                          {group.imageUrl.split(/[|\n,]+/).map((imgUrl, idx) => {
+                            const cleanUrl = imgUrl.trim();
+                            if (!cleanUrl) return null;
+                            return (
+                              <img 
+                                key={idx} 
+                                src={cleanUrl} 
+                                alt={`TOEIC Resource ${idx + 1}`} 
+                                className="max-w-full rounded-xl shadow-sm border border-gray-200 mx-auto" 
+                              />
+                            );
+                          })}
+                        </div>
                       )}
                       
                       {showPassage && (
@@ -288,21 +303,17 @@ function ExamContent() {
                               const isSelected = userAns === opt;
                               const isTrueOption = correctAns === opt;
 
-                              // UI SAU KHI NỘP BÀI ĐÃ ĐƯỢC CHỈNH SỬA
                               let btnClass = 'border-slate-100 hover:border-blue-300 hover:bg-slate-50 text-slate-600';
                               let badgeClass = 'bg-slate-200 text-slate-500';
                               
                               if (isSubmitted) {
                                 if (isTrueOption) {
-                                  // Nổi bật đáp án đúng
                                   btnClass = 'border-emerald-500 bg-emerald-50 text-emerald-900 font-bold shadow-md';
                                   badgeClass = 'bg-emerald-500 text-white';
                                 } else if (isSelected && !isTrueOption) {
-                                  // Rõ nét đáp án sai, có gạch ngang
                                   btnClass = 'border-rose-400 bg-rose-50 text-rose-800 line-through font-semibold shadow-sm';
                                   badgeClass = 'bg-rose-500 text-white';
                                 } else {
-                                  // Trắng trẻo, rõ nét cho đáp án không được chọn
                                   btnClass = 'border-slate-200 bg-white text-slate-600 font-medium';
                                 }
                               } else {
@@ -331,7 +342,6 @@ function ExamContent() {
                             })}
                           </div>
 
-                          {/* KHUNG GIẢI THÍCH (Sáng và rõ nét tương tự đáp án đúng) */}
                           {isSubmitted && q.explanation && (
                             <div className="pl-11 mt-4">
                               <div className="p-5 rounded-xl border-2 border-emerald-200 bg-emerald-50 shadow-sm">
