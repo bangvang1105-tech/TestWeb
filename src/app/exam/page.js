@@ -24,7 +24,7 @@ function ExamContent() {
   const testId = searchParams.get('test');
   const mode = searchParams.get('mode') || 'practice'; 
   
-  const [testInfo, setTestInfo] = useState(null); // Lưu Audio URL và cấu hình đề
+  const [testInfo, setTestInfo] = useState(null); 
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -33,28 +33,25 @@ function ExamContent() {
   const [flagged, setFlagged] = useState({});
   const [timeLeft, setTimeLeft] = useState(7200); 
 
-  // 1. TẢI DỮ LIỆU TỪ FIREBASE (Gồm cả Info và Questions)
   useEffect(() => {
     if (!book || !testId) return;
 
     async function loadTestData() {
       try {
         const formattedTestId = testId.padStart(2, '0');
-        const docId = `${book.toUpperCase()}_${formattedTestId}`; // VD: ETS2023_01
+        const docId = `${book.toUpperCase()}_${formattedTestId}`; 
         
-        // Tải Test Info (Chứa link Audio)
         const testRef = doc(db, 'toeic_tests', docId);
         const testSnap = await getDoc(testRef);
         if (testSnap.exists()) {
           setTestInfo(testSnap.data());
         }
 
-        // Tải Questions (Chứa câu hỏi, đoạn văn, đáp án)
         const qRef = collection(db, `toeic_tests/${docId}/questions`);
         const querySnapshot = await getDocs(query(qRef));
         
         const data = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        data.sort((a, b) => parseInt(a.id) - parseInt(b.id)); // Sắp xếp 1 -> 200
+        data.sort((a, b) => parseInt(a.id) - parseInt(b.id)); 
         setQuestions(data);
       } catch (err) {
         console.error("Lỗi khi load đề:", err);
@@ -65,7 +62,6 @@ function ExamContent() {
     loadTestData();
   }, [book, testId]);
 
-  // Logic đếm ngược
   useEffect(() => {
     if (loading || timeLeft <= 0) return;
     const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
@@ -107,7 +103,7 @@ function ExamContent() {
     );
   }
 
-  // 2. THUẬT TOÁN GOM NHÓM CÂU HỎI & ĐOẠN VĂN
+  // THUẬT TOÁN GOM NHÓM
   const currentQuestions = questions.filter(q => getPartByQuestionId(q.id) === activePart);
   const groupedQuestions = [];
   let currentGroup = null;
@@ -145,7 +141,6 @@ function ExamContent() {
           </div>
         </div>
         
-        {/* TABS ĐIỀU HƯỚNG */}
         <div className="hidden md:flex bg-slate-100 p-1 rounded-xl">
           {[1,2,3,4,5,6,7].map(part => (
             <button 
@@ -170,11 +165,9 @@ function ExamContent() {
       {/* WORKSPACE */}
       <div className="flex-1 flex overflow-hidden">
         
-        {/* CỘT CHÍNH CHỨA ĐỀ */}
         <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar p-4 lg:p-8">
           <div className="max-w-6xl mx-auto w-full">
             
-            {/* TRÌNH PHÁT AUDIO (Chỉ hiện ở Part 1 -> 4) */}
             {activePart <= 4 && testInfo?.full_audio_url && (
               <div className="bg-white p-4 lg:p-6 rounded-2xl shadow-sm border border-blue-100 mb-6 sticky top-0 z-20">
                 <h3 className="font-bold text-blue-800 mb-3 flex items-center gap-2">
@@ -195,33 +188,33 @@ function ExamContent() {
               <h2 className="text-2xl font-black text-slate-800">Part {activePart}</h2>
             </div>
 
-            {/* RENDER CÁC NHÓM CÂU HỎI (SPLIT PANE CẢI TIẾN) */}
+            {/* RENDER CÁC NHÓM CÂU HỎI */}
             {groupedQuestions.map((group) => {
-              // CHỈ CHO PHÉP HIỂN THỊ ĐOẠN VĂN Ở PART 6 VÀ PART 7
               const showPassage = group.passageContent && (activePart === 6 || activePart === 7);
-              // HÌNH ẢNH THÌ ĐƯỢC HIỂN THỊ Ở TẤT CẢ CÁC PART NẾU CÓ (Part 1 ảnh, Part 3,4 ảnh sơ đồ...)
               const showImage = !!group.imageUrl;
-              
               const hasContext = showPassage || showImage;
 
               return (
                 <div key={group.groupId} className={`bg-white rounded-2xl shadow-sm border border-gray-200 mb-8 overflow-hidden flex flex-col ${hasContext ? 'lg:flex-row' : ''}`}>
                   
-                  {/* NỬA TRÁI: CHỈ HIỂN THỊ HÌNH ẢNH HOẶC ĐOẠN VĂN ĐỌC HIỂU (ẨN TRANSCRIPT PART 3/4) */}
+                  {/* NỬA TRÁI: ĐÃ CHỈNH LẠI CĂN LÊN TRÊN CÙNG BẰNG CÁCH BỎ 'justify-center' VÀ THÊM 'justify-start' */}
                   {hasContext && (
-                    <div className="w-full lg:w-1/2 p-6 lg:p-8 bg-slate-50 border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col justify-center">
+                    <div className="w-full lg:w-1/2 p-6 lg:p-8 bg-slate-50 border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col justify-start">
                       {showImage && (
                         <img src={group.imageUrl} alt="TOEIC Resource" className="max-w-full rounded-xl shadow-sm border border-gray-200 mx-auto" />
                       )}
+                      
+                      {/* ĐÃ FIX HIỂN THỊ THẺ <br> ĐÚNG CHUẨN HTML */}
                       {showPassage && (
-                        <div className={`prose max-w-none text-slate-800 text-sm lg:text-base leading-loose whitespace-pre-wrap ${showImage ? 'mt-6' : ''}`}>
-                          {group.passageContent}
-                        </div>
+                        <div 
+                          className={`prose max-w-none text-slate-800 text-sm lg:text-base leading-loose whitespace-pre-wrap ${showImage ? 'mt-6' : ''}`}
+                          dangerouslySetInnerHTML={{ __html: group.passageContent }}
+                        />
                       )}
                     </div>
                   )}
 
-                  {/* NỬA PHẢI: CÂU HỎI VÀ NÚT ĐÁP ÁN */}
+                  {/* NỬA PHẢI: CÂU HỎI */}
                   <div className={`w-full p-6 lg:p-8 ${hasContext ? 'lg:w-1/2' : ''}`}>
                     {group.questions.map((q, idx) => {
                       const isListeningNoText = activePart === 1 || activePart === 2;
@@ -239,7 +232,6 @@ function ExamContent() {
                             </p>
                           </div>
 
-                          {/* BỐ CỤC ĐÁP ÁN: Ngang cho Part 1/2, Dọc kèm nội dung cho Part 3-7 */}
                           <div className={`pl-11 ${isListeningNoText ? 'flex flex-wrap gap-4' : 'grid grid-cols-1 gap-3'}`}>
                             {optionKeys.map(opt => {
                               const optionText = q[`option${opt}`] || q[`option_${opt.toLowerCase()}`];
@@ -247,7 +239,6 @@ function ExamContent() {
                               if (!isListeningNoText && !optionText) return null; 
                               const isSelected = answers[q.id] === opt;
                               
-                              // Giao diện bong bóng khoanh trắc nghiệm cho Part 1 & 2
                               if (isListeningNoText) {
                                 return (
                                   <button
@@ -264,7 +255,6 @@ function ExamContent() {
                                 );
                               }
 
-                              // Giao diện hộp chọn có nội dung chữ cho Part 3 đến Part 7
                               return (
                                 <button 
                                   key={opt}
@@ -278,7 +268,11 @@ function ExamContent() {
                                   <span className={`w-6 h-6 shrink-0 flex items-center justify-center rounded-full text-xs font-black transition-colors ${isSelected ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
                                     {opt}
                                   </span>
-                                  <span className={`leading-relaxed text-sm lg:text-base ${isSelected ? 'font-bold' : 'font-medium'}`}>{optionText}</span>
+                                  {/* HỖ TRỢ XUỐNG DÒNG VÀ ĐỊNH DẠNG TRONG TỪNG ĐÁP ÁN NẾU CÓ */}
+                                  <span 
+                                    className={`leading-relaxed text-sm lg:text-base ${isSelected ? 'font-bold' : 'font-medium'}`}
+                                    dangerouslySetInnerHTML={{ __html: optionText }}
+                                  />
                                 </button>
                               );
                             })}
@@ -306,7 +300,6 @@ function ExamContent() {
           </div>
           
           <div className="flex-1 overflow-y-auto p-5 custom-scrollbar">
-            {/* Listening */}
             <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-3 flex items-center gap-2"><span className="w-full h-px bg-blue-100"></span> LISTENING <span className="w-full h-px bg-blue-100"></span></h4>
             <div className="grid grid-cols-5 gap-2 mb-8">
               {[...Array(100)].map((_, i) => {
@@ -326,7 +319,6 @@ function ExamContent() {
               })}
             </div>
 
-            {/* Reading */}
             <h4 className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-3 flex items-center gap-2"><span className="w-full h-px bg-rose-100"></span> READING <span className="w-full h-px bg-rose-100"></span></h4>
             <div className="grid grid-cols-5 gap-2 pb-10">
               {[...Array(100)].map((_, i) => {
