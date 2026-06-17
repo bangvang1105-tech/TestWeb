@@ -32,7 +32,6 @@ function ExamContent() {
   const [flagged, setFlagged] = useState({});
   const [timeLeft, setTimeLeft] = useState(7200); 
 
-  // --- CÁC STATE MỚI CHO TÍNH NĂNG NỘP BÀI ---
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [scoreResult, setScoreResult] = useState(null);
@@ -65,13 +64,11 @@ function ExamContent() {
   }, [book, testId]);
 
   useEffect(() => {
-    // Dừng đồng hồ nếu đang loading, hết giờ HOẶC ĐÃ NỘP BÀI
     if (loading || timeLeft <= 0 || isSubmitted) return;
     const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
     return () => clearInterval(timer);
   }, [loading, timeLeft, isSubmitted]);
 
-  // Hết giờ tự động nộp bài
   useEffect(() => {
     if (timeLeft === 0 && !isSubmitted) {
       calculateAndSubmit();
@@ -85,7 +82,6 @@ function ExamContent() {
   };
 
   const handleSelectOption = (questionId, option) => {
-    // Chỉ cho phép chọn nếu chưa nộp bài
     if (!isSubmitted) {
       setAnswers(prev => ({ ...prev, [questionId]: option }));
     }
@@ -107,14 +103,12 @@ function ExamContent() {
     }
   };
 
-  // --- HÀM TÍNH ĐIỂM VÀ XỬ LÝ NỘP BÀI ---
   const calculateAndSubmit = () => {
     let listeningCorrect = 0;
     let readingCorrect = 0;
     let partsAccuracy = { 1: { c: 0, t: 6 }, 2: { c: 0, t: 25 }, 3: { c: 0, t: 39 }, 4: { c: 0, t: 30 }, 5: { c: 0, t: 30 }, 6: { c: 0, t: 16 }, 7: { c: 0, t: 54 } };
 
     questions.forEach(q => {
-      // Lấy đáp án đúng từ Excel (hỗ trợ nhiều tên cột)
       const correctAns = (q.correct_answer || q.correctOption || '').trim().toUpperCase();
       const userAns = answers[q.id];
       const part = getPartByQuestionId(q.id);
@@ -134,8 +128,6 @@ function ExamContent() {
     });
     setIsSubmitted(true);
     setShowSubmitModal(false);
-    
-    // (Sau này bạn có thể gọi API lưu lên Firebase ở đây)
   };
 
   if (loading) {
@@ -233,20 +225,17 @@ function ExamContent() {
 
             <div className="mb-6 flex justify-between items-end">
               <h2 className="text-2xl font-black text-slate-800">Part {activePart}</h2>
-              {isSubmitted && <span className="text-sm font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg">Bạn đang ở chế độ xem giải thích</span>}
+              {isSubmitted && <span className="text-sm font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-100 shadow-sm">Đang xem giải thích</span>}
             </div>
 
-            {/* RENDER NHÓM CÂU HỎI */}
             {groupedQuestions.map((group) => {
-              // LOGIC THÔNG MINH CHO TRANSCRIPT:
-              // Bình thường Part 3 & 4 ẩn Text. Nhưng nếu ĐÃ NỘP BÀI (isSubmitted), sẽ HIỆN TEXT (Transcript)
               const isListeningWithText = (activePart === 3 || activePart === 4);
               const showPassage = group.passageContent && (activePart >= 5 || (isListeningWithText && isSubmitted));
               const showImage = !!group.imageUrl;
               const hasContext = showPassage || showImage;
 
               return (
-                <div key={group.groupId} className={`bg-white rounded-2xl shadow-sm border ${isSubmitted ? 'border-blue-100' : 'border-gray-200'} mb-8 overflow-hidden flex flex-col ${hasContext ? 'lg:flex-row' : ''}`}>
+                <div key={group.groupId} className={`bg-white rounded-2xl shadow-sm border ${isSubmitted ? 'border-emerald-100' : 'border-gray-200'} mb-8 overflow-hidden flex flex-col ${hasContext ? 'lg:flex-row' : ''}`}>
                   
                   {hasContext && (
                     <div className="w-full lg:w-1/2 p-6 lg:p-8 bg-slate-50 border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col justify-start">
@@ -268,7 +257,6 @@ function ExamContent() {
 
                   <div className={`w-full p-6 lg:p-8 ${hasContext ? 'lg:w-1/2' : ''}`}>
                     {group.questions.map((q, idx) => {
-                      // Ẩn câu hỏi Part 1,2 TRỪ KHI đã nộp bài
                       const isListeningNoText = (activePart === 1 || activePart === 2) && !isSubmitted;
                       const optionKeys = activePart === 2 ? ['A', 'B', 'C'] : ['A', 'B', 'C', 'D'];
                       
@@ -300,19 +288,22 @@ function ExamContent() {
                               const isSelected = userAns === opt;
                               const isTrueOption = correctAns === opt;
 
-                              // MÀU SẮC KHI ĐÃ NỘP BÀI
+                              // UI SAU KHI NỘP BÀI ĐÃ ĐƯỢC CHỈNH SỬA
                               let btnClass = 'border-slate-100 hover:border-blue-300 hover:bg-slate-50 text-slate-600';
                               let badgeClass = 'bg-slate-200 text-slate-500';
                               
                               if (isSubmitted) {
                                 if (isTrueOption) {
-                                  btnClass = 'border-emerald-500 bg-emerald-50 text-emerald-900 font-bold shadow-sm';
+                                  // Nổi bật đáp án đúng
+                                  btnClass = 'border-emerald-500 bg-emerald-50 text-emerald-900 font-bold shadow-md';
                                   badgeClass = 'bg-emerald-500 text-white';
                                 } else if (isSelected && !isTrueOption) {
-                                  btnClass = 'border-rose-300 bg-rose-50 text-rose-800 line-through opacity-70';
-                                  badgeClass = 'bg-rose-400 text-white';
+                                  // Rõ nét đáp án sai, có gạch ngang
+                                  btnClass = 'border-rose-400 bg-rose-50 text-rose-800 line-through font-semibold shadow-sm';
+                                  badgeClass = 'bg-rose-500 text-white';
                                 } else {
-                                  btnClass = 'border-slate-100 opacity-50';
+                                  // Trắng trẻo, rõ nét cho đáp án không được chọn
+                                  btnClass = 'border-slate-200 bg-white text-slate-600 font-medium';
                                 }
                               } else {
                                 if (isSelected) {
@@ -340,12 +331,14 @@ function ExamContent() {
                             })}
                           </div>
 
-                          {/* KHUNG GIẢI THÍCH (Chỉ hiện khi đã nộp bài và có dữ liệu) */}
+                          {/* KHUNG GIẢI THÍCH (Sáng và rõ nét tương tự đáp án đúng) */}
                           {isSubmitted && q.explanation && (
                             <div className="pl-11 mt-4">
-                              <div className={`p-4 rounded-xl border ${isCorrect ? 'bg-emerald-50/50 border-emerald-100' : 'bg-rose-50/50 border-rose-100'}`}>
-                                <div className="text-[10px] font-black uppercase tracking-widest mb-1.5 opacity-60">Giải thích chi tiết</div>
-                                <div className="text-sm leading-relaxed font-medium" dangerouslySetInnerHTML={{ __html: q.explanation }} />
+                              <div className="p-5 rounded-xl border-2 border-emerald-200 bg-emerald-50 shadow-sm">
+                                <div className="text-[11px] font-black text-emerald-700 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                  <span className="text-base">💡</span> GIẢI THÍCH CHI TIẾT
+                                </div>
+                                <div className="text-sm leading-relaxed text-slate-800 font-semibold" dangerouslySetInnerHTML={{ __html: q.explanation }} />
                               </div>
                             </div>
                           )}
@@ -386,7 +379,6 @@ function ExamContent() {
                 const id = i + 1;
                 const userAns = answers[id];
                 
-                // Logic màu Bubble Sheet
                 let bubbleClass = 'border-slate-200 text-slate-500 hover:border-blue-400 hover:bg-blue-50';
                 if (isSubmitted) {
                   const q = questions.find(q => parseInt(q.id) === id);
