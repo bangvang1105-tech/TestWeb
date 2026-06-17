@@ -181,7 +181,6 @@ function ExamContent() {
                 <h3 className="font-bold text-blue-800 mb-3 flex items-center gap-2">
                   <span className="text-xl">🎧</span> File Nghe Audio Toàn Bài
                 </h3>
-                {/* Đã thêm Key và Replace để fix triệt để lỗi link bị ẩn dấu cách/xuống dòng */}
                 <audio 
                   key={testInfo.full_audio_url} 
                   controls 
@@ -206,12 +205,12 @@ function ExamContent() {
                   
                   {/* NỬA TRÁI: ĐOẠN VĂN VÀ HÌNH ẢNH */}
                   {hasContext && (
-                    <div className="w-full lg:w-1/2 p-6 lg:p-8 bg-slate-50 border-b lg:border-b-0 lg:border-r border-gray-200">
+                    <div className="w-full lg:w-1/2 p-6 lg:p-8 bg-slate-50 border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col justify-center">
                       {group.imageUrl && (
-                        <img src={group.imageUrl} alt="TOEIC Resource" className="max-w-full rounded-xl mb-6 shadow-sm border border-gray-200 mx-auto" />
+                        <img src={group.imageUrl} alt="TOEIC Resource" className="max-w-full rounded-xl shadow-sm border border-gray-200 mx-auto" />
                       )}
                       {group.passageContent && (
-                        <div className="prose max-w-none text-slate-800 text-sm lg:text-base leading-loose whitespace-pre-wrap">
+                        <div className={`prose max-w-none text-slate-800 text-sm lg:text-base leading-loose whitespace-pre-wrap ${group.imageUrl ? 'mt-6' : ''}`}>
                           {group.passageContent}
                         </div>
                       )}
@@ -220,46 +219,72 @@ function ExamContent() {
 
                   {/* NỬA PHẢI: CÂU HỎI */}
                   <div className={`w-full p-6 lg:p-8 ${hasContext ? 'lg:w-1/2' : ''}`}>
-                    {group.questions.map((q, idx) => (
-                      <div key={q.id} id={`question-${q.id}`} className={`relative group ${idx !== 0 ? 'mt-8 pt-8 border-t border-dashed border-gray-200' : ''}`}>
-                        
-                        <button onClick={() => toggleFlag(q.id)} title="Cắm cờ xem lại" className={`absolute top-0 right-0 p-2 rounded-full transition-all ${flagged[q.id] ? 'text-amber-500 bg-amber-50' : 'text-gray-300 hover:bg-gray-50'}`}>🚩</button>
+                    {group.questions.map((q, idx) => {
+                      // Logic xác định format hiển thị dựa trên Part
+                      const isListeningNoText = activePart === 1 || activePart === 2;
+                      const optionKeys = activePart === 2 ? ['A', 'B', 'C'] : ['A', 'B', 'C', 'D'];
 
-                        <div className="flex gap-3 mb-5 pr-10">
-                          <span className="w-8 h-8 shrink-0 bg-slate-800 text-white font-black rounded-full flex items-center justify-center text-sm shadow-md">{q.id}</span>
-                          <p className="font-semibold text-slate-800 text-base lg:text-lg leading-relaxed mt-0.5">
-                            {q.question || `Question ${q.id}`}
-                          </p>
-                        </div>
+                      return (
+                        <div key={q.id} id={`question-${q.id}`} className={`relative group ${idx !== 0 ? 'mt-8 pt-8 border-t border-dashed border-gray-200' : ''}`}>
+                          
+                          <button onClick={() => toggleFlag(q.id)} title="Cắm cờ xem lại" className={`absolute top-0 right-0 p-2 rounded-full transition-all ${flagged[q.id] ? 'text-amber-500 bg-amber-50' : 'text-gray-300 hover:bg-gray-50'}`}>🚩</button>
 
-                        <div className="pl-11 grid grid-cols-1 gap-3">
-                          {['A', 'B', 'C', 'D'].map(opt => {
-                            // Lấy dữ liệu option (Hỗ trợ cả optionA và option_a từ Excel)
-                            const optionText = q[`option${opt}`] || q[`option_${opt.toLowerCase()}`];
-                            if (!optionText) return null; 
-                            
-                            const isSelected = answers[q.id] === opt;
-                            
-                            return (
-                              <button 
-                                key={opt}
-                                onClick={() => handleSelectOption(q.id, opt)}
-                                className={`flex items-start gap-3 p-3.5 border-2 rounded-xl transition-all duration-200 text-left ${
-                                  isSelected 
-                                  ? 'border-blue-500 bg-blue-50 text-blue-900 shadow-sm' 
-                                  : 'border-slate-100 hover:border-blue-300 hover:bg-slate-50 text-slate-600'
-                                }`}
-                              >
-                                <span className={`w-6 h-6 shrink-0 flex items-center justify-center rounded-full text-xs font-black transition-colors ${isSelected ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
-                                  {opt}
-                                </span>
-                                <span className={`leading-relaxed text-sm lg:text-base ${isSelected ? 'font-bold' : 'font-medium'}`}>{optionText}</span>
-                              </button>
-                            );
-                          })}
+                          <div className="flex gap-3 mb-5 pr-10">
+                            <span className="w-8 h-8 shrink-0 bg-slate-800 text-white font-black rounded-full flex items-center justify-center text-sm shadow-md">{q.id}</span>
+                            <p className={`font-semibold text-base lg:text-lg leading-relaxed mt-0.5 ${isListeningNoText ? 'text-slate-400 italic' : 'text-slate-800'}`}>
+                              {isListeningNoText ? "Mark your answer on your answer sheet." : (q.question || `Question ${q.id}`)}
+                            </p>
+                          </div>
+
+                          {/* BỐ CỤC ĐÁP ÁN: Ngang cho Part 1/2, Dọc cho Part 3-7 */}
+                          <div className={`pl-11 ${isListeningNoText ? 'flex flex-wrap gap-4' : 'grid grid-cols-1 gap-3'}`}>
+                            {optionKeys.map(opt => {
+                              const optionText = q[`option${opt}`] || q[`option_${opt.toLowerCase()}`];
+                              
+                              // Nếu không phải Part 1/2 và không có nội dung thì ẩn
+                              if (!isListeningNoText && !optionText) return null; 
+                              
+                              const isSelected = answers[q.id] === opt;
+                              
+                              // Giao diện bong bóng khoanh trắc nghiệm cho Part 1 & 2
+                              if (isListeningNoText) {
+                                return (
+                                  <button
+                                    key={opt}
+                                    onClick={() => handleSelectOption(q.id, opt)}
+                                    className={`w-12 h-12 shrink-0 flex items-center justify-center border-2 rounded-full font-black text-base transition-all shadow-sm ${
+                                      isSelected 
+                                      ? 'border-blue-500 bg-blue-500 text-white shadow-md scale-105' 
+                                      : 'border-slate-200 bg-white text-slate-500 hover:border-blue-400 hover:bg-blue-50 hover:scale-105'
+                                    }`}
+                                  >
+                                    {opt}
+                                  </button>
+                                );
+                              }
+
+                              // Giao diện hộp chọn có chữ cho Part 3 đến Part 7
+                              return (
+                                <button 
+                                  key={opt}
+                                  onClick={() => handleSelectOption(q.id, opt)}
+                                  className={`flex items-start gap-3 p-3.5 border-2 rounded-xl transition-all duration-200 text-left ${
+                                    isSelected 
+                                    ? 'border-blue-500 bg-blue-50 text-blue-900 shadow-sm' 
+                                    : 'border-slate-100 hover:border-blue-300 hover:bg-slate-50 text-slate-600'
+                                  }`}
+                                >
+                                  <span className={`w-6 h-6 shrink-0 flex items-center justify-center rounded-full text-xs font-black transition-colors ${isSelected ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                                    {opt}
+                                  </span>
+                                  <span className={`leading-relaxed text-sm lg:text-base ${isSelected ? 'font-bold' : 'font-medium'}`}>{optionText}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                 </div>
