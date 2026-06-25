@@ -41,19 +41,39 @@ function ExamContent() {
 
     async function loadTestData() {
       try {
-        const formattedTestId = testId.padStart(2, '0');
-        const docId = `${book.toUpperCase()}_${formattedTestId}`; 
-        
-        const testRef = doc(db, 'toeic_tests', docId);
-        const testSnap = await getDoc(testRef);
-        if (testSnap.exists()) setTestInfo(testSnap.data());
+        setLoading(true);
 
-        const qRef = collection(db, `toeic_tests/${docId}/questions`);
-        const querySnapshot = await getDocs(query(qRef));
-        
-        const data = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        data.sort((a, b) => parseInt(a.id) - parseInt(b.id)); 
-        setQuestions(data);
+        // Chuẩn hóa tên sách cho đúng format
+        let upperBook = book.toUpperCase();
+        if (upperBook === 'HACKER2') upperBook = 'HACKER 2';
+        if (upperBook === 'HACKER3') upperBook = 'HACKER 3';
+
+        // Tạo ID cơ bản với format 2 chữ số (VD: HACKER 3_01, ETS2026_10)
+        const formattedTestId = testId.padStart(2, '0');
+        let docId = `${upperBook}_${formattedTestId}`; 
+
+        let testRef = doc(db, 'toeic_tests', docId);
+        let testSnap = await getDoc(testRef);
+
+        // Fallback: Nếu không tìm thấy, thử tìm với ID không có số 0 ở đầu (VD: HACKER 3_1)
+        if (!testSnap.exists()) {
+           docId = `${upperBook}_${testId}`;
+           testRef = doc(db, 'toeic_tests', docId);
+           testSnap = await getDoc(testRef);
+        }
+
+        if (testSnap.exists()) {
+           setTestInfo(testSnap.data());
+           
+           const qRef = collection(db, `toeic_tests/${docId}/questions`);
+           const querySnapshot = await getDocs(query(qRef));
+           
+           const data = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+           data.sort((a, b) => parseInt(a.id) - parseInt(b.id)); 
+           setQuestions(data);
+        } else {
+           console.error("Không tìm thấy đề thi với ID:", docId);
+        }
       } catch (err) {
         console.error("Lỗi khi load đề:", err);
       } finally {
