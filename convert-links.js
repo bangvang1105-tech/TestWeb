@@ -22,7 +22,7 @@ function convertDriveLink(url) {
 }
 
 // 1. Tên file Excel gốc cần xử lý (Anh thay tên file của anh vào đây nhé)
-const inputFileName = 'ETS2023_Test4_Final_Architecture.xlsx'; 
+const inputFileName = 'ETS2023_Test2_Final_Architecture.xlsx'; 
 const sheetName = 'Test_Info'; // Tên sheet trong file
 
 try {
@@ -38,8 +38,8 @@ try {
 
     // 2. Quét qua từng dòng và chuyển đổi link
     data.forEach(row => {
-        if (row.audio_url && typeof row.audio_url === 'string' && row.audio_url.includes('drive.google.com')) {
-            row.audio_url = convertDriveLink(row.audio_url);
+        if (row.full_audio_url && typeof row.full_audio_url === 'string' && row.full_audio_url.includes('drive.google.com')) {
+            row.full_audio_url = convertDriveLink(row.full_audio_url);
             audioCount++;
         }
         if (row.image_url && typeof row.image_url === 'string' && row.image_url.includes('drive.google.com')) {
@@ -49,7 +49,7 @@ try {
     });
 
     // 3. Ghi lại dữ liệu mới ra một file Excel khác
-    const outputFileName = 'Hacker3_Test6_Part7_DirectLink.xlsx';
+    const outputFileName = 'ETS2023_Test2_Final_Architecture_1.xlsx';
     const newWorksheet = XLSX.utils.json_to_sheet(data);
     workbook.Sheets[sheetName] = newWorksheet;
     
