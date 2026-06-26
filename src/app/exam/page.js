@@ -235,7 +235,8 @@ function ExamContent() {
                 </h3>
                 <audio 
                   key={testInfo.full_audio_url} 
-                  controls 
+                  controls
+                  crossOrigin="anonymous"
                   className="w-full h-12 outline-none rounded-lg"
                 >
                   <source src={testInfo.full_audio_url.replace(/\s+/g, '')} type="audio/mpeg" />
