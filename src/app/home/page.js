@@ -232,6 +232,7 @@ export default function HomePage() {
     router.push(`/history?type=${type}&mode=${mode}&id=${topicId}`);
   };
 
+  // --- CẬP NHẬT: QUẢN LÝ ID RIÊNG BIỆT CHO TRANG LÀM BÀI ---
   const buildDisplayData = (rawData, prefixType) => {
     return rawData.map(item => {
       let targetLessonId;
@@ -239,6 +240,9 @@ export default function HomePage() {
         targetLessonId = `exercise_${item.key}`;
       } else if (prefixType === 'grammar_practice') {
         targetLessonId = `exercise_grammar_practice_${item.id}`; 
+      } else if (prefixType === 'exam') {
+        // Fix quan trọng: Dùng item.key thay vì item.id để tránh trùng lặp giữa các Test 1 của nhiều sách
+        targetLessonId = `exam_${item.key}`; 
       } else {
         targetLessonId = `${prefixType}_${item.id || item.key}`;
       }
@@ -257,15 +261,12 @@ export default function HomePage() {
     });
   };
 
-  // --- HÀM TẠO NHÃN TRẠNG THÁI ĐÃ ĐƯỢC CHỈNH SỬA CHO ĐÚNG NGỮ CẢNH ---
   const renderStatusLabel = (status, type = 'lesson') => {
-    // Nếu là phần Luyện đề (type = 'exam') thì dùng chữ "Thi"
     if (type === 'exam') {
       if (status === 'not_started') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-gray-100 text-gray-500 uppercase tracking-wide">⚪ Chưa thi</span>;
       if (status === 'in_progress') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-blue-50 text-blue-600 uppercase tracking-wide">⏳ Đang thi dở</span>;
       if (status === 'completed') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-green-50 text-green-600 uppercase tracking-wide">✅ Đã thi xong</span>;
     } 
-    // Các phần còn lại (Từ vựng, Ngữ pháp, Bài tập...) thì dùng chữ "Học/Làm"
     else {
       if (status === 'not_started') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-gray-100 text-gray-500 uppercase tracking-wide">⚪ Chưa học</span>;
       if (status === 'in_progress') return <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-black bg-amber-50 text-amber-600 uppercase tracking-wide">⏳ Đang làm dở</span>;
@@ -325,7 +326,6 @@ export default function HomePage() {
               <h3 className="font-bold text-gray-800 text-sm line-clamp-1">{item.title}</h3>
               <p className="text-[11px] text-gray-400 mt-0.5">{item.subtitle}</p>
             </div>
-            {/* TRUYỀN PARAM THỨ 2 LÀ 'lesson' */}
             <div className="mb-4">{renderStatusLabel(item.status, 'lesson')}</div>
             <div className="mt-auto flex flex-col gap-2">
               {item.status === 'not_started' && (
@@ -362,7 +362,6 @@ export default function HomePage() {
               <h3 className="font-bold text-gray-800 text-sm line-clamp-1">Chủ đề {topic.id}: {topic.title}</h3>
               <p className="text-[11px] text-gray-400 mt-0.5">{topic.subtitle}</p>
             </div>
-            {/* TRUYỀN PARAM THỨ 2 LÀ 'lesson' */}
             <div className="mb-4">{renderStatusLabel(topic.status, 'lesson')}</div>
             <div className="mt-auto flex flex-col gap-2">
               {topic.status === 'not_started' && (
@@ -399,7 +398,6 @@ export default function HomePage() {
               <h3 className="font-bold text-gray-800 text-sm line-clamp-1">Bài {topic.id}: {topic.title}</h3>
               <p className="text-[11px] text-gray-400 mt-0.5">{topic.subtitle}</p>
             </div>
-            {/* TRUYỀN PARAM THỨ 2 LÀ 'lesson' */}
             <div className="mb-4">{renderStatusLabel(topic.status, 'lesson')}</div>
             <div className="mt-auto flex flex-col gap-2">
               {topic.status === 'not_started' && (
@@ -437,7 +435,6 @@ export default function HomePage() {
               <h3 className="font-bold text-gray-800 text-sm line-clamp-1">{part.label}</h3>
               <p className="text-[11px] text-gray-400 mt-0.5">{part.detail}</p>
             </div>
-            {/* TRUYỀN PARAM THỨ 2 LÀ 'lesson' */}
             <div className="mb-4">{renderStatusLabel(part.status, 'lesson')}</div>
             <div className="mt-auto flex flex-col gap-2">
               {part.status === 'not_started' && (
@@ -484,7 +481,6 @@ export default function HomePage() {
               <p className="text-[10px] text-gray-400 mt-1 font-bold">IIG STANDARD FORMAT</p>
             </div>
             
-            {/* GỌI RIÊNG CHO PHẦN THI (THUỘC TÍNH 'exam') */}
             <div className="mb-4">{renderStatusLabel(test.status, 'exam')}</div>
             
             <div className="mt-auto flex flex-col gap-2">
