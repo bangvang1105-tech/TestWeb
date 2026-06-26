@@ -30,22 +30,29 @@ try {
     const workbook = XLSX.readFile(inputFileName);
     const worksheet = workbook.Sheets[sheetName];
     
-    // Chuyển dữ liệu sheet thành mảng JSON
+// Chuyển dữ liệu sheet thành mảng JSON
     const data = XLSX.utils.sheet_to_json(worksheet);
 
     let audioCount = 0;
     let imageCount = 0;
 
-    // 2. Quét qua từng dòng và chuyển đổi link
+    // 2. Quét qua từng dòng
     data.forEach(row => {
-        if (row.full_audio_url && typeof row.full_audio_url === 'string' && row.full_audio_url.includes('drive.google.com')) {
-            row.full_audio_url = convertDriveLink(row.full_audio_url);
-            audioCount++;
-        }
-        if (row.image_url && typeof row.image_url === 'string' && row.image_url.includes('drive.google.com')) {
-            row.image_url = convertDriveLink(row.image_url);
-            imageCount++;
-        }
+        // Tự động tìm các cột có chứa "audio" hoặc "image" trong tên cột
+        Object.keys(row).forEach(key => {
+            const val = row[key];
+            if (typeof val === 'string' && val.includes('drive.google.com')) {
+                const lowerKey = key.toLowerCase();
+                
+                if (lowerKey.includes('audio')) {
+                    row[key] = convertDriveLink(val);
+                    audioCount++;
+                } else if (lowerKey.includes('image') || lowerKey.includes('img')) {
+                    row[key] = convertDriveLink(val);
+                    imageCount++;
+                }
+            }
+        });
     });
 
     // 3. Ghi lại dữ liệu mới ra một file Excel khác
