@@ -3,20 +3,12 @@ const XLSX = require('xlsx');
 // Hàm chuyển đổi link Google Drive thành Direct Link
 function convertDriveLink(url) {
     if (typeof url !== 'string' || !url) return url;
-    
-    // Tìm File ID từ link
     const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/) || url.match(/id=([a-zA-Z0-9-_]+)/);
-    
+
     if (match) {
         const fileId = match[1];
-        // Nếu là audio
-        if (url.toLowerCase().includes('audio') || url.toLowerCase().includes('.mp3')) {
-            return `https://docs.google.com/uc?export=download&id=${fileId}`;
-        } 
-        // Nếu là hình ảnh
-        else {
-            return `https://drive.google.com/uc?export=view&id=${fileId}`;
-        }
+        // Thay thế toàn bộ bằng link Script Google Apps của anh
+        return `https://script.google.com/macros/s/AKfycbwRgn0-Trj8VLE4C_IxPdkWbW0po5UJ2GEmukHjov6r-ysKnSscyySgkM3PM0F-mqbU/exec?id=${fileId}`;
     }
     return url;
 }

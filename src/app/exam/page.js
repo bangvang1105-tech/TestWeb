@@ -35,6 +35,9 @@ function ExamContent() {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [scoreResult, setScoreResult] = useState(null);
+  
+  // Biến state mới để điều khiển popup báo cáo
+  const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
     if (!book || !testId) return;
@@ -148,6 +151,7 @@ function ExamContent() {
     });
     setIsSubmitted(true);
     setShowSubmitModal(false);
+    setShowReportModal(true); // Hiển thị popup báo cáo
   };
 
   if (loading) {
@@ -477,7 +481,7 @@ function ExamContent() {
       )}
 
       {/* --- MÀN HÌNH BÁO CÁO KẾT QUẢ TỔNG QUAN --- */}
-      {isSubmitted && scoreResult && (
+      {showReportModal && scoreResult && (
         <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-900/90 backdrop-blur-md p-4 animate-in fade-in duration-500">
           <div className="text-center mb-8">
             <h1 className="text-4xl md:text-6xl font-black text-white tracking-tight uppercase mb-2">Hoàn Thành Bài Thi</h1>
@@ -517,7 +521,8 @@ function ExamContent() {
 
           <div className="mt-8 flex gap-4">
             <button onClick={() => router.push('/home')} className="px-8 py-3 font-bold text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition shadow-lg">← Về trang chủ</button>
-            <button onClick={() => setScoreResult(null)} className="px-8 py-3 font-bold text-slate-900 bg-emerald-400 hover:bg-emerald-300 rounded-xl transition shadow-lg shadow-emerald-500/20">Xem giải thích chi tiết</button>
+            {/* Đóng popup khi bấm xem giải thích */}
+            <button onClick={() => setShowReportModal(false)} className="px-8 py-3 font-bold text-slate-900 bg-emerald-400 hover:bg-emerald-300 rounded-xl transition shadow-lg shadow-emerald-500/20">Xem giải thích chi tiết</button>
           </div>
         </div>
       )}
