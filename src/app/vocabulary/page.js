@@ -85,8 +85,6 @@ function generateMatchCardsForRound(fullPool, roundIndex, itemsPerRound = 10) {
   
   let generatedCards = [];
   roundWords.forEach((item, index) => {
-    // Lưu ý: pairId phải là duy nhất trên phạm vi toàn cục hoặc xử lý cẩn thận.
-    // Ở đây, ta dùng index nội bộ của round nhưng kết hợp với uniqueId để phân biệt.
     const globalId = start + index; 
     generatedCards.push({ uniqueId: `w_${roundIndex}_${index}`, pairId: globalId, content: item.word, type: 'word' });
     generatedCards.push({ uniqueId: `m_${roundIndex}_${index}`, pairId: globalId, content: item.meaning, type: 'meaning' });
@@ -108,21 +106,16 @@ function VocabularyContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // States các chế độ học (Dùng chung tên index để dễ lưu)
-  // Trong chế độ 'match', currentIndex đại diện cho số Vòng (Round 0, 1, 2, 3...)
   const [currentIndex, setCurrentIndex] = useState(0);
-  
   const [isFlipped, setIsFlipped] = useState(false); 
 
   // States chế độ Tìm Cặp (Matching)
   const [matchCards, setMatchCards] = useState([]);
   const [selectedCards, setSelectedCards] = useState([]);
-  const [matchedCards, setMatchedCards] = useState([]); // Chứa ID của các thẻ đã lật đúng trong round HIỆN TẠI
+  const [matchedCards, setMatchedCards] = useState([]); 
   const [wrongCards, setWrongCards] = useState([]); 
   const [correctCards, setCorrectCards] = useState([]); 
   const [isChecking, setIsChecking] = useState(false);
-
-  // Mảng lưu tổng điểm của các vòng match đã hoàn thành
   const [matchRoundCompletion, setMatchRoundCompletion] = useState([]);
 
   const [userAnswer, setUserAnswer] = useState('');
@@ -165,7 +158,6 @@ function VocabularyContent() {
         setLoading(true);
         setError(null);
         
-        // Reset states
         setIsFlipped(false);
         setCurrentIndex(0);
         setUserAnswer('');
@@ -185,12 +177,10 @@ function VocabularyContent() {
         setIsGameOver(false);
         setLaserEffect(false);
 
-        // Reset state match
         setSelectedCards([]);
         setMatchedCards([]);
         setMatchRoundCompletion([]);
 
-        // Lấy dữ liệu từ file csv
         const docSnap = await getDoc(doc(db, 'vocab_lessons', String(topicId)));
         if (!docSnap.exists()) throw new Error('Chưa cấu hình dữ liệu bài học.');
 
@@ -218,7 +208,6 @@ function VocabularyContent() {
         const randomizedPool = shuffleArray([...parsedData]);
         setShuffledPool(randomizedPool);
 
-        // Xử lý học tiếp (Resume)
         let savedIndex = 0;
         let savedScore = 0;
         if (CURRENT_USER_ID && isResume) {
@@ -234,14 +223,10 @@ function VocabularyContent() {
         if (mode === 'typer') setTyperScore(savedScore);
         if (mode === 'invaders') setGameScore(savedScore);
 
-        // Chuẩn bị dữ liệu riêng cho từng mode
         if (mode === 'match') {
-          // Lưu tiến trình vòng đã qua
           let prevCompletions = [];
           for (let i = 0; i < savedIndex; i++) prevCompletions.push(i);
           setMatchRoundCompletion(prevCompletions);
-
-          // Tạo thẻ cho vòng hiện tại
           setMatchCards(generateMatchCardsForRound(randomizedPool, savedIndex));
         }
 
@@ -280,13 +265,12 @@ function VocabularyContent() {
       
       const totalElements = mode === 'match' ? Math.ceil(words.length / 10) : words.length;
 
-      // Chỉ lưu "đang học" nếu chưa tới câu cuối
       if (currentIndex > 0 && currentIndex < totalElements - 1) {
         let currentScore = 0;
         if (mode === 'quiz') currentScore = quizScore;
         if (mode === 'typer') currentScore = typerScore;
         if (mode === 'invaders') currentScore = gameScore;
-        if (mode === 'match') currentScore = matchRoundCompletion.length * 10; // 1 vòng hoàn thành = 10 điểm
+        if (mode === 'match') currentScore = matchRoundCompletion.length * 10; 
 
         try {
           await setDoc(doc(db, 'users', CURRENT_USER_ID, 'progress', `vocab_${mode}_${topicId}`), {
@@ -303,7 +287,6 @@ function VocabularyContent() {
     }
     saveProgress();
   }, [currentIndex, CURRENT_USER_ID, mode, topicId, loading, words.length, quizScore, typerScore, gameScore, matchRoundCompletion]);
-
 
   // TIMER COUNTDOWN (Đua tốc độ phản xạ)
   useEffect(() => {
@@ -385,7 +368,6 @@ function VocabularyContent() {
       return;
     }
     
-    // Tổng số câu hỏi linh hoạt theo chế độ
     const totalElements = mode === 'match' ? Math.ceil(words.length / 10) : words.length;
     const scoreToSave = finalScore !== null ? finalScore : totalElements;
     
@@ -422,13 +404,10 @@ function VocabularyContent() {
     setQuizChecked(false);
   };
 
-  // 🌟 HÀM ĐIỀU HƯỚNG TÌM CẶP
   const goToMatchRound = (roundIdx) => {
-    // Lưu ý: Trong chế độ match, học sinh chỉ nên lật các vòng đã mở khóa. 
-    // Tạm thời cho phép nhảy tùy do giống các Part khác theo yêu cầu của user.
     setCurrentIndex(roundIdx);
     setSelectedCards([]);
-    setMatchedCards([]); // Xóa bài đã lật của vòng cũ
+    setMatchedCards([]); 
     setMatchCards(generateMatchCardsForRound(shuffledPool, roundIdx));
   };
 
@@ -463,7 +442,6 @@ function VocabularyContent() {
     else handleFinishSession(typerScore + 1);
   };
 
-  // 🌟 CẬP NHẬT LOGIC LẬT BÀI TÌM CẶP THEO ROUND
   const handleCardClick = (card) => {
     if (isChecking || matchedCards.includes(card.uniqueId) || selectedCards.some(c => c.uniqueId === card.uniqueId)) return;
     const newSelection = [...selectedCards, card];
@@ -473,14 +451,12 @@ function VocabularyContent() {
       setIsChecking(true);
       const [first, second] = newSelection;
       
-      // Nếu lật 2 thẻ khác loại (1 word, 1 meaning) và cùng chung pairId
       if (first.pairId === second.pairId && first.type !== second.type) {
         setCorrectCards([first.uniqueId, second.uniqueId]);
         setTimeout(() => {
           setMatchedCards(prev => {
             const updated = [...prev, first.uniqueId, second.uniqueId];
             
-            // KIỂM TRA ĐÃ HOÀN THÀNH VÒNG HIỆN TẠI CHƯA
             if (updated.length === matchCards.length) {
               
               if (!matchRoundCompletion.includes(currentIndex)) {
@@ -492,10 +468,8 @@ function VocabularyContent() {
 
               setTimeout(() => {
                 if (nextRoundIndex < totalRounds) {
-                  // Sang vòng tiếp theo tự động
                   goToMatchRound(nextRoundIndex);
                 } else {
-                  // Đã hết tất cả các vòng -> Lưu hoàn thành
                   handleFinishSession(totalRounds);
                 }
               }, 600);
@@ -727,7 +701,6 @@ function VocabularyContent() {
       );
 
     case 'match':
-      // Tính toán tổng số vòng (ví dụ 50 từ chia cho 10 = 5 vòng)
       const totalRounds = Math.ceil(shuffledPool.length / 10);
       
       return (
@@ -739,7 +712,6 @@ function VocabularyContent() {
           
           <div className="flex-1 flex flex-col lg:flex-row p-4 max-w-6xl w-full mx-auto gap-8 items-start justify-center mt-6">
             
-            {/* 🌟 BẢNG MENU ĐIỀU HƯỚNG TÌM CẶP */}
             <div className="w-full lg:w-80 bg-white p-6 rounded-2xl shadow-xl border border-gray-100 h-fit">
               <h3 className="font-bold mb-4 uppercase text-sm text-center text-green-500">Tiến trình</h3>
               <div className="grid grid-cols-2 gap-3">
@@ -793,7 +765,6 @@ function VocabularyContent() {
                 })}
               </div>
 
-              {/* THANH NÚT TRỞ LẠI */}
               <div className="flex gap-4 w-full mt-4">
                 {currentIndex > 0 && (
                   <button 
@@ -810,6 +781,7 @@ function VocabularyContent() {
         </div>
       );
 
+    // 👇 CẬP NHẬT GIAO DIỆN CHẾ ĐỘ TYPER Ở ĐÂY
     case 'typer':
       if (shuffledPool.length === 0) return null;
       const currentTyperWord = shuffledPool[currentIndex];
@@ -853,7 +825,16 @@ function VocabularyContent() {
                 <p className="text-gray-400 font-mono text-xs font-bold mt-1.5 bg-white inline-block px-3 py-0.5 rounded-full border border-gray-100">Độ dài: {currentTyperWord?.word.length} chữ cái | {currentTyperWord?.ipa}</p>
               </div>
               <div className="w-full bg-emerald-50/30 rounded-2xl p-4 border text-left"><p className="text-gray-600 italic text-xs">"{maskedTyperSentence}"</p></div>
-              <input type="text" autoFocus value={typerInput} onChange={handleTyperInputChange} placeholder="Gõ thật nhanh từ tiếng Anh..." className="w-full p-4 border rounded-2xl text-center font-black text-base tracking-wide bg-white focus:outline-none" />
+              
+              {/* Ô input đã được thêm thuộc tính để rõ màu chữ và placeholder hơn */}
+              <input 
+                type="text" 
+                autoFocus 
+                value={typerInput} 
+                onChange={handleTyperInputChange} 
+                placeholder="Gõ thật nhanh từ tiếng Anh..." 
+                className="w-full p-4 border-2 border-gray-200 rounded-2xl text-center font-black text-xl text-gray-900 tracking-wide bg-white focus:outline-none focus:border-green-400 placeholder-gray-400 transition-colors shadow-inner" 
+              />
             </div>
             <button onClick={handleNextTyperWord} className="w-full bg-gray-200 text-gray-500 font-bold text-xs p-3.5 rounded-xl border-none">Bỏ qua ➔</button>
           </div>
