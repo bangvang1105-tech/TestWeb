@@ -2,7 +2,8 @@
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import { db } from '@/firebase'; 
-import { collection, getDocs, doc, getDoc, query } from 'firebase/firestore';
+// CẬP NHẬT: Thêm setDoc để có thể lưu dữ liệu lên Firebase
+import { collection, getDocs, doc, getDoc, query, setDoc } from 'firebase/firestore';
 
 const getPartByQuestionId = (id) => {
   const numId = parseInt(id);
@@ -35,8 +36,6 @@ function ExamContent() {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [scoreResult, setScoreResult] = useState(null);
-  
-  // Biến state mới để điều khiển popup báo cáo
   const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
@@ -46,19 +45,16 @@ function ExamContent() {
       try {
         setLoading(true);
 
-        // Chuẩn hóa tên sách cho đúng format
         let upperBook = book.toUpperCase();
         if (upperBook === 'HACKER2') upperBook = 'HACKER 2';
         if (upperBook === 'HACKER3') upperBook = 'HACKER 3';
 
-        // Tạo ID cơ bản với format 2 chữ số (VD: HACKER 3_01, ETS2026_10)
         const formattedTestId = testId.padStart(2, '0');
         let docId = `${upperBook}_${formattedTestId}`; 
 
         let testRef = doc(db, 'toeic_tests', docId);
         let testSnap = await getDoc(testRef);
 
-        // Fallback: Nếu không tìm thấy, thử tìm với ID không có số 0 ở đầu (VD: HACKER 3_1)
         if (!testSnap.exists()) {
            docId = `${upperBook}_${testId}`;
            testRef = doc(db, 'toeic_tests', docId);
@@ -74,6 +70,28 @@ function ExamContent() {
            const data = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
            data.sort((a, b) => parseInt(a.id) - parseInt(b.id)); 
            setQuestions(data);
+
+           // CẬP NHẬT TRẠNG THÁI "ĐANG THI DỞ"
+           try {
+             const userId = localStorage.getItem('userId');
+             if (userId) {
+               // Tạo ID khớp chuẩn với trang Home (ví dụ: exam_ets2023_test_1)
+               const targetLessonId = `exam_${book}_test_${testId}`;
+               const progressRef = doc(db, 'users', userId, 'progress', targetLessonId);
+               const pSnap = await getDoc(progressRef);
+               
+               // Nếu chưa thi xong thì set trạng thái in_progress
+               if (!pSnap.exists() || pSnap.data().status !== 'completed') {
+                 await setDoc(progressRef, { 
+                   status: 'in_progress', 
+                   startedAt: new Date().toISOString() 
+                 }, { merge: true });
+               }
+             }
+           } catch (e) {
+             console.error("Lỗi khi lưu trạng thái đang thi:", e);
+           }
+
         } else {
            console.error("Không tìm thấy đề thi với ID:", docId);
         }
@@ -126,7 +144,8 @@ function ExamContent() {
     }
   };
 
-  const calculateAndSubmit = () => {
+  // CẬP NHẬT: Đổi hàm này thành async để gọi Firebase
+  const calculateAndSubmit = async () => {
     let listeningCorrect = 0;
     let readingCorrect = 0;
     let partsAccuracy = { 1: { c: 0, t: 6 }, 2: { c: 0, t: 25 }, 3: { c: 0, t: 39 }, 4: { c: 0, t: 30 }, 5: { c: 0, t: 30 }, 6: { c: 0, t: 16 }, 7: { c: 0, t: 54 } };
@@ -143,15 +162,34 @@ function ExamContent() {
       }
     });
 
+    const totalCorrect = listeningCorrect + readingCorrect;
+
     setScoreResult({
-      totalCorrect: listeningCorrect + readingCorrect,
+      totalCorrect,
       listeningCorrect,
       readingCorrect,
       partsAccuracy
     });
     setIsSubmitted(true);
     setShowSubmitModal(false);
-    setShowReportModal(true); // Hiển thị popup báo cáo
+    setShowReportModal(true); 
+
+    // CẬP NHẬT: LƯU TRẠNG THÁI "HOÀN THÀNH" LÊN FIREBASE
+    try {
+      const userId = localStorage.getItem('userId');
+      if (userId) {
+        const targetLessonId = `exam_${book}_test_${testId}`;
+        const progressRef = doc(db, 'users', userId, 'progress', targetLessonId);
+        await setDoc(progressRef, {
+          status: 'completed',
+          score: totalCorrect,
+          totalQuestions: 200,
+          completedAt: new Date().toISOString()
+        }, { merge: true });
+      }
+    } catch (error) {
+      console.error("Lỗi khi lưu kết quả hoàn thành:", error);
+    }
   };
 
   if (loading) {
@@ -264,7 +302,6 @@ function ExamContent() {
                   {hasContext && (
                     <div className="w-full lg:w-1/2 p-6 lg:p-8 bg-slate-50 border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col justify-start">
                       
-                      {/* XỬ LÝ NHIỀU HÌNH ẢNH CÙNG LÚC */}
                       {showImage && (
                         <div className="flex flex-col gap-6">
                           {group.imageUrl.split(/[|\n,]+/).map((imgUrl, idx) => {
@@ -521,7 +558,6 @@ function ExamContent() {
 
           <div className="mt-8 flex gap-4">
             <button onClick={() => router.push('/home')} className="px-8 py-3 font-bold text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition shadow-lg">← Về trang chủ</button>
-            {/* Đóng popup khi bấm xem giải thích */}
             <button onClick={() => setShowReportModal(false)} className="px-8 py-3 font-bold text-slate-900 bg-emerald-400 hover:bg-emerald-300 rounded-xl transition shadow-lg shadow-emerald-500/20">Xem giải thích chi tiết</button>
           </div>
         </div>
